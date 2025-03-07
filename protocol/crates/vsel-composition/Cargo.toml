@@ -6,8 +6,11 @@ edition = "2021"
 [dependencies]
 vsel-core = { path = "../vsel-core" }
 vsel-proof = { path = "../vsel-proof" }
+vsel-trace = { path = "../vsel-trace" }
 serde = { workspace = true }
+sha3 = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+vsel-crypto = { path = "../vsel-crypto" }
 proptest = { workspace = true }

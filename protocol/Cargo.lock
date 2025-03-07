@@ -747,9 +747,12 @@ version = "0.1.0"
 dependencies = [
  "proptest",
  "serde",
+ "sha3",
  "thiserror",
  "vsel-core",
+ "vsel-crypto",
  "vsel-proof",
+ "vsel-trace",
 ]
 
 [[package]]
