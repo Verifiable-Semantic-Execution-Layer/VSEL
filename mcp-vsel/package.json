@@ -1,0 +1,13 @@
+{
+  "name": "vsel-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for VSEL (Verifiable Semantic Execution Layer) project knowledge",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  }
+}

@@ -1,0 +1,14 @@
+[package]
+name = "vsel-proof"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+vsel-core = { path = "../vsel-core" }
+vsel-crypto = { path = "../vsel-crypto" }
+vsel-constraints = { path = "../vsel-constraints" }
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

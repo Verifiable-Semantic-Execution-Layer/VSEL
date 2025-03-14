@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/vsel-core",
+    "crates/vsel-engine",
+    "crates/vsel-trace",
+    "crates/vsel-mapping",
+    "crates/vsel-invariants",
+    "crates/vsel-constraints",
+    "crates/vsel-crypto",
+    "crates/vsel-proof",
+    "crates/vsel-composition",
+    "crates/vsel-sir",
+]
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha3 = "0.10"
+blake3 = "1"
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+thiserror = "2"
+proptest = "1"

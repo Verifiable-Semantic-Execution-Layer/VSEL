@@ -1,0 +1,1352 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathtools}
+\usepackage{hyperref}
+\usepackage[margin=1in]{geometry}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tikz-cd}
+\usepackage{cleveref}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{datetime2}
+
+% ============================================================
+% PREPRINT METADATA
+% ============================================================
+\hypersetup{
+  pdftitle={VSEL: Verifiable Semantic Execution Layer --- Closing the Gap Between Verified Execution and Correct Execution Through Formally Bound Semantic Proof Systems},
+  pdfauthor={Mayckon Giovani},
+  pdfsubject={Cryptography, Formal Methods, Zero-Knowledge Proofs, Verifiable Computation},
+  pdfkeywords={zero-knowledge proofs, formal verification, semantic correctness, state machines, constraint systems, post-quantum cryptography, compositional verification, refinement, invariants},
+  colorlinks=true,
+  linkcolor=blue!70!black,
+  citecolor=green!50!black,
+  urlcolor=blue!70!black
+}
+
+% ============================================================
+% THEOREM ENVIRONMENTS
+% ============================================================
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{remark}{Remark}[section]
+\newtheorem{axiom}{Axiom}[section]
+
+% ============================================================
+% COMMANDS
+% ============================================================
+\newcommand{\Apply}{\mathrm{Apply}}
+\newcommand{\Obs}{\mathrm{Obs}}
+\newcommand{\Verify}{\mathrm{Verify}}
+\newcommand{\Prove}{\mathrm{Prove}}
+\newcommand{\Commit}{\mathrm{Commit}}
+\newcommand{\Derive}{\mathrm{Derive}}
+\newcommand{\Encode}{\mathrm{Encode}}
+\newcommand{\Hash}{\mathrm{Hash}}
+\newcommand{\Canonical}{\mathrm{Canonical}}
+\newcommand{\Auth}{\mathrm{Auth}}
+\newcommand{\Pre}{\mathrm{Pre}}
+\newcommand{\Post}{\mathrm{Post}}
+\newcommand{\ValidState}{\mathrm{ValidState}}
+\newcommand{\ValidTrace}{\mathrm{ValidTrace}}
+\newcommand{\ValidTransition}{\mathrm{ValidTransition}}
+\newcommand{\SatisfiesConstraints}{\mathrm{SatisfiesConstraints}}
+\newcommand{\Reconstruct}{\mathrm{Reconstruct}}
+\newcommand{\Replay}{\mathrm{Replay}}
+\newcommand{\Domain}{\mathrm{Domain}}
+
+% ============================================================
+% PREPRINT HEADER
+% ============================================================
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{gray}{Preprint --- March 2026}}
+\fancyhead[R]{\small\textcolor{gray}{VSEL: Verifiable Semantic Execution Layer}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\begin{document}
+
+% ============================================================
+% TITLE PAGE
+% ============================================================
+\begin{center}
+{\small\textcolor{gray}{PREPRINT --- NOT PEER REVIEWED}}\\[4pt]
+{\small\textcolor{gray}{Submitted: March 31, 2026}}\\[20pt]
+
+{\LARGE\textbf{VSEL: Verifiable Semantic Execution Layer}}\\[10pt]
+{\large Closing the Gap Between Verified Execution and Correct Execution\\
+Through Formally Bound Semantic Proof Systems}\\[20pt]
+
+{\large Mayckon Giovani}\\[4pt]
+{\texttt{mayckongiovani.xyz}}\\[20pt]
+
+\end{center}
+
+% ============================================================
+% PREPRINT NOTICE
+% ============================================================
+\begin{center}
+\fbox{\parbox{0.9\textwidth}{
+\small\textbf{Preprint Notice.} This manuscript has not undergone peer review. It is made available to facilitate early dissemination of research findings. The authors welcome feedback and correspondence regarding the technical content. Comments may be directed to the author's contact above.\\[4pt]
+\textbf{Subject Areas:} Cryptography and Security (cs.CR); Programming Languages (cs.PL); Logic in Computer Science (cs.LO); Formal Languages and Automata Theory (cs.FL)\\[4pt]
+\textbf{MSC Classes:} 68Q60, 94A60, 03B70, 68Q45\\[4pt]
+\textbf{ACM Classes:} D.2.4, F.3.1, E.3, C.2.4
+}}
+\end{center}
+
+\vspace{10pt}
+
+% ============================================================
+% ABSTRACT
+% ============================================================
+\begin{abstract}
+Contemporary cryptographic execution systems---particularly those employing zero-knowledge proofs---provide strong guarantees that a computation satisfies a given arithmetic circuit. However, satisfying a circuit is not equivalent to executing correctly with respect to the intended semantics of the system being proven. This paper identifies and formalizes the \emph{semantic gap}: the class of failures in which execution is provably valid under a proof system yet provably invalid under the system's formal specification. We present the \emph{Verifiable Semantic Execution Layer} (VSEL), a layered architecture that binds formal specification, execution, constraint derivation, proof generation, and verification into a single semantically coherent pipeline. VSEL models systems as deterministic labeled transition systems, defines explicit semantic mappings between concrete and formal artifacts, derives constraints mechanically from a semantic intermediate representation, and requires that every accepted proof attest not merely to constraint satisfaction but to membership in the formal language of valid execution traces. We define the proof obligations, invariant system, and refinement chain required for end-to-end semantic correctness; characterize the adversarial model including specification manipulation, underconstraint exploitation, and compositional failure; and establish the conditions under which composition of independently correct systems preserves global correctness. The architecture integrates hybrid post-quantum cryptography to ensure long-term validity of proofs and commitments, and introduces a formal economic invariant layer that elevates economic semantics from informal domain knowledge to enforceable first-class predicates over states and execution traces. We provide a complete formal treatment of the system model, semantic preservation theorems, constraint soundness and completeness conditions, witness uniqueness requirements, economic admissibility conditions, and the assume-guarantee framework for safe composition.
+\end{abstract}
+
+\vspace{6pt}
+\noindent\textbf{Keywords:} zero-knowledge proofs, formal verification, semantic correctness, deterministic state machines, constraint derivation, post-quantum cryptography, compositional verification, refinement, invariants, economic invariants, witness uniqueness
+
+\vspace{10pt}
+\tableofcontents
+\newpage
+
+The proliferation of zero-knowledge proof systems in distributed computing---from rollups and verifiable computation platforms to privacy-preserving protocols---has established a widely accepted correctness criterion: an execution is deemed correct if a verifier accepts a proof that the execution satisfies a set of arithmetic constraints. This criterion, while cryptographically sound, is semantically insufficient.
+
+The distinction is precise. \emph{Verified execution} means that a computation satisfies a circuit, i.e., that there exists a witness assignment making all constraint polynomials evaluate to zero over the specified field. \emph{Correct execution} means that the computation belongs to the set of valid behaviors defined by the system's formal specification---that every state transition respects the intended semantics, preserves all required invariants, and produces observables consistent with the system's design.
+
+These two notions coincide only when the circuit is a faithful, complete, and sound encoding of the formal semantics. In practice, this condition is rarely established with rigor. Circuits are written by engineers interpreting informal specifications. The transformation from intended behavior to arithmetic constraints passes through multiple layers of human judgment, each introducing opportunities for semantic drift: the gradual, often invisible divergence between what the system is supposed to do and what the proof system actually verifies.
+
+The consequences are not theoretical. Underconstrained circuits have led to exploitable vulnerabilities in deployed systems, where proofs validate over executions that violate the protocol's intended invariants. The root cause is structural: existing architectures treat the proof system as the ground truth of correctness, when it should be treated as a \emph{projection} of a formally defined ground truth onto a constraint domain.
+
+This paper presents the Verifiable Semantic Execution Layer (VSEL), an architecture that inverts this relationship. In VSEL, correctness is defined by a formal specification expressed as a deterministic labeled transition system. All downstream artifacts---the execution engine, the constraint system, the proof, and the verification procedure---are derived from and bound to this specification through explicit, formally justified refinement relations. The central guarantee is:
+
+\begin{equation}
+\label{eq:central-guarantee}
+\Verify(\pi) \implies \ValidTrace(\tau)
+\end{equation}
+
+\noindent where $\ValidTrace(\tau)$ denotes membership of the execution trace $\tau$ in the language of valid traces induced by the formal specification, not merely satisfaction of an independently written circuit.
+
+The contributions of this paper are as follows. First, we formalize the semantic gap as a precise failure class and characterize the adversarial models that exploit it (\Cref{sec:problem,sec:adversarial}). Second, we define the VSEL system model as a deterministic labeled transition system with explicit state structure, transition classes, and observables (\Cref{sec:system-model}). Third, we introduce the semantic mapping layer that binds concrete execution artifacts to formal semantics through commutativity obligations (\Cref{sec:semantic-model}). Fourth, we define the invariant system governing local, global, and temporal correctness (\Cref{sec:invariants}). Fifth, we specify the execution trace model with commitment structure and sufficiency conditions (\Cref{sec:trace-model}). Sixth, we formalize the constraint derivation pipeline with soundness, completeness, and underconstraint analysis (\Cref{sec:constraint-system}). Seventh, we define the proof and verification layers with witness uniqueness and semantic binding requirements (\Cref{sec:proof-system,sec:verification}). Eighth, we establish the composition model using assume-guarantee reasoning (\Cref{sec:composition}). Ninth, we specify the cryptographic model including hybrid post-quantum considerations (\Cref{sec:cryptographic-model}). Finally, we present a comprehensive adversarial analysis (\Cref{sec:adversarial}) and discuss implementation considerations, limitations, and related work (\Cref{sec:implementation,sec:limitations,sec:related-work}).
+
+% ============================================================
+% 2. PROBLEM STATEMENT
+% ============================================================
+\section{Problem Statement}
+\label{sec:problem}
+
+We formalize the gap between verified execution and correct execution.
+
+\begin{definition}[Execution Correctness]
+\label{def:execution-correctness}
+Let $\mathcal{M} = (S, I, T, \Sigma, O)$ be a formal system specification (defined precisely in \Cref{sec:system-model}). An execution trace $\tau = (s_0, \sigma_0, s_1, \sigma_1, \ldots, s_n)$ is \emph{correct} if and only if:
+\begin{equation}
+s_0 \in I \quad \land \quad \forall\, i \in \{0, \ldots, n{-}1\}:\; (s_i, \sigma_i, s_{i+1}) \in T
+\end{equation}
+We write $\ValidTrace(\tau)$ to denote this predicate.
+\end{definition}
+
+\begin{definition}[Verified Execution]
+\label{def:verified-execution}
+Let $\mathcal{C}$ be a constraint system and $\pi$ a proof. An execution is \emph{verified} if:
+\begin{equation}
+\Verify(\pi, \mathit{Pub}) = \mathit{true}
+\end{equation}
+where $\mathit{Pub}$ denotes the public inputs to the verification procedure.
+\end{definition}
+
+The implicit assumption in current systems is:
+\begin{equation}
+\label{eq:false-assumption}
+\Verify(\pi) = \mathit{true} \implies \ValidTrace(\tau)
+\end{equation}
+
+This implication holds if and only if the constraint system $\mathcal{C}$ is a sound and complete encoding of the formal specification $\mathcal{M}$. Formally, this requires two properties.
+
+\begin{definition}[Constraint Soundness]
+\label{def:constraint-soundness}
+$\SatisfiesConstraints(\tau) \implies \ValidTrace(\tau)$. No invalid execution satisfies the constraints.
+\end{definition}
+
+\begin{definition}[Constraint Completeness]
+\label{def:constraint-completeness}
+$\ValidTrace(\tau) \implies \SatisfiesConstraints(\tau)$. Every valid execution is representable in the constraint system.
+\end{definition}
+
+When soundness fails, the system accepts proofs for invalid executions---the most dangerous failure class. When completeness fails, valid executions cannot be proven, which is a liveness failure. The semantic gap arises when neither property is formally established, which is the default state of most deployed systems.
+
+The gap is not merely a quality assurance problem. It is a structural consequence of architectures that treat the circuit as the specification rather than as a derived artifact. In such architectures, the question ``is this circuit correct?'' has no formal referent against which to evaluate it. VSEL eliminates this gap by establishing the formal specification as the sole authority on correctness and requiring that every downstream artifact---including the constraint system---be derived from it through verifiable transformations.
+
+% ============================================================
+% 3. SYSTEM MODEL
+% ============================================================
+\section{System Model}
+\label{sec:system-model}
+
+\begin{definition}[VSEL System]
+\label{def:vsel-system}
+A VSEL system is a deterministic labeled transition system:
+\begin{equation}
+\mathcal{M} = (S, I, T, \Sigma, O)
+\end{equation}
+where:
+\begin{itemize}[nosep]
+\item $S$ is the set of valid states,
+\item $I \subseteq S$ is the set of initial states,
+\item $\Sigma$ is the set of inputs,
+\item $T \subseteq S \times \Sigma \times S$ is the transition relation,
+\item $O$ is the set of observable outputs.
+\end{itemize}
+\end{definition}
+
+\begin{definition}[State Structure]
+\label{def:state-structure}
+A state $s \in S$ is a tuple:
+\begin{equation}
+s = (C, D, E, \Omega, \tau)
+\end{equation}
+where:
+\begin{itemize}[nosep]
+\item $C$ is the \emph{canonical state}: the minimal, semantically sufficient representation (accounts, storage, system data),
+\item $D$ is the \emph{derived state}: values functionally determined by $C$ (Merkle roots, aggregates),
+\item $E$ is the \emph{environment}: external context (timestamps, block height, execution domain),
+\item $\Omega$ is the \emph{economic context}: price oracles, exposure limits, liquidity thresholds, fee schedules, collateral requirements,
+\item $\tau$ is the \emph{trace metadata}: sequence index, prior state commitment, execution epoch.
+\end{itemize}
+\end{definition}
+
+The derived state and economic context satisfy strict functional dependencies:
+
+\begin{axiom}[Derived State Determinism]
+\label{ax:derived-state}
+\begin{equation}
+\forall\, s = (C, D, E, \Omega, \tau) \in S:\; D = \Derive(C)
+\end{equation}
+where $\Derive: \mathcal{C} \to \mathcal{D}$ is a total, deterministic function. Derived state introduces no new semantics.
+\end{axiom}
+
+\begin{axiom}[Economic Context Determinism]
+\label{ax:economic-context}
+\begin{equation}
+\forall\, s = (C, D, E, \Omega, \tau) \in S:\; \Omega = \mathrm{DeriveEconomic}(C, E)
+\end{equation}
+where $\mathrm{DeriveEconomic}$ is a total, deterministic function. The economic context is not auxiliary data; it is a formal state component subject to the same invariant, constraint, and proof obligations as all other components.
+\end{axiom}
+
+\begin{definition}[State Validity]
+\label{def:state-validity}
+A state is valid if:
+\begin{equation}
+\ValidState(s) \;\equiv\; P_C(C) \;\land\; P_D(D) \;\land\; P_E(E) \;\land\; P_\tau(\tau)
+\end{equation}
+where each $P_*$ is a decidable predicate defining structural and semantic correctness for its component.
+\end{definition}
+
+\begin{definition}[Transition Function]
+\label{def:transition-function}
+The transition function $\Apply: S \times \Sigma \to S$ is deterministic:
+\begin{equation}
+\forall\, s \in S,\; \sigma \in \Sigma:\; \exists!\; s' \text{ such that } \Apply(s, \sigma) = s'
+\end{equation}
+No nondeterminism is permitted. If randomness exists in the system, it must be explicitly modeled as a component of $E$.
+\end{definition}
+
+\begin{axiom}[Closure]
+\label{ax:closure}
+The state space is closed under transitions:
+\begin{equation}
+\forall\, s \in S,\; \sigma \in \Sigma:\; \Apply(s, \sigma) \in S
+\end{equation}
+No transition produces an invalid state.
+\end{axiom}
+
+\begin{definition}[Input Structure]
+\label{def:input-structure}
+An input $\sigma \in \Sigma$ is decomposed as:
+\begin{equation}
+\sigma = (\sigma_{\mathit{payload}},\; \sigma_{\mathit{auth}},\; \sigma_{\mathit{aux}})
+\end{equation}
+where $\sigma_{\mathit{payload}}$ defines the semantic command, $\sigma_{\mathit{auth}}$ provides authorization evidence, and $\sigma_{\mathit{aux}}$ carries auxiliary data (proving hints, optimization flags) that must not influence semantic outcome.
+\end{definition}
+
+\begin{axiom}[Auxiliary Data Independence]
+\label{ax:aux-independence}
+\begin{equation}
+\forall\, s,\; \sigma_p,\; \sigma_a,\; \mathit{aux}_1,\; \mathit{aux}_2:\;
+\Apply(s, (\sigma_p, \sigma_a, \mathit{aux}_1)) = \Apply(s, (\sigma_p, \sigma_a, \mathit{aux}_2))
+\end{equation}
+\end{axiom}
+
+\begin{definition}[Observable Function]
+\label{def:observable}
+Observables map transitions to externally visible outputs:
+\begin{equation}
+\Obs: S \times \Sigma \times S \to O
+\end{equation}
+Observables must be derivable from state and input; no hidden side effects are permitted.
+\end{definition}
+
+\subsection{Transition Classes}
+\label{subsec:transition-classes}
+
+VSEL partitions the input-state space into disjoint transition classes, each with explicit guard conditions. Let $\mathcal{K} = \{K_{\mathit{init}}, K_{\mathit{update}}, K_{\mathit{noop}}, K_{\mathit{error}}, K_{\mathit{batch}}, K_{\mathit{reject}}\}$ denote the set of transition classes, with associated guard predicates $G_K: S \times \Sigma \to \{\mathit{true}, \mathit{false}\}$.
+
+\begin{definition}[Transition Partitioning]
+\label{def:transition-partitioning}
+The guard system satisfies:
+\begin{align}
+\text{(Exhaustiveness)} &\quad \forall\, s \in S,\; \sigma \in \Sigma:\; \bigvee_{K \in \mathcal{K}} G_K(s, \sigma) \label{eq:exhaustive} \\
+\text{(Disjointness)} &\quad \forall\, K_1 \neq K_2,\; \forall\, s, \sigma:\; \neg(G_{K_1}(s, \sigma) \land G_{K_2}(s, \sigma)) \label{eq:disjoint}
+\end{align}
+after application of a strict priority ordering. Exhaustiveness ensures every input-state pair is handled. Disjointness ensures the response is unique.
+\end{definition}
+
+The transition classes are: \emph{initialization} (creating a valid initial state from no prior state), \emph{state update} (standard semantic mutation under valid input, authorization, and preconditions), \emph{no-op} (rejection of invalid or unauthorized inputs with state unchanged), \emph{error} (explicit transition to a defined error state preserving invariants), \emph{batch} (sequential application of multiple inputs, semantically equivalent to iterated single application), and \emph{reject} (catch-all for structurally malformed inputs).
+
+\subsection{Execution Pipeline}
+\label{subsec:execution-pipeline}
+
+Each transition follows a strict sequential pipeline:
+\begin{enumerate}[nosep]
+\item \textbf{Input canonicalization}: $\sigma \mapsto \Canonical(\sigma)$. Reject if ambiguous or malformed.
+\item \textbf{Authorization check}: $\Auth(\sigma) = \mathit{true}$. Reject otherwise.
+\item \textbf{Precondition validation}: $\Pre(s, \sigma) = \mathit{true}$.
+\item \textbf{State transformation}: $s' = \Apply(s, \sigma)$.
+\item \textbf{Postcondition validation}: $\Post(s, \sigma, s') = \mathit{true}$.
+\item \textbf{Derived state recomputation}: $D' = \Derive(C')$.
+\item \textbf{Metadata update}: $\tau' = \mathrm{Update}(\tau, s')$.
+\end{enumerate}
+Deviation from this pipeline at any step constitutes a system failure. The pipeline is not an implementation suggestion; it is a semantic requirement.
+
+% ============================================================
+% 4. SEMANTIC MODEL
+% ============================================================
+\section{Semantic Model}
+\label{sec:semantic-model}
+
+The semantic model defines the binding between concrete execution artifacts and the formal specification. This binding is the mechanism by which VSEL ensures that proofs attest to semantic validity, not merely computational consistency.
+
+\begin{definition}[Semantic Mapping]
+\label{def:semantic-mapping}
+Let $S_c, \Sigma_c, \mathit{Tr}_c$ denote the concrete state, input, and trace spaces, and $S_f, \Sigma_f, \mathit{Tr}_f$ the formal counterparts. The semantic mapping consists of:
+\begin{align}
+\mu_S &: S_c \to S_f \\
+\mu_\Sigma &: \Sigma_c \to \Sigma_f \\
+\mu_T &: (S_c \times \Sigma_c \times S_c) \to (S_f \times \Sigma_f \times S_f) \\
+\mu_{\mathit{Tr}} &: \mathit{Tr}_c \to \mathit{Tr}_f \\
+\mu_O &: O_c \to O_f
+\end{align}
+\end{definition}
+
+These mappings must satisfy the following principles.
+
+\begin{axiom}[Totality]
+\label{ax:totality}
+For every concrete artifact accepted by the execution pipeline, the mapping is defined:
+\begin{equation}
+\forall\, x \in \mathit{AcceptedConcreteArtifacts}:\; \mu(x) \text{ is defined}
+\end{equation}
+\end{axiom}
+
+\begin{axiom}[Determinism]
+\label{ax:mapping-determinism}
+Each mapping is a function, not a relation:
+\begin{equation}
+\forall\, x:\; \mu(x) = y \implies \nexists\, y' \neq y \text{ such that } \mu(x) = y'
+\end{equation}
+\end{axiom}
+
+\begin{axiom}[Closed Semantic Domain]
+\label{ax:closed-domain}
+If a concrete behavior cannot be mapped into the formal model, it is invalid:
+\begin{equation}
+\forall\, x \notin \mathrm{dom}(\mu):\; x \text{ is rejected}
+\end{equation}
+\end{axiom}
+
+The central semantic obligation is the commutativity of execution and mapping.
+
+\begin{theorem}[Execution-Mapping Commutativity]
+\label{thm:commutativity}
+For all admissible concrete states $s_c$ and inputs $\sigma_c$:
+\begin{equation}
+\label{eq:commutativity}
+\mu_S(\Apply_c(s_c, \sigma_c)) = \Apply_f(\mu_S(s_c),\; \mu_\Sigma(\sigma_c))
+\end{equation}
+\end{theorem}
+
+This theorem states that the following diagram commutes:
+\begin{equation*}
+\begin{tikzcd}
+s_c \arrow[r, "\Apply_c"] \arrow[d, "\mu_S"'] & s'_c \arrow[d, "\mu_S"] \\
+s_f \arrow[r, "\Apply_f"'] & s'_f
+\end{tikzcd}
+\end{equation*}
+
+If this diagram does not commute for any admissible $(s_c, \sigma_c)$, the concrete execution diverges from the formal model, and any proof over the concrete execution validates the wrong semantics.
+
+\begin{theorem}[Observable Commutativity]
+\label{thm:observable-commutativity}
+For all admissible transitions $(s_c, \sigma_c, s'_c)$:
+\begin{equation}
+\mu_O(\Obs_c(s_c, \sigma_c, s'_c)) = \Obs_f(\mu_S(s_c),\; \mu_\Sigma(\sigma_c),\; \mu_S(s'_c))
+\end{equation}
+\end{theorem}
+
+Additional semantic preservation requirements include canonicalization neutrality ($\mu_\Sigma(\sigma) = \mu_\Sigma(\Canonical(\sigma))$ for semantically equivalent inputs), derived state commutativity ($\mu_D(\Derive_c(C_c)) = \Derive_f(\mu_C(C_c))$), and auxiliary data exclusion (\Cref{ax:aux-independence} lifted to the mapping level).
+
+\begin{definition}[Semantic Admissibility]
+\label{def:semantic-admissibility}
+A concrete artifact $x$ is semantically admissible if and only if:
+\begin{equation}
+\Canonical(x) \text{ is defined} \;\land\; \mu(x) \text{ is defined} \;\land\; \mu(x) \text{ satisfies the formal model}
+\end{equation}
+\end{definition}
+
+\begin{proposition}[Mapping Soundness]
+\label{prop:mapping-soundness}
+If a concrete artifact is accepted, its formal image is valid:
+\begin{equation}
+\mathit{Accepted}(x) \implies \mathit{ValidFormal}(\mu(x))
+\end{equation}
+\end{proposition}
+
+\begin{proposition}[Mapping Completeness]
+\label{prop:mapping-completeness}
+If a formal execution is intended to be realizable, there exists an admissible concrete realization:
+\begin{equation}
+\mathit{Realizable}(y) \implies \exists\, x:\; \mu(x) = y
+\end{equation}
+\end{proposition}
+
+Failure of soundness allows invalid executions to pass through the system. Failure of completeness means the formal model describes behaviors the system cannot realize. Both are failures of the semantic layer.
+
+% ============================================================
+% 5. INVARIANTS AND CORRECTNESS CONDITIONS
+% ============================================================
+\section{Invariants and Correctness Conditions}
+\label{sec:invariants}
+
+Invariants define the true correctness surface of the system. If an invariant can be violated, the system is incorrect regardless of proof validity.
+
+\begin{definition}[Local Invariant]
+\label{def:local-invariant}
+A local invariant $L$ is a predicate over individual transitions:
+\begin{equation}
+\forall\, (s, \sigma, s') \in T:\; L(s, \sigma, s')
+\end{equation}
+\end{definition}
+
+The local invariant family includes:
+
+\noindent\textbf{Transition validity} ($L_{\mathit{valid}}$): $\Apply(s, \sigma) = s'$, ensuring no undefined transitions.
+
+\noindent\textbf{State preservation} ($L_{\mathit{state}}$): $\ValidState(s) \land \ValidState(s')$, ensuring no transition produces an invalid state.
+
+\noindent\textbf{Resource conservation} ($L_{\mathit{cons}}$): $\mathrm{Total}(C_s) = \mathrm{Total}(C_{s'}) + \Delta_{\mathit{fees}}(\sigma)$, where $\mathrm{Total}$ computes the aggregate conserved quantity and $\Delta_{\mathit{fees}}$ is the explicitly modeled fee extraction. No hidden creation or destruction of resources is permitted.
+
+\noindent\textbf{Bounded mutation} ($L_{\mathit{bounded}}$): $|\mathrm{Diff}(s, s')| \leq \delta_{\max}$, preventing unbounded state changes.
+
+\noindent\textbf{Determinism} ($L_{\mathit{det}}$): $\exists!\, s'$ for each $(s, \sigma)$, restating \Cref{def:transition-function} as an invariant.
+
+\begin{definition}[Global Invariant]
+\label{def:global-invariant}
+A global invariant $G$ is a predicate over every reachable state:
+\begin{equation}
+\forall\, s \in \mathrm{Reachable}(I, T):\; G(s)
+\end{equation}
+\end{definition}
+
+Global invariants include state validity ($G_{\mathit{valid}}$), structural integrity ($G_{\mathit{struct}}$: consistent encoding and well-formedness), commitment consistency ($G_{\mathit{commit}}$: $\Commit(C) = D.\mathit{commitment}$), monotonic metadata ($G_{\mathit{mono}}$: $\tau_{\mathit{current}} \geq \tau_{\mathit{previous}}$), and environment consistency ($G_{\mathit{env}}$).
+
+\begin{definition}[Temporal Invariant]
+\label{def:temporal-invariant}
+A temporal invariant $\mathit{TInv}$ is a predicate over complete execution traces:
+\begin{equation}
+\forall\, \tau \in \mathit{Traces}(\mathcal{M}):\; \mathit{TInv}(\tau)
+\end{equation}
+\end{definition}
+
+Temporal invariants include trace validity ($T_{\mathit{valid}}$: all transitions in the trace are valid), no state reversion ($T_{\mathit{no\_revert}}$: no rollback of committed state), cumulative resource consistency ($T_{\mathit{cons}}$: conservation holds over the entire trace), causality preservation ($T_{\mathit{causal}}$: input ordering implies state ordering), and trace completeness ($T_{\mathit{complete}}$: every state change is recorded).
+
+\begin{lemma}[Inductive Invariance]
+\label{lem:inductive-invariance}
+If $G(s_0)$ holds for all $s_0 \in I$, and $G(s) \implies G(\Apply(s, \sigma))$ for all $s \in S$ and $\sigma \in \Sigma$, then $G$ holds for all reachable states:
+\begin{equation}
+\forall\, \tau = (s_0, \ldots, s_n) \text{ valid}:\; \forall\, i:\; G(s_i)
+\end{equation}
+\end{lemma}
+
+\begin{proof}
+By induction on trace length. The base case holds by the initial state condition. The inductive step follows from the preservation condition applied to each transition.
+\end{proof}
+
+The invariant system is complete if no semantically invalid execution satisfies all invariants. Formally:
+
+\begin{definition}[Invariant Completeness]
+\label{def:invariant-completeness}
+The invariant set $\{L_i\} \cup \{G_j\} \cup \{\mathit{TInv}_k\}$ is complete if:
+\begin{equation}
+\nexists\, \tau:\; \left(\bigwedge_i L_i(\tau) \;\land\; \bigwedge_j G_j(\tau) \;\land\; \bigwedge_k \mathit{TInv}_k(\tau)\right) \;\land\; \neg\ValidTrace(\tau)
+\end{equation}
+\end{definition}
+
+If such a trace exists, the invariant set is insufficient and the system is vulnerable to executions that satisfy all defined properties yet are semantically invalid. This is the most dangerous class of invariant failure because it is invisible to all defined checks.
+
+\subsection{Economic Invariants}
+\label{subsec:economic-invariants}
+
+VSEL treats economic semantics as a first-class invariant domain, orthogonal to structural invariants but equally mandatory. The state validity predicate is extended:
+
+\begin{definition}[Economic Validity]
+\label{def:economic-validity}
+\begin{equation}
+\mathrm{EconomicallyValid}(s) \;\equiv\; P_\Omega(C, \Omega) \;\land\; \mathrm{WithinLimits}(\Omega) \;\land\; \mathrm{NoExploitableConfiguration}(s)
+\end{equation}
+\end{definition}
+
+\begin{definition}[Admissibility]
+\label{def:admissibility}
+A state is admissible if and only if it is both structurally valid and economically valid:
+\begin{equation}
+\mathrm{Admissible}(s) \;\equiv\; \ValidState(s) \;\land\; \mathrm{EconomicallyValid}(s)
+\end{equation}
+Neither predicate subsumes the other. Both are required.
+\end{definition}
+
+Economic invariants are classified into the same four categories as structural invariants.
+
+\noindent\textbf{Local economic invariants} constrain individual transitions. $E_{\mathit{cost}}$: no resource may be acquired at zero cost when the resource has positive value ($\mathrm{ResourceAcquired}(s, s') > 0 \implies \mathrm{Cost}(\sigma) > 0$). $E_{\mathit{leverage}}$: no transition may result in effective leverage exceeding the system-defined maximum ($\mathrm{EffectiveLeverage}(s', \mathit{entity}) \leq \mathrm{MaxLeverage}(\Omega)$). $E_{\mathit{proportionality}}$: fees must be proportional to economic impact. $E_{\mathit{slippage}}$: price impact of any single trade must be bounded relative to pool depth. $E_{\mathit{collateral}}$: every position must maintain sufficient collateral after any transition.
+
+\noindent\textbf{Global economic invariants} constrain every reachable state. $G_{\mathit{solvency}}$: total assets must exceed total liabilities ($\mathrm{TotalAssets}(s) \geq \mathrm{TotalLiabilities}(s)$). $G_{\mathit{concentration}}$: no single entity may hold a disproportionate share of any resource. $G_{\mathit{liquidity}}$: liquidity pools must maintain minimum depth. $G_{\mathit{dust}}$: no account may hold a positive balance below the dust threshold.
+
+\noindent\textbf{Temporal economic invariants} constrain execution sequences. These are particularly important because most economic attacks manifest as sequences, not single steps. $\mathit{TE}_{\mathit{extraction}}$: no entity may extract more than a defined threshold within a single epoch:
+\begin{equation}
+\forall\, \tau_{\mathit{epoch}},\; \forall\, \mathit{entity}:\; \mathrm{NetExtraction}(\tau_{\mathit{epoch}}, \mathit{entity}) \leq \mathrm{MaxExtraction}(\Omega, \mathit{entity})
+\end{equation}
+$\mathit{TE}_{\mathit{flash}}$: flash operations must either bound uncollateralized exposure at every intermediate state or maintain collateral throughout. $\mathit{TE}_{\mathit{sandwich}}$: no trace may contain a sandwich pattern where one entity profits by surrounding another entity's transaction. $\mathit{TE}_{\mathit{velocity}}$: resource turnover within an epoch is bounded, preventing wash trading.
+
+\noindent\textbf{Compositional economic invariants} apply when systems are composed. $\mathit{CE}_{\mathit{arbitrage}}$: cross-system arbitrage profit is bounded. $\mathit{CE}_{\mathit{contagion}}$: economic failure in one system has bounded impact on composed systems.
+
+The proof obligation for economic invariants mirrors the structural case:
+
+\begin{equation}
+\forall\, (s, \sigma, s') \in T:\; \mathrm{EconomicallyValid}(s) \implies \mathrm{EconomicallyValid}(s')
+\end{equation}
+
+The end-to-end guarantee is strengthened from $\Verify(\pi) \implies \ValidTrace(\tau)$ to:
+\begin{equation}
+\label{eq:admissible-guarantee}
+\Verify(\pi) \implies \mathrm{AdmissibleTrace}(\tau)
+\end{equation}
+where $\mathrm{AdmissibleTrace}(\tau) \equiv \ValidTrace(\tau) \;\land\; \forall\, s_i \in \tau: \mathrm{EconomicallyValid}(s_i) \;\land\; \forall\, \mathit{TE}_{\mathit{econ}}: \mathit{TE}_{\mathit{econ}}(\tau)$.
+
+Economic invariants are parameterized by the economic context $\Omega$, allowing different deployments to define different economic parameters while sharing the same formal enforcement machinery. The parameter space itself must be constrained: no parameter combination may render the system economically unsound.
+
+The integration of economic invariants into the formal specification follows a defined process: domain experts express economic properties in semi-formal language, formal methods engineers translate them into predicates over states and traces, and the resulting invariants enter the standard pipeline of proof obligations, counterexample construction, constraint encoding, and coverage verification. This process is not optional; it is the mechanism by which economic intent becomes formal specification.
+
+\subsection{Cross-Layer Invariants}
+\label{subsec:cross-layer}
+
+VSEL enforces consistency across its architectural layers through cross-layer invariants:
+
+\noindent\textbf{Execution--Specification} ($X_{\mathit{exec}}$): $\Apply_{\mathit{impl}}(s, \sigma) = \Apply_{\mathit{spec}}(s, \sigma)$ for all admissible $(s, \sigma)$.
+
+\noindent\textbf{Specification--Constraints} ($X_{\mathit{constraint}}$): $\ValidTrace(\tau) \iff \SatisfiesConstraints(\tau)$.
+
+\noindent\textbf{Execution--Proof} ($X_{\mathit{proof}}$): $\Verify(\pi) \implies \ValidTrace(\tau)$.
+
+These invariants are not independently enforceable; they are consequences of the refinement chain described in \Cref{sec:refinement}.
+
+% ============================================================
+% 6. EXECUTION TRACE MODEL
+% ============================================================
+\section{Execution Trace Model}
+\label{sec:trace-model}
+
+\begin{definition}[Execution Trace]
+\label{def:execution-trace}
+An execution trace is a sequence:
+\begin{equation}
+\tau = (s_0, \sigma_0, s_1, \sigma_1, \ldots, \sigma_{n-1}, s_n)
+\end{equation}
+such that $s_0 \in I$ and $(s_i, \sigma_i, s_{i+1}) \in T$ for all $i$.
+\end{definition}
+
+\begin{definition}[Trace Entry]
+\label{def:trace-entry}
+Each transition is recorded as a concrete trace entry:
+\begin{equation}
+e_i = (\mathit{id}_i,\; s_i,\; \sigma_i,\; s_{i+1},\; o_i,\; \mathit{meta}_i)
+\end{equation}
+where $\mathit{id}_i = i$ (strict sequential indexing), $o_i = \Obs(s_i, \sigma_i, s_{i+1})$, and $\mathit{meta}_i$ includes timestamp, execution domain, and prior commitment.
+\end{definition}
+
+The trace is not a log. Logs are optional, may be incomplete, and carry no semantic obligation. The trace is the canonical record of execution. If a state change is not in the trace, it did not happen within the system's semantic model.
+
+\subsection{Commitment Structure}
+\label{subsec:commitment}
+
+The trace is committed via an incremental hash chain:
+\begin{equation}
+\label{eq:hash-chain}
+h_0 = \Hash(\Commit(e_0)), \qquad h_{i+1} = \Hash(h_i \;\|\; \Commit(e_i))
+\end{equation}
+
+This structure is tamper-evident, order-preserving, and deterministic. Any modification to any entry changes the final commitment $h_n$.
+
+\begin{definition}[Trace Commitment]
+\label{def:trace-commitment}
+\begin{equation}
+\Commit(\tau) = h_n
+\end{equation}
+\end{definition}
+
+\subsection{Trace Sufficiency}
+\label{subsec:trace-sufficiency}
+
+A trace is \emph{sufficient} if it uniquely determines the semantic execution.
+
+\begin{theorem}[Trace Determines Execution]
+\label{thm:trace-determines}
+Given initial state $s_0$ and input sequence $(\sigma_0, \ldots, \sigma_{n-1})$, the execution trace is uniquely determined:
+\begin{equation}
+\Reconstruct(s_0, \sigma_0, \ldots, \sigma_{n-1}) = \tau
+\end{equation}
+\end{theorem}
+
+\begin{proof}
+Follows directly from the determinism of $\Apply$ (\Cref{def:transition-function}). Each $s_{i+1} = \Apply(s_i, \sigma_i)$ is unique, so the entire state sequence is determined by $s_0$ and the input sequence.
+\end{proof}
+
+\begin{theorem}[Commitment Determines Trace]
+\label{thm:commitment-determines}
+Under the collision resistance of $\Hash$:
+\begin{equation}
+\Commit(\tau_1) = \Commit(\tau_2) \implies \tau_1 = \tau_2 \quad \text{(with overwhelming probability)}
+\end{equation}
+\end{theorem}
+
+\begin{definition}[Replay Determinism]
+\label{def:replay}
+\begin{equation}
+\Replay(\tau) = \tau
+\end{equation}
+Given identical initial state, input sequence, and environment, the system produces an identical trace.
+\end{definition}
+
+The sufficiency conditions require that the trace records: (1) the full initial state or a commitment from which it can be retrieved, (2) all inputs in canonical form, (3) all observables, (4) deterministic ordering, (5) environment context for each transition, and (6) no hidden transitions---every semantically relevant state change has a corresponding trace entry.
+
+% ============================================================
+% 7. CONSTRAINT SYSTEM DERIVATION
+% ============================================================
+\section{Constraint System Derivation}
+\label{sec:constraint-system}
+
+The constraint derivation layer transforms formal semantics into an arithmetic constraint system suitable for proof generation. This transformation is the most failure-prone component of any ZK-based architecture, and VSEL treats it accordingly.
+
+\begin{definition}[Constraint Derivation]
+\label{def:constraint-derivation}
+Let $\mathit{SIR}$ denote the Semantic Intermediate Representation---a deterministic, fully typed, closed representation derived from the formal specification. The constraint derivation is a function:
+\begin{equation}
+\mathcal{D}: \mathit{SIR} \to \mathcal{C}
+\end{equation}
+where $\mathcal{C}$ is the resulting constraint system. $\mathcal{D}$ must be deterministic: the same SIR program always produces the same constraint system.
+\end{definition}
+
+The SIR serves as the canonical bridge between the formal specification and the constraint system. Every SIR construct must be traceable to a formal semantic definition, and no SIR construct may introduce behavior not present in the specification.
+
+\subsection{Soundness and Completeness}
+\label{subsec:constraint-soundness-completeness}
+
+\begin{theorem}[Constraint Soundness]
+\label{thm:constraint-soundness}
+\begin{equation}
+\forall\, \tau:\; \SatisfiesConstraints(\tau) \implies \ValidTrace(\tau)
+\end{equation}
+No invalid execution satisfies the derived constraints.
+\end{theorem}
+
+\begin{theorem}[Constraint Completeness]
+\label{thm:constraint-completeness}
+\begin{equation}
+\forall\, \tau:\; \ValidTrace(\tau) \implies \SatisfiesConstraints(\tau)
+\end{equation}
+Every valid execution is representable in the constraint system.
+\end{theorem}
+
+Together, these establish the biconditional:
+\begin{equation}
+\label{eq:constraint-biconditional}
+\ValidTrace(\tau) \iff \SatisfiesConstraints(\tau)
+\end{equation}
+
+\subsection{Constraint Domains}
+\label{subsec:constraint-domains}
+
+Constraints are derived over five domains:
+
+\noindent\textbf{State constraints} enforce canonical state validity ($C \in \mathit{ValidC}$), derived state consistency ($D = \Derive(C)$), environment validity ($E \in \mathit{ValidE}$), and metadata consistency ($\tau_{i+1} = \mathrm{Update}(\tau_i)$).
+
+\noindent\textbf{Input constraints} enforce canonical form ($\sigma = \Canonical(\sigma)$), authorization ($\Auth(\sigma) = \mathit{true}$), and domain validity ($\sigma \in \Sigma$).
+
+\noindent\textbf{Transition constraints} enforce functional correctness ($s' = \Apply(s, \sigma)$), mutation scope ($\mathrm{Diff}(s, s') \subseteq \mathit{AllowedMutations}(\sigma)$), and the absence of implicit state changes.
+
+\noindent\textbf{Invariant constraints} encode all local, global, and temporal invariants.
+
+\noindent\textbf{Trace constraints} enforce transition linking ($s_{i+1} = \Apply(s_i, \sigma_i)$), ordering, and completeness.
+
+\subsection{Underconstraint Analysis}
+\label{subsec:underconstraint}
+
+Underconstraint is the condition where the constraint system accepts executions that the formal specification rejects. It is the single most exploitable vulnerability class in ZK-based systems.
+
+\begin{definition}[Underconstraint Types]
+\label{def:underconstraint-types}
+We identify the following underconstraint classes:
+\begin{itemize}[nosep]
+\item \textbf{Free variable} (U1): a witness variable referenced by no constraint.
+\item \textbf{Weakly constrained variable} (U2): a variable whose value is not uniquely determined by public inputs and other constrained values.
+\item \textbf{Missing branch constraint} (U3): a conditional path in SIR that generates no constraints for one or more branches.
+\item \textbf{Structural-only constraint} (U4): a constraint enforcing format but not semantic meaning.
+\item \textbf{Carry-over omission} (U5): a non-mutated state field lacking an explicit equality constraint to its prior value.
+\item \textbf{Temporal gap} (U6): per-step constraints that fail to enforce cross-step properties.
+\end{itemize}
+\end{definition}
+
+The carry-over omission (U5) deserves emphasis. In most constraint systems, variables not mentioned in any constraint are \emph{free}, not implicitly carried over. If a state field should remain unchanged during a transition but lacks an explicit equality constraint $s'.f = s.f$, an adversary can set that field to any value. This is the most commonly missing constraint family in deployed ZK systems.
+
+VSEL requires a \emph{constraint coverage matrix} relating every semantic property to the specific constraints that enforce it, for every transition class. Every cell in this matrix must be populated. An empty cell is a vulnerability.
+
+\subsection{Witness Uniqueness}
+\label{subsec:witness-uniqueness}
+
+\begin{definition}[Witness Semantic Uniqueness]
+\label{def:witness-uniqueness}
+For all witnesses $W_1, W_2$ satisfying the constraint system with the same public inputs $\mathit{Pub}$:
+\begin{equation}
+\mathrm{Semantics}(W_1) = \mathrm{Semantics}(W_2)
+\end{equation}
+\end{definition}
+
+Multiple witnesses may exist (e.g., different Merkle path representations), but they must all represent the same semantic execution. If two witnesses encode different state sequences but produce the same public outputs, the proof is semantically ambiguous---it says ``something happened'' without committing to what.
+
+Witness malleability attacks include state substitution (replacing intermediate states), input substitution (replacing the input sequence), observable manipulation (fabricating outputs), authorization rebinding (using a signature intended for one payload to authorize another), and temporal reordering (changing the execution sequence).
+
+VSEL prevents these through sufficient constraint coverage: every semantic variable in the witness must be uniquely determined by the public inputs and the constraint system, or must belong to a formally justified equivalence class that does not affect semantic interpretation.
+
+% ============================================================
+% 8. PROOF SYSTEM INTEGRATION
+% ============================================================
+\section{Proof System Integration}
+\label{sec:proof-system}
+
+\begin{definition}[Proof Statement]
+\label{def:proof-statement}
+Given an execution trace $\tau$ and constraint system $\mathcal{C}$ derived from the formal specification:
+\begin{equation}
+\pi = \Prove(\tau, \mathcal{C})
+\end{equation}
+such that:
+\begin{equation}
+\Verify(\pi) \implies \ValidTrace(\tau)
+\end{equation}
+\end{definition}
+
+This is the only statement that matters. The proof attests to semantic validity under the formal specification, not merely to satisfaction of an independently written circuit.
+
+\begin{definition}[Proof Object]
+\label{def:proof-object}
+A proof object consists of:
+\begin{equation}
+\pi = (\mathit{Com},\; W,\; \mathit{Aux},\; \mathit{Meta})
+\end{equation}
+where $\mathit{Com}$ denotes commitments to trace and state, $W$ is the witness data, $\mathit{Aux}$ contains auxiliary proof artifacts (queries, openings), and $\mathit{Meta}$ includes domain separation tags, versioning, and parameters.
+\end{definition}
+
+\begin{definition}[Public Inputs]
+\label{def:public-inputs}
+The proof exposes:
+\begin{equation}
+\mathit{Pub} = (\mathit{root}_{\mathit{init}},\; \mathit{root}_{\mathit{final}},\; \mathit{inputs},\; \mathit{outputs},\; \mathit{domain})
+\end{equation}
+where $\mathit{root}_{\mathit{init}} = \Commit(s_0)$, $\mathit{root}_{\mathit{final}} = \Commit(s_n)$, $\mathit{inputs}$ and $\mathit{outputs}$ are the observable inputs and outputs, and $\mathit{domain}$ is the domain separation identifier.
+\end{definition}
+
+\subsection{Binding Requirements}
+\label{subsec:binding}
+
+The proof must bind to the \emph{entire} execution trace, not merely to the initial and final states. Partial binding allows arbitrary intermediate behavior.
+
+\begin{equation}
+\mathit{root}_{\mathit{init}} = \Commit(s_0), \qquad \mathit{root}_{\mathit{final}} = \Commit(s_n)
+\end{equation}
+
+Additionally, all observables must be included in or derivable from the public inputs:
+\begin{equation}
+\forall\, o_i \in \Obs(\tau):\; o_i \subseteq \mathit{Pub} \;\lor\; o_i = f(\mathit{Pub})
+\end{equation}
+
+\subsection{Domain Separation}
+\label{subsec:domain-separation}
+
+Every proof includes a domain identifier:
+\begin{equation}
+\Domain = \Hash(\mathit{context})
+\end{equation}
+where $\mathit{context}$ encodes the system identity, version, and execution epoch. This prevents cross-system proof replay and cross-protocol confusion.
+
+\subsection{Proof System Choices}
+\label{subsec:proof-choices}
+
+VSEL is agnostic to the specific proof system, supporting STARKs (transparent setup, hash-based security, post-quantum friendly), SNARKs (succinct proofs, pairing-based assumptions, optional trusted setup), and hybrid systems (STARKs for base proofs, SNARKs for recursion and compression). The choice affects performance and trust assumptions but must not affect the semantics of what is proven. Regardless of the proof system:
+\begin{equation}
+\Verify(\pi) \implies \ValidTrace(\tau)
+\end{equation}
+
+\subsection{Soundness and Knowledge Soundness}
+\label{subsec:proof-soundness}
+
+\begin{definition}[Proof Soundness]
+\label{def:proof-soundness}
+\begin{equation}
+\Pr[\text{invalid } \tau \text{ accepted}] \leq \epsilon
+\end{equation}
+where $\epsilon$ is negligible in the security parameter.
+\end{definition}
+
+\begin{definition}[Knowledge Soundness]
+\label{def:knowledge-soundness}
+There exists an extractor $E$ such that for any prover producing a valid proof $\pi$:
+\begin{equation}
+E(\pi) = W \quad \text{where } W \text{ is a valid witness for } \tau
+\end{equation}
+\end{definition}
+
+Knowledge soundness prevents proof forgery without knowledge of a valid execution.
+
+\subsection{Proof Composition}
+\label{subsec:proof-composition}
+
+Proofs may be composed:
+\begin{equation}
+\pi_{\mathit{combined}} = \mathrm{Compose}(\pi_1, \pi_2, \ldots, \pi_n)
+\end{equation}
+with requirements for compositional correctness, invariant preservation, and consistent state chaining. Recursive proofs embed verification of inner proofs within outer proof constraints:
+\begin{equation}
+\Verify(\pi_{\mathit{inner}}) \subseteq \mathrm{Constraints}(\pi_{\mathit{outer}})
+\end{equation}
+
+% ============================================================
+% 9. VERIFICATION MODEL
+% ============================================================
+\section{Verification Model}
+\label{sec:verification}
+
+The verifier is the final authority in VSEL. If it accepts an invalid execution, the system is broken regardless of the rigor of every other component.
+
+\begin{definition}[Verification]
+\label{def:verification}
+Given proof $\pi$ and public inputs $\mathit{Pub}$:
+\begin{equation}
+\Verify(\pi, \mathit{Pub}) = \mathit{true} \implies \ValidTrace(\tau)
+\end{equation}
+where $\tau$ is the execution trace implicitly or explicitly represented by the proof.
+\end{definition}
+
+The verification procedure is strictly defined as a sequential pipeline:
+
+\noindent\textbf{Step 1: Domain validation.} $\Domain(\mathit{Pub}) = \mathit{ExpectedDomain}(\mathit{Context})$. Prevents cross-system replay.
+
+\noindent\textbf{Step 2: Structural validation.} Proof format, encoding correctness, parameter consistency. Malformed proofs are rejected immediately.
+
+\noindent\textbf{Step 3: Commitment validation.} $\mathit{root}_{\mathit{init}}, \mathit{root}_{\mathit{final}} \in \mathit{ValidCommitments}$. Optionally verified against known state.
+
+\noindent\textbf{Step 4: Cryptographic verification.} $\Verify_{\mathit{crypto}}(\pi, \mathit{Pub}) = \mathit{true}$. Polynomial commitment checks, query checks, consistency checks.
+
+\noindent\textbf{Step 5: Semantic binding validation.} Public inputs correspond to semantic observables. State commitments correspond to valid states. This step enforces $\pi \implies \ValidTrace(\tau)$, not merely $\pi \implies \SatisfiesConstraints(\tau)$.
+
+\noindent\textbf{Step 6: Invariant enforcement.} If invariants are partially externalized, verify invariant commitments and proofs.
+
+\noindent\textbf{Step 7: Acceptance.} $\mathrm{Accept}(\pi) \iff \text{all checks pass}$.
+
+VSEL distinguishes between stateless verification (checking proof validity and internal consistency without tracking system state) and stateful verification (maintaining the latest state commitment and trace continuity, checking $\mathit{root}_{\mathit{prev}} = \mathit{root}_{\mathit{expected}}$). Stateful verification provides stronger guarantees by detecting invalid state transitions across proofs.
+
+The most dangerous verification failure mode is \emph{constraint-semantic drift}: the verifier accepts a proof that satisfies constraints but violates the formal specification. This occurs when the constraint system diverges from the specification---precisely the gap VSEL is designed to eliminate through the refinement chain.
+
+% ============================================================
+% 10. REFINEMENT CHAIN
+% ============================================================
+\section{Refinement Chain}
+\label{sec:refinement}
+
+The end-to-end guarantee of VSEL (\Cref{eq:central-guarantee}) is not established by a single proof but by a chain of refinement relations connecting each architectural layer to the one above it.
+
+\begin{definition}[Refinement Levels]
+\label{def:refinement-levels}
+VSEL defines five refinement levels:
+\begin{align}
+L_0 &: \text{Abstract Specification (formal state machine)} \\
+L_1 &: \text{Semantic Intermediate Representation (SIR)} \\
+L_2 &: \text{Concrete State Machine (implementation)} \\
+L_3 &: \text{Constraint Model} \\
+L_4 &: \text{Proof Statement}
+\end{align}
+\end{definition}
+
+\begin{definition}[Refinement Relation]
+\label{def:refinement-relation}
+A refinement relation $R_{i,i+1}$ between levels $L_i$ and $L_{i+1}$ is a mapping $R: \mathrm{States}(L_{i+1}) \to \mathrm{States}(L_i)$ satisfying:
+
+\noindent\textbf{Simulation:} Every concrete transition corresponds to an abstract transition:
+\begin{equation}
+\Apply_{i+1}(s_c, \sigma_c) = s'_c \implies \Apply_i(R(s_c), R_\sigma(\sigma_c)) = R(s'_c)
+\end{equation}
+
+\noindent\textbf{Invariant preservation:} Concrete invariants imply abstract invariants through the refinement map:
+\begin{equation}
+G_{i+1}(s_c) \implies G_i(R(s_c))
+\end{equation}
+
+\noindent\textbf{Observable preservation:} Observables are preserved:
+\begin{equation}
+\Obs_i(R(s_c), R_\sigma(\sigma_c), R(s'_c)) = R_O(\Obs_{i+1}(s_c, \sigma_c, s'_c))
+\end{equation}
+\end{definition}
+
+The composition of all refinements yields the end-to-end guarantee:
+\begin{equation}
+\Verify(\pi) \xRightarrow{R_{3,4}} \SatisfiesConstraints(\tau) \xRightarrow{R_{2,3}} \mathit{ValidConcrete}(\tau_c) \xRightarrow{R_{1,2}} \mathit{ValidSIR}(\tau_{\mathit{sir}}) \xRightarrow{R_{0,1}} \ValidTrace(\tau_f)
+\end{equation}
+
+Each implication must be independently justified. If any refinement relation is broken, the end-to-end guarantee does not hold, and the system may produce valid proofs for semantically invalid executions.
+
+The refinement from $L_0$ to $L_1$ (abstract specification to SIR) is discharged by theorem proving, establishing that the SIR is a faithful representation of the formal model. The refinement from $L_1$ to $L_2$ (SIR to concrete) corresponds to the semantic mapping (\Cref{sec:semantic-model}) and is discharged by a combination of theorem proving and differential testing. The refinement from $L_2$ to $L_3$ (concrete to constraints) is the constraint soundness and completeness result (\Cref{thm:constraint-soundness,thm:constraint-completeness}), discharged by constraint analysis and adversarial testing. The refinement from $L_3$ to $L_4$ (constraints to proof) relies on the cryptographic soundness of the proof system (\Cref{def:proof-soundness}).
+
+% ============================================================
+% 11. COMPOSITION MODEL
+% ============================================================
+\section{Composition Model}
+\label{sec:composition}
+
+Systems rarely exist in isolation. VSEL defines composition semantics to ensure that correctness survives interaction.
+
+\begin{definition}[System Composition]
+\label{def:system-composition}
+Given systems $\mathcal{M}_A = (S_A, I_A, T_A, \Sigma_A, O_A)$ and $\mathcal{M}_B = (S_B, I_B, T_B, \Sigma_B, O_B)$, the composed system is:
+\begin{equation}
+\mathcal{M}_{A \circ B} = (S_{AB}, I_{AB}, T_{AB}, \Sigma_{AB}, O_{AB})
+\end{equation}
+where $S_{AB} \subseteq S_A \times S_B$, and $T_{AB} \subseteq T_A \cup T_B \cup T_{\mathit{cross}}$ with cross-transitions:
+\begin{equation}
+T_{\mathit{cross}} \subseteq S_A \times S_B \times \Sigma_{\mathit{cross}} \times S_A \times S_B
+\end{equation}
+\end{definition}
+
+Composition is not free. The fundamental observation is:
+\begin{equation}
+\mathit{Correct}(\mathcal{M}_A) \;\land\; \mathit{Correct}(\mathcal{M}_B) \;\not\Rightarrow\; \mathit{Correct}(\mathcal{M}_{A \circ B})
+\end{equation}
+
+Local correctness does not imply global correctness. Composition requires new invariants and new proofs.
+
+\subsection{Assume-Guarantee Reasoning}
+\label{subsec:assume-guarantee}
+
+VSEL structures composition through formal contracts. Each subsystem $M$ defines:
+\begin{equation}
+\mathrm{Contract}(M) = (A(M),\; G(M),\; E(M),\; \mathit{Eff}(M),\; F(M),\; \mathit{Temp}(M))
+\end{equation}
+where $A(M)$ is the set of assumptions $M$ requires from its environment, $G(M)$ is the set of guarantees $M$ provides, $E(M)$ is the observable export interface, $\mathit{Eff}(M)$ is the set of effects visible to other systems, $F(M)$ is the set of forbidden interactions, and $\mathit{Temp}(M)$ is the set of temporal obligations.
+
+\begin{theorem}[Composition Validity]
+\label{thm:composition-validity}
+Composition of $\mathcal{M}_A$ and $\mathcal{M}_B$ is valid if and only if:
+\begin{align}
+G(\mathcal{M}_A) &\supseteq A(\mathcal{M}_B) \label{eq:ag1} \\
+G(\mathcal{M}_B) &\supseteq A(\mathcal{M}_A) \label{eq:ag2} \\
+\mathit{Eff}(\mathcal{M}_A) \cap F(\mathcal{M}_B) &= \emptyset \label{eq:ag3} \\
+\mathit{Eff}(\mathcal{M}_B) \cap F(\mathcal{M}_A) &= \emptyset \label{eq:ag4} \\
+\mathit{Temp}(\mathcal{M}_A) \land \mathit{Temp}(\mathcal{M}_B) &\text{ is satisfiable} \label{eq:ag5}
+\end{align}
+and no reachable composed state escapes the valid state space:
+\begin{equation}
+\forall\, s \in \mathrm{Reachable}(\mathcal{M}_{A \circ B}):\; s \in S_A \times S_B \label{eq:ag6}
+\end{equation}
+\end{theorem}
+
+Conditions \eqref{eq:ag1}--\eqref{eq:ag2} ensure mutual assumption satisfaction. Conditions \eqref{eq:ag3}--\eqref{eq:ag4} ensure no forbidden interactions. Condition \eqref{eq:ag5} ensures temporal compatibility. Condition \eqref{eq:ag6} ensures state space closure under composition.
+
+\subsection{Cross-System Invariants}
+\label{subsec:cross-invariants}
+
+Composition introduces invariants that do not exist in either subsystem alone:
+
+\noindent\textbf{Resource conservation}: $\mathrm{Total}_A + \mathrm{Total}_B = \mathit{constant}$, preventing double-spend across boundaries.
+
+\noindent\textbf{Shared state consistency}: $\mathrm{View}_A(\mathit{shared}) = \mathrm{View}_B(\mathit{shared})$ at every synchronization point.
+
+\noindent\textbf{Causal consistency}: if transition $t_1$ causally precedes $t_2$, both systems observe this ordering.
+
+\noindent\textbf{Authorization consistency}: cross-system inputs must be independently authorized by both systems.
+
+Proof composition combines individual proofs with a cross-invariant proof:
+\begin{equation}
+\pi_{AB} = \mathrm{Combine}(\pi_A, \pi_B, \pi_{\mathit{cross}})
+\end{equation}
+where $\pi_{\mathit{cross}}$ attests to the satisfaction of all cross-system invariants.
+
+% ============================================================
+% 12. CRYPTOGRAPHIC MODEL
+% ============================================================
+\section{Cryptographic Model}
+\label{sec:cryptographic-model}
+
+VSEL operates under a hybrid adversarial model encompassing both classical and quantum-capable adversaries. The cryptographic layer does not make the system correct; it makes it hard to cheat. The semantic layer (\Cref{sec:semantic-model,sec:invariants}) defines what correctness means; the cryptographic layer ensures that violations are computationally infeasible.
+
+\subsection{Primitives}
+\label{subsec:primitives}
+
+\noindent\textbf{Hash functions} are used for state commitments, Merkle structures, and domain separation. Requirements: collision resistance, preimage resistance, and quantum resistance for long-term artifacts. Candidates include SHA-3/Keccak, BLAKE3, and STARK-friendly hashes (Poseidon, Rescue) for proof-internal use.
+
+\noindent\textbf{Commitment schemes} are used for state, trace, and polynomial commitments. Properties: binding and optionally hiding. Implementations include Merkle commitments and polynomial commitments (FRI for STARKs, KZG for SNARKs).
+
+\noindent\textbf{Digital signatures} authorize inputs. Requirements: unforgeability under adaptive chosen-message attacks and post-quantum security for long-term validity. VSEL adopts hybrid signatures:
+\begin{equation}
+\mathit{Sig} = (\mathit{Sig}_{\mathit{classical}},\; \mathit{Sig}_{\mathit{PQC}})
+\end{equation}
+where both components must verify. Classical candidates include ECDSA and Ed25519; post-quantum candidates include ML-DSA (Dilithium) and Falcon.
+
+\noindent\textbf{Key exchange} uses hybrid schemes combining ECDH with ML-KEM (Kyber) to ensure both current performance and future security.
+
+\subsection{Domain Separation}
+\label{subsec:crypto-domain-separation}
+
+All cryptographic operations include domain separation:
+\begin{equation}
+\Hash(\mathit{domain} \;\|\; \mathit{data})
+\end{equation}
+preventing cross-protocol attacks and replay across contexts. The domain identifier encodes system identity, version, and execution epoch.
+
+\subsection{Post-Quantum Considerations}
+\label{subsec:pqc}
+
+The threat model includes ``harvest now, decrypt later'' attacks, where an adversary records current artifacts and breaks them when quantum computers become available. VSEL classifies every cryptographic artifact by temporal sensitivity:
+
+\noindent\textbf{Ephemeral} (seconds to minutes): session keys, temporary commitments. Classical primitives suffice.
+
+\noindent\textbf{Session} (hours to days): execution-batch commitments. Hybrid recommended.
+
+\noindent\textbf{Archival} (months to years): state commitments, proofs, audit evidence. Hybrid required.
+
+\noindent\textbf{Permanent} (decades): historical trace commitments, compliance evidence. Quantum-resistant primitives mandatory.
+
+For proof systems, STARKs provide natural post-quantum resistance through hash-based security. SNARKs based on pairing assumptions are quantum-vulnerable and are used only for compression, with the understanding that re-proving under a quantum-resistant system is possible if witness data is archived.
+
+Migration protocols are defined for commitment migration (re-hashing under a new function with attestation), signature migration (re-signing with attestation chain), and proof migration (re-proving from archived witnesses). The critical requirement is that witness data must be archived for the lifetime of the proof's relevance; without it, re-proving is impossible.
+
+\subsection{Long-Term Validity}
+\label{subsec:long-term}
+
+The hybrid strategy ensures that if either the classical or post-quantum component remains secure, the system remains secure:
+\begin{equation}
+\mathit{Security} = \mathit{Classical} \;\land\; \mathit{PostQuantum}
+\end{equation}
+
+Proofs remain valid as long as the underlying cryptographic assumptions hold. When assumptions are threatened, the migration protocols enable transition to new primitives without invalidating the semantic guarantees established by the formal specification.
+
+% ============================================================
+% 13. ADVERSARIAL ANALYSIS
+% ============================================================
+\section{Adversarial Analysis}
+\label{sec:adversarial}
+
+VSEL assumes a deliberately uncomfortable adversarial posture: the primary source of failure is not execution or proof, but the definition of correctness itself. If correctness is underspecified, the system can be perfectly verified and completely wrong.
+
+\subsection{Adversary Classes}
+\label{subsec:adversary-classes}
+
+\noindent\textbf{Malicious prover.} Controls proof generation. Objectives: produce valid proofs for invalid executions by exploiting underconstrained circuits or manipulating witness data. Capabilities: full control over witness inputs, knowledge of the constraint system, ability to search constraint edge cases.
+
+\noindent\textbf{Malicious executor.} Controls the execution environment. Objectives: produce state transitions outside the formal model, introduce invalid states, diverge from specified semantics. Capabilities: control over runtime behavior, manipulation of execution ordering and timing.
+
+\noindent\textbf{Specification manipulator.} Targets the system through its specification. Objectives: introduce ambiguity, omit edge cases, define incomplete invariants. This adversary is frequently internal and consistently underestimated.
+
+\noindent\textbf{Constraint-level attacker.} Targets the constraint system directly. Objectives: find executions that satisfy constraints but violate semantics. Capabilities: circuit analysis, underconstraint discovery, witness manipulation.
+
+\noindent\textbf{Economic adversary.} Rational, profit-driven. Objectives: exploit inconsistencies for financial gain, manipulate cross-system composition. Capabilities: multi-system interaction, timing exploitation, arbitrage of semantic gaps.
+
+\subsection{Attack Surfaces}
+\label{subsec:attack-surfaces}
+
+\noindent\textbf{Semantic drift.} The most fundamental attack surface. Mismatch between the formal specification, the implementation, and the constraint system. The adversary does not need to break cryptography; they only need to find where the system's definition is incomplete or ambiguous. VSEL defends against this through the refinement chain (\Cref{sec:refinement}) and the semantic mapping commutativity obligation (\Cref{thm:commutativity}).
+
+\noindent\textbf{Underconstrained systems.} Constraints fail to fully encode semantics, allowing multiple valid witnesses for semantically invalid behavior. VSEL defends through systematic underconstraint analysis (\Cref{subsec:underconstraint}), the constraint coverage matrix, and the invalid execution witness suite---a systematic construction of witness families that the constraint system must reject.
+
+\noindent\textbf{Trace incompleteness.} Incomplete capture of execution history allows validation of partial behavior only. VSEL defends through trace sufficiency conditions (\Cref{subsec:trace-sufficiency}) and the commitment chain (\Cref{subsec:commitment}).
+
+\noindent\textbf{Proof-valid-but-wrong execution.} A proof validates over an execution that satisfies constraints but violates the formal specification. This is the canonical manifestation of the semantic gap. VSEL eliminates this through the biconditional \eqref{eq:constraint-biconditional}: if constraints are sound and complete with respect to the specification, no such execution exists.
+
+\noindent\textbf{Composition failures.} Locally correct systems produce globally invalid behavior. Each system preserves its own invariants, but cross-system invariants are violated. VSEL defends through assume-guarantee reasoning (\Cref{subsec:assume-guarantee}) and explicit cross-invariant enforcement.
+
+\noindent\textbf{Temporal attacks.} Exploitation across time rather than within a single execution. Invariants hold per step but fail over sequences due to accumulation (rounding errors, counter overflow, resource drift). VSEL defends through temporal invariants (\Cref{def:temporal-invariant}) and long-trace simulation.
+
+\subsection{Concrete Attack Scenarios}
+\label{subsec:attack-scenarios}
+
+\noindent\emph{Scenario 1: Valid proof, invalid semantics.} An adversary discovers that the constraint system does not enforce resource conservation for a specific transition class. They construct a witness where resources are created from nothing, generate a valid proof, and submit it. The verifier accepts because the proof satisfies all constraints. The system loses funds. Root cause: constraint incompleteness (violation of \Cref{thm:constraint-soundness}).
+
+\noindent\emph{Scenario 2: Witness ambiguity exploitation.} The constraint system allows two distinct witness assignments for the same public inputs, representing different state transitions. An adversary uses this to claim one execution occurred while actually performing another. Root cause: witness semantic non-uniqueness (violation of \Cref{def:witness-uniqueness}).
+
+\noindent\emph{Scenario 3: Compositional double-spend.} Two systems share a resource pool. A cross-system transfer debits in system A but the credit in system B is not atomically linked. The adversary exploits the timing gap to spend the resource in both systems. Root cause: missing cross-system conservation invariant (violation of \Cref{subsec:cross-invariants}).
+
+\noindent\emph{Scenario 4: Specification blind spot.} The formal specification does not define behavior for a particular input class. The implementation handles it with a default that happens to preserve all defined invariants but violates the intended economic semantics. VSEL mitigates this through the economic invariant layer (\Cref{subsec:economic-invariants}), which formalizes economic intent as enforceable predicates. However, the risk of specification incompleteness remains for economic properties not yet identified by domain experts.
+
+\noindent\emph{Scenario 5: Flash loan extraction.} An adversary executes an atomic sequence---borrow, manipulate price, trade at manipulated price, repay---where each transition individually preserves all structural invariants and resource conservation. The adversary profits; liquidity providers lose. Root cause: absence of temporal economic invariants. VSEL defends through $\mathit{TE}_{\mathit{extraction}}$ (bounded epoch extraction) and $\mathit{TE}_{\mathit{flash}}$ (flash operation collateral requirements at every intermediate state).
+
+\noindent\emph{Scenario 6: Sandwich attack.} An adversary front-runs a victim's transaction, causing the victim to execute at a worse price, then back-runs to capture the profit. Each transaction is individually valid; conservation holds. VSEL defends through $\mathit{TE}_{\mathit{sandwich}}$, which formalizes the prohibition of profit extraction through transaction ordering manipulation.
+
+\subsection{Defense Summary}
+\label{subsec:defense-summary}
+
+VSEL's defense is layered: semantic closure (all behavior must be specified), constraint completeness (all semantics must be encoded), trace-level verification (validation over complete execution histories), cross-layer consistency (refinement chain), and adversarial testing (systematic construction of counterexamples and invalid witnesses). The residual risk is specification incompleteness---the possibility that the formal model itself fails to capture the intended system behavior. This risk cannot be eliminated by any formal method; it can only be bounded through rigorous specification practices, adversarial self-audit, and continuous validation.
+
+% ============================================================
+% 14. IMPLEMENTATION CONSIDERATIONS
+% ============================================================
+\section{Implementation Considerations}
+\label{sec:implementation}
+
+The translation from VSEL's formal architecture to a deployable system requires mapping each theoretical component to concrete engineering artifacts. This section specifies the implementation requirements without prescribing specific technologies.
+
+\noindent\textbf{Formal Specification Engine.} The abstract specification (\Cref{sec:system-model}) must be expressed in a machine-checkable language. TLA+ is suitable for state machine semantics and model checking of bounded instances. Coq, Lean~4, or Isabelle/HOL are required for theorem-level guarantees, particularly for the refinement proofs (\Cref{sec:refinement}) and universal invariant preservation (\Cref{lem:inductive-invariance}). The specification is not documentation; it is a formal artifact from which downstream components are derived.
+
+\noindent\textbf{Execution Engine.} The execution engine implements the transition function $\Apply$ with strict adherence to the pipeline (\Cref{subsec:execution-pipeline}). Determinism must be enforced at the implementation level: no floating-point arithmetic, no implicit ordering dependencies, no hidden randomness. The engine must emit sufficient state and trace material for semantic reconstruction, as required by the trace sufficiency conditions (\Cref{subsec:trace-sufficiency}).
+
+\noindent\textbf{Trace Engine.} Every transition must be recorded as a trace entry (\Cref{def:trace-entry}) with the incremental commitment chain (\Cref{eq:hash-chain}). The trace engine must guarantee completeness: no state change occurs outside the traced pipeline. Replay must be deterministic (\Cref{def:replay}).
+
+\noindent\textbf{Constraint Engine.} The constraint derivation function $\mathcal{D}$ (\Cref{def:constraint-derivation}) must be implemented as a deterministic compiler from SIR to arithmetic constraints. Manual constraint injection is forbidden. The constraint coverage matrix must be maintained as a living artifact, updated whenever constraints, invariants, or transition classes change. The underconstraint analysis (\Cref{subsec:underconstraint}) must be performed as part of the continuous integration pipeline.
+
+\noindent\textbf{Prover and Verifier.} The prover generates proofs binding to the full trace (\Cref{subsec:binding}). The verifier implements the strict verification pipeline (\Cref{sec:verification}). Both must enforce domain separation (\Cref{subsec:domain-separation}). Version mismatches between constraint system, proof system, and verifier must result in rejection.
+
+\noindent\textbf{Testing Requirements.} Mandatory testing includes: differential testing (implementation versus specification), invariant fuzzing (random states and adversarial transitions), constraint fuzzing (searching for valid constraint satisfaction with invalid semantics), trace mutation testing (modifying traces and verifying detection), witness manipulation (attempting alternate witness assignments), and composition stress testing (simulating multi-system interaction with adversarial patterns).
+
+\noindent\textbf{Performance.} Optimizations must not remove constraints, weaken invariants, or introduce nondeterminism. If performance conflicts with correctness, performance loses. This is a non-negotiable design principle.
+
+% ============================================================
+% 15. LIMITATIONS
+% ============================================================
+\section{Limitations}
+\label{sec:limitations}
+
+VSEL does not claim to solve all problems in verifiable computation. The following limitations are explicitly acknowledged.
+
+\noindent\textbf{Specification completeness.} The system's correctness is bounded by the completeness of the formal specification. If the specification fails to capture the intended behavior---through omission, ambiguity, or error---the system can be formally correct and semantically wrong. No formal method eliminates this risk; it can only be bounded through rigorous specification practices and adversarial self-audit. The integration of economic invariants (\Cref{subsec:economic-invariants}) reduces but does not eliminate this risk for the economic domain: the economic invariant set is complete only insofar as the domain experts and formal methods engineers have correctly identified all economically relevant properties.
+
+\noindent\textbf{Computational cost.} The layered architecture introduces overhead at every level: formal specification maintenance, SIR compilation, constraint derivation, proof generation, and verification. The addition of economic invariants increases constraint system size and proof generation cost. For systems where the cost of formal rigor exceeds the cost of potential failure, VSEL may be disproportionate. The architecture is designed for systems where correctness is non-negotiable.
+
+\noindent\textbf{Refinement proof effort.} Establishing the refinement chain (\Cref{sec:refinement}) requires significant proof engineering effort, estimated at months of work by skilled proof engineers. This is a one-time cost per system version but must be repeated for significant changes.
+
+\noindent\textbf{Hardware and side-channel attacks.} VSEL's formal model does not address hardware-level faults or side-channel attacks outside the formal model. If the execution environment is compromised at the hardware level, the formal guarantees do not apply.
+
+\noindent\textbf{Liveness under adversarial conditions.} While VSEL ensures safety (no invalid execution is accepted), liveness guarantees (every valid execution can be proven and verified in bounded time) depend on the computational assumptions of the proof system and the availability of the execution environment.
+
+\noindent\textbf{Economic parameter calibration.} While VSEL formalizes economic invariants as first-class predicates, the \emph{calibration} of economic parameters (maximum leverage ratios, extraction thresholds, liquidity minimums) requires domain expertise and empirical analysis that formal methods alone cannot provide. The formal system ensures that whatever parameters are chosen are enforced; it does not determine what the correct parameters are. Incorrect calibration can render economic invariants either too permissive (allowing exploitation) or too restrictive (preventing legitimate activity).
+
+% ============================================================
+% 16. RELATED WORK
+% ============================================================
+\section{Related Work}
+\label{sec:related-work}
+
+\noindent\textbf{Zero-knowledge virtual machines (zkVMs).} Systems such as RISC Zero, SP1, and zkWASM provide general-purpose verifiable computation by compiling programs to arithmetic circuits. These systems verify that a program executed correctly on a virtual machine but do not verify that the program itself correctly implements the intended semantics. The circuit encodes the VM's instruction set, not the application's formal specification. VSEL addresses the layer above: ensuring that the semantics being proven are the intended semantics.
+
+\noindent\textbf{ZK rollups.} Rollup systems (zkSync, StarkNet, Polygon zkEVM) use zero-knowledge proofs to verify state transitions of an execution layer. The constraint systems in these architectures are typically hand-written or compiler-generated from the execution engine, without a formally verified derivation from a specification. VSEL's constraint derivation layer (\Cref{sec:constraint-system}) and refinement chain (\Cref{sec:refinement}) address this gap.
+
+\noindent\textbf{Formal verification of circuits.} Projects such as Ecne, Picus, and Coda's SNARK verification efforts apply formal methods to verify properties of specific circuits. These efforts are valuable but operate at the circuit level, verifying that a given circuit satisfies certain properties. They do not establish that the circuit is a sound and complete encoding of a formal specification. VSEL's contribution is the end-to-end refinement chain from specification to proof.
+
+\noindent\textbf{Certified compilers.} CompCert and similar projects provide formally verified compilation from high-level languages to machine code, establishing simulation relations between source and target semantics. VSEL's refinement strategy (\Cref{sec:refinement}) is directly inspired by this approach, applying it to the domain of constraint derivation and proof generation rather than traditional compilation.
+
+\noindent\textbf{Refinement-based verification.} The refinement calculus, B-method, and Event-B provide frameworks for stepwise refinement of specifications to implementations. VSEL adapts these ideas to the specific challenges of zero-knowledge proof systems, where the ``implementation'' is not executable code but an arithmetic constraint system, and the correctness criterion is not behavioral equivalence but semantic validity under proof.
+
+\noindent\textbf{Assume-guarantee reasoning.} The assume-guarantee paradigm for compositional verification has a long history in concurrent systems verification. VSEL applies this paradigm to the composition of independently proven cryptographic systems (\Cref{subsec:assume-guarantee}), where the challenge is not concurrency but semantic consistency across system boundaries.
+
+\noindent\textbf{Theorem proving for cryptographic protocols.} Tools such as EasyCrypt, CryptoVerif, and the Foundational Cryptography Framework provide machine-checked proofs of cryptographic protocol security. VSEL's cryptographic model (\Cref{sec:cryptographic-model}) relies on standard cryptographic assumptions but does not itself provide machine-checked cryptographic proofs; it defines the interface between the semantic layer and the cryptographic layer.
+
+% ============================================================
+% 17. CONCLUSION
+% ============================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+This paper has presented the Verifiable Semantic Execution Layer (VSEL), an architecture that closes the gap between verified execution and correct execution in cryptographic proof systems. The core insight is that correctness must be defined by a formal specification, not by a circuit, and that every component of the system---from execution to constraints to proofs to verification---must be bound to this specification through formally justified refinement relations.
+
+VSEL redefines the correctness criterion from ``execution satisfies a circuit'' to ``execution belongs to the formal language of valid traces induced by the system's specification.'' This redefinition eliminates an entire class of systemic failures---those in which proofs validate over semantically invalid executions---by ensuring that the constraint system is a sound and complete projection of the formal semantics.
+
+The architecture introduces several mechanisms that are absent from current systems: explicit semantic mappings with commutativity obligations, a systematic underconstraint analysis framework, witness uniqueness requirements, assume-guarantee composition contracts, and a refinement chain connecting five abstraction levels from formal specification to cryptographic proof. The cryptographic model integrates hybrid post-quantum primitives with temporal sensitivity classification and migration protocols for long-term validity.
+
+The primary limitation remains specification completeness: the system is as correct as its formal model. This limitation is inherent to all formal methods and cannot be eliminated, only bounded through rigorous specification practices, adversarial self-audit, and continuous validation.
+
+Future work includes mechanized proofs of the refinement chain in Lean~4 and Coq, model checking of the abstract specification in TLA+, development of automated underconstraint detection tools, and empirical evaluation of the architecture on concrete protocol implementations.
+
+The system is designed so that incorrect implementations fail early instead of succeeding incorrectly. This is the only standard that matters.
+
+% ============================================================
+% REFERENCES
+% ============================================================
+\bibliographystyle{plain}
+
+\begin{thebibliography}{99}
+
+\bibitem{goldwasser1989}
+S.~Goldwasser, S.~Micali, and C.~Rackoff.
+\newblock The knowledge complexity of interactive proof systems.
+\newblock {\em SIAM Journal on Computing}, 18(1):186--208, 1989.
+
+\bibitem{ben-sasson2018}
+E.~Ben-Sasson, I.~Bentov, Y.~Horesh, and M.~Riabzev.
+\newblock Scalable, transparent, and post-quantum secure computational integrity.
+\newblock {\em IACR Cryptology ePrint Archive}, 2018/046, 2018.
+
+\bibitem{groth2016}
+J.~Groth.
+\newblock On the size of pairing-based non-interactive arguments.
+\newblock In {\em EUROCRYPT}, pages 305--326, 2016.
+
+\bibitem{lamport2002}
+L.~Lamport.
+\newblock {\em Specifying Systems: The TLA+ Language and Tools for Hardware and Software Engineers}.
+\newblock Addison-Wesley, 2002.
+
+\bibitem{leroy2009}
+X.~Leroy.
+\newblock Formal verification of a realistic compiler.
+\newblock {\em Communications of the ACM}, 52(7):107--115, 2009.
+
+\bibitem{abrial2010}
+J.-R.~Abrial.
+\newblock {\em Modeling in Event-B: System and Software Engineering}.
+\newblock Cambridge University Press, 2010.
+
+\bibitem{jones1983}
+C.~B.~Jones.
+\newblock Specification and design of (parallel) programs.
+\newblock In {\em IFIP Congress}, pages 321--332, 1983.
+
+\bibitem{nist-pqc2024}
+National Institute of Standards and Technology.
+\newblock Post-quantum cryptography standardization.
+\newblock FIPS 203, 204, 205, 2024.
+
+\bibitem{bertot2004}
+Y.~Bertot and P.~Cast\'{e}ran.
+\newblock {\em Interactive Theorem Proving and Program Development: Coq'Art}.
+\newblock Springer, 2004.
+
+\bibitem{moura2021}
+L.~de~Moura and S.~Ullrich.
+\newblock The {Lean}~4 theorem prover and programming language.
+\newblock In {\em CADE}, pages 625--635, 2021.
+
+\bibitem{nipkow2002}
+T.~Nipkow, L.~C.~Paulson, and M.~Wenzel.
+\newblock {\em Isabelle/HOL: A Proof Assistant for Higher-Order Logic}.
+\newblock Springer, 2002.
+
+\bibitem{gabizon2019}
+A.~Gabizon, Z.~J.~Williamson, and O.~Ciobotaru.
+\newblock {PLONK}: Permutations over {Lagrange}-bases for oecumenical noninteractive arguments of knowledge.
+\newblock {\em IACR Cryptology ePrint Archive}, 2019/953, 2019.
+
+\bibitem{ben-sasson2014}
+E.~Ben-Sasson, A.~Chiesa, C.~Garman, M.~Green, I.~Miers, E.~Tromer, and M.~Virza.
+\newblock Zerocash: Decentralized anonymous payments from {Bitcoin}.
+\newblock In {\em IEEE S\&P}, pages 459--474, 2014.
+
+\bibitem{buterin2022}
+V.~Buterin.
+\newblock An incomplete guide to rollups.
+\newblock \url{https://vitalik.eth.limo/general/2021/01/05/rollup.html}, 2021.
+
+\bibitem{grassi2021}
+L.~Grassi, D.~Khovratovich, C.~Rechberger, A.~Roy, and M.~Schofnegger.
+\newblock Poseidon: A new hash function for zero-knowledge proof systems.
+\newblock In {\em USENIX Security}, pages 519--535, 2021.
+
+\end{thebibliography}
+
+\end{document}
+
+
+% ============================================================
+% APPENDIX: NOTATION INDEX
+% ============================================================
+\appendix
+\section{Notation Index}
+\label{app:notation}
+
+\begin{tabular}{ll}
+\toprule
+\textbf{Symbol} & \textbf{Meaning} \\
+\midrule
+$\mathcal{M} = (S, I, T, \Sigma, O)$ & VSEL system (labeled transition system) \\
+$S$ & Set of valid states \\
+$I \subseteq S$ & Set of initial states \\
+$T \subseteq S \times \Sigma \times S$ & Transition relation \\
+$\Sigma$ & Set of inputs \\
+$O$ & Set of observable outputs \\
+$s = (C, D, E, \Omega, \tau)$ & State tuple \\
+$C$ & Canonical state \\
+$D$ & Derived state ($D = \Derive(C)$) \\
+$E$ & Environment context \\
+$\Omega$ & Economic context ($\Omega = \mathrm{DeriveEconomic}(C, E)$) \\
+$\tau$ & Trace metadata \\
+$\sigma = (\sigma_p, \sigma_a, \sigma_{\mathit{aux}})$ & Input (payload, authorization, auxiliary) \\
+$\Apply(s, \sigma)$ & Deterministic transition function \\
+$\Obs(s, \sigma, s')$ & Observable function \\
+$\mu_S, \mu_\Sigma, \mu_T, \mu_{\mathit{Tr}}, \mu_O$ & Semantic mapping functions \\
+$\ValidState(s)$ & State validity predicate \\
+$\ValidTrace(\tau)$ & Trace validity predicate \\
+$\mathrm{EconomicallyValid}(s)$ & Economic validity predicate \\
+$\mathrm{Admissible}(s)$ & $\ValidState(s) \land \mathrm{EconomicallyValid}(s)$ \\
+$\SatisfiesConstraints(\tau)$ & Constraint satisfaction predicate \\
+$\mathcal{D}: \mathit{SIR} \to \mathcal{C}$ & Constraint derivation function \\
+$\pi = \Prove(\tau, \mathcal{C})$ & Proof generation \\
+$\Verify(\pi, \mathit{Pub})$ & Proof verification \\
+$\Commit(x)$ & Cryptographic commitment \\
+$\Hash(x)$ & Hash function \\
+$h_i$ & Incremental trace commitment chain \\
+$L, G, \mathit{TInv}$ & Local, global, temporal invariants \\
+$E_*, G_*, \mathit{TE}_*, \mathit{CE}_*$ & Economic invariant families \\
+$R_{i,i+1}$ & Refinement relation between levels $i$ and $i{+}1$ \\
+$\mathrm{Contract}(M)$ & Assume-guarantee composition contract \\
+$A(M), G(M), \mathit{Eff}(M), F(M)$ & Assumptions, guarantees, effects, forbidden \\
+\bottomrule
+\end{tabular}
+
+\vspace{20pt}
+
+% ============================================================
+% VERSION HISTORY
+% ============================================================
+\section{Version History}
+\label{app:versions}
+
+\begin{tabular}{lll}
+\toprule
+\textbf{Version} & \textbf{Date} & \textbf{Changes} \\
+\midrule
+v1.0 & March 31, 2026 & Initial preprint release \\
+\bottomrule
+\end{tabular}
+
+\end{document}

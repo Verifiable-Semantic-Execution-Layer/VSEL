@@ -1,0 +1,12 @@
+[package]
+name = "vsel-invariants"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+vsel-core = { path = "../vsel-core" }
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
