@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 vsel-core = { path = "../vsel-core" }
 vsel-sir = { path = "../vsel-sir" }
+vsel-trace = { path = "../vsel-trace" }
 serde = { workspace = true }
 thiserror = { workspace = true }
 

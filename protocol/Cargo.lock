@@ -818,6 +818,7 @@ dependencies = [
  "thiserror",
  "vsel-core",
  "vsel-sir",
+ "vsel-trace",
 ]
 
 [[package]]
