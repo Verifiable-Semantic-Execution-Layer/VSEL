@@ -4,4 +4,5 @@
 pub mod prover;
 pub mod public_inputs;
 pub mod recursive;
+pub mod verifier;
 pub mod witness;
