@@ -286,6 +286,17 @@ pub fn encode(s: &State) -> Vec<u8> {
     buf
 }
 
+/// Encode a `CanonicalState` into a deterministic byte representation.
+///
+/// This is the public interface to the canonical state encoding used by
+/// `commit()` and external crates (e.g., `vsel-crypto` for hybrid commitments).
+/// The encoding is injective: distinct canonical states produce distinct byte sequences.
+pub fn encode_canonical_state_bytes(c: &CanonicalState) -> Vec<u8> {
+    let mut buf = Vec::new();
+    encode_canonical_state(&mut buf, c);
+    buf
+}
+
 /// Compute commitment of a `CanonicalState`: `Hash(encode_canonical(s))` (DEF-3).
 ///
 /// Uses SHA3-256 over the canonical encoding of the canonical state portion.

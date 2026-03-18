@@ -4,3 +4,4 @@ pub mod observable_tests;
 pub mod invariant_tests;
 pub mod encoding_tests;
 pub mod mapping_tests;
+pub mod crypto_tests;
