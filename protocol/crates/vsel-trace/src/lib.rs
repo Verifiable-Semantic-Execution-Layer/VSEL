@@ -5,3 +5,4 @@ pub mod commitment;
 pub mod compression;
 pub mod engine;
 pub mod reconstruction;
+pub mod replay;

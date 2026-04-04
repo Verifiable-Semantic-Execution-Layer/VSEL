@@ -10,3 +10,6 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 proptest = { workspace = true }
+vsel-proof = { path = "../vsel-proof" }
+vsel-trace = { path = "../vsel-trace" }
+vsel-constraints = { path = "../vsel-constraints" }

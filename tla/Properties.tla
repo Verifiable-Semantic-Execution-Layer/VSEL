@@ -15,7 +15,7 @@
   Derived from: MODEL_CHECKING_PLAN.md, FORMAL_SPECIFICATION.md.
   Requirements: 14.2, 14.4
 *)
-EXTENDS Invariants, TransitionPartitioning, ErrorHandling
+EXTENDS Invariants, TransitionPartitioning, ErrorHandling, TemporalProperties
 
 \* =======================================================================
 \* Property 1: StateValidity
