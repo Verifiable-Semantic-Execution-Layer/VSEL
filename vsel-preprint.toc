@@ -1,0 +1,41 @@
+\contentsline {section}{\numberline {1}Problem Statement}{3}{section.1}%
+\contentsline {section}{\numberline {2}System Model}{4}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Transition Classes}{6}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Execution Pipeline}{6}{subsection.2.2}%
+\contentsline {section}{\numberline {3}Semantic Model}{6}{section.3}%
+\contentsline {section}{\numberline {4}Invariants and Correctness Conditions}{8}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Economic Invariants}{9}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Cross-Layer Invariants}{10}{subsection.4.2}%
+\contentsline {section}{\numberline {5}Execution Trace Model}{10}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Commitment Structure}{10}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Trace Sufficiency}{10}{subsection.5.2}%
+\contentsline {section}{\numberline {6}Constraint System Derivation}{11}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Soundness and Completeness}{11}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Constraint Domains}{12}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Underconstraint Analysis}{12}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}Witness Uniqueness}{12}{subsection.6.4}%
+\contentsline {section}{\numberline {7}Proof System Integration}{13}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Binding Requirements}{13}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Domain Separation}{13}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Proof System Choices}{14}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}Soundness and Knowledge Soundness}{14}{subsection.7.4}%
+\contentsline {subsection}{\numberline {7.5}Proof Composition}{14}{subsection.7.5}%
+\contentsline {section}{\numberline {8}Verification Model}{14}{section.8}%
+\contentsline {section}{\numberline {9}Refinement Chain}{15}{section.9}%
+\contentsline {section}{\numberline {10}Composition Model}{16}{section.10}%
+\contentsline {subsection}{\numberline {10.1}Assume-Guarantee Reasoning}{16}{subsection.10.1}%
+\contentsline {subsection}{\numberline {10.2}Cross-System Invariants}{17}{subsection.10.2}%
+\contentsline {section}{\numberline {11}Cryptographic Model}{17}{section.11}%
+\contentsline {subsection}{\numberline {11.1}Primitives}{17}{subsection.11.1}%
+\contentsline {subsection}{\numberline {11.2}Domain Separation}{17}{subsection.11.2}%
+\contentsline {subsection}{\numberline {11.3}Post-Quantum Considerations}{18}{subsection.11.3}%
+\contentsline {subsection}{\numberline {11.4}Long-Term Validity}{18}{subsection.11.4}%
+\contentsline {section}{\numberline {12}Adversarial Analysis}{18}{section.12}%
+\contentsline {subsection}{\numberline {12.1}Adversary Classes}{18}{subsection.12.1}%
+\contentsline {subsection}{\numberline {12.2}Attack Surfaces}{19}{subsection.12.2}%
+\contentsline {subsection}{\numberline {12.3}Concrete Attack Scenarios}{19}{subsection.12.3}%
+\contentsline {subsection}{\numberline {12.4}Defense Summary}{20}{subsection.12.4}%
+\contentsline {section}{\numberline {13}Implementation Considerations}{20}{section.13}%
+\contentsline {section}{\numberline {14}Limitations}{21}{section.14}%
+\contentsline {section}{\numberline {15}Related Work}{21}{section.15}%
+\contentsline {section}{\numberline {16}Conclusion}{22}{section.16}%

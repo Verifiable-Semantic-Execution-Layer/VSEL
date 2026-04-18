@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 6f1502279da9c0ec2c22ef7baa241ad1294238b771e472f913298e3724690faf # shrinks to program = SirProgram { version: "0.1.0", state_schema: SirStateSchema { fields: [SirFieldSchema { name: "f7_", field_type: "Ynlj" }] }, input_schema: SirInputSchema { fields: [SirFieldSchema { name: "x3__52", field_type: "Int" }, SirFieldSchema { name: "a387_", field_type: "Int" }] }, transitions: [SirTransition { name: "a", class: "Update", preconditions: [], postconditions: [], body: BinOp { op: "add", left: Literal { value: Int { value: 0 } }, right: If { cond: Var { name: "n" }, then_: Literal { value: Int { value: 0 } }, else_: Literal { value: Int { value: 30 } } } }, allowed_mutations: [] }], invariants: [SirInvariant { name: "V__goj__", category: "temporal", expr: If { cond: Literal { value: Int { value: 179 } }, then_: Var { name: "v_" }, else_: Literal { value: Bool { value: true } } } }], observables: [] }, orphan_name = "n"

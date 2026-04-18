@@ -13,3 +13,5 @@ proptest = { workspace = true }
 vsel-proof = { path = "../vsel-proof" }
 vsel-trace = { path = "../vsel-trace" }
 vsel-constraints = { path = "../vsel-constraints" }
+vsel-engine = { path = "../vsel-engine" }
+vsel-composition = { path = "../vsel-composition" }

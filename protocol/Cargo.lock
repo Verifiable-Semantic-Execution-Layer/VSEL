@@ -810,8 +810,10 @@ dependencies = [
  "proptest",
  "serde",
  "thiserror",
+ "vsel-composition",
  "vsel-constraints",
  "vsel-core",
+ "vsel-engine",
  "vsel-proof",
  "vsel-trace",
 ]
