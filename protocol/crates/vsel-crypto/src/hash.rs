@@ -111,11 +111,33 @@ pub fn domain_hash_with_algorithm(
         HashAlgorithm::Sha3_256 => domain_hash(domain, data),
         HashAlgorithm::Blake3 => domain_hash_blake3(domain, data),
         HashAlgorithm::Poseidon => {
-            // Poseidon domain separation: hash(domain_bytes || data)
-            let mut input = Vec::with_capacity(32 + data.len());
-            input.extend_from_slice(&(domain.0).0);
-            input.extend_from_slice(data);
-            poseidon_hash(&input)
+            // Poseidon domain separation: derive a domain-specific IV from the
+            // domain tag using SHA3-256 (which has proven collision resistance),
+            // then use that IV to initialize the Poseidon state before absorbing
+            // data.  This guarantees distinct domains produce distinct Poseidon
+            // states regardless of the simplified Poseidon permutation's
+            // diffusion properties over wrapping u64 arithmetic.
+            use sha3::{Sha3_256, Digest};
+            let domain_iv = {
+                let mut h = Sha3_256::new();
+                h.update(b"VSEL::poseidon::domain_iv::");
+                h.update(&(domain.0).0);
+                let result = h.finalize();
+                let mut iv = [0u8; 32];
+                iv.copy_from_slice(&result);
+                iv
+            };
+            let mut state = PoseidonState::new();
+            // Load domain IV into state words directly (not via absorb)
+            for (i, chunk) in domain_iv.chunks(8).enumerate() {
+                let mut word = [0u8; 8];
+                word.copy_from_slice(chunk);
+                state.state[i] = u64::from_le_bytes(word);
+            }
+            state.permute(); // commit domain IV into state
+            state.absorb(data);
+            state.permute();
+            Hash(state.squeeze())
         }
     }
 }
