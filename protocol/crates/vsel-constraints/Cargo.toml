@@ -11,3 +11,9 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 proptest = { workspace = true }
+criterion = { workspace = true }
+vsel-mapping = { path = "../vsel-mapping" }
+
+[[bench]]
+name = "compilation_benchmarks"
+harness = false

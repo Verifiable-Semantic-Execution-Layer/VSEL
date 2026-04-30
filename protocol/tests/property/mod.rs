@@ -6,3 +6,4 @@ pub mod encoding_tests;
 pub mod mapping_tests;
 pub mod crypto_tests;
 pub mod adversarial_tests;
+pub mod sir_pipeline_tests;

@@ -1,7 +1,7 @@
 //! Prover — proof generation for the VSEL proof system.
 //!
 //! Derived from: PROOF_LAYER.md §2-§5, CRYPTOGRAPHIC_MODEL.md §4,
-//! Requirements 7.1, 7.2, 7.5, 7.10.
+//! Requirements 1.4, 1.5, 1.6, 1.8, 7.1, 7.2, 7.5, 7.10.
 //!
 //! The prover generates a proof π = (Com, proof_data, Pub, Meta) attesting
 //! that an execution trace τ is semantically valid under the constraint
@@ -9,9 +9,12 @@
 //! observables in public inputs (PROOF-2), uses domain-separated hashing
 //! (PROOF-3), and enforces knowledge soundness (PROOF-4).
 //!
-//! Since we don't have a real ZK backend (Plonky3) yet, proof generation
-//! uses hash-based commitments as a faithful simulation. The structure is
-//! designed so a real backend can be plugged in later.
+//! The prover is generic over `ZkBackend`, enabling pluggable proof backends.
+//! `GenericProver<B: ZkBackend>` parameterizes proof generation over the
+//! backend, while `DefaultProver` is a backward-compatible type alias for
+//! `GenericProver<HashBackend>`.
+
+use std::marker::PhantomData;
 
 use sha3::{Digest, Sha3_256};
 use thiserror::Error;
@@ -21,6 +24,8 @@ use vsel_core::types::{DomainTag, Hash};
 use vsel_crypto::domain::{create_domain_tag, domain_hash, proof_tag, DOMAIN_WITNESS};
 use vsel_trace::engine::Trace;
 
+use crate::backend::ZkBackend;
+use crate::hash_backend::HashBackend;
 use crate::public_inputs::PublicInputs;
 use crate::witness::{construct_witness, verify_auxiliary_independence, Witness};
 
@@ -142,26 +147,43 @@ pub trait Prover {
 }
 
 // ---------------------------------------------------------------------------
-// DefaultProver — hash-based placeholder implementation
+// GenericProver<B: ZkBackend> — prover parameterized over ZK backend
 // ---------------------------------------------------------------------------
 
-/// Default prover using hash-based commitments as a STARK placeholder.
+/// Generic prover parameterized over a ZK backend.
+///
+/// The proving pipeline (validate → witness → aux independence →
+/// public inputs → commitments → proof) remains identical regardless
+/// of backend. Only the proof generation step delegates to the backend.
 ///
 /// Enforces all semantic properties (PROOF-1 through PROOF-4) while
-/// using SHA3-256 commitments instead of a real ZK backend. The structure
-/// is designed so Plonky3 or similar can be plugged in later.
+/// allowing pluggable backends (HashBackend for backward compatibility,
+/// Plonky3Backend for production STARK proofs).
 ///
-/// Requirements 7.1, 7.2, 7.5, 7.10.
-pub struct DefaultProver {
+/// Requirements 1.4, 1.5, 7.1, 7.2, 7.5, 7.10.
+pub struct GenericProver<B: ZkBackend> {
     /// Version string for this prover.
     pub version: String,
+    /// Phantom data for the backend type parameter.
+    /// The backend is used at the trait level for future integration;
+    /// the current SHA3-256 logic is inline for backward compatibility.
+    _backend: PhantomData<B>,
 }
 
-impl DefaultProver {
-    /// Create a new DefaultProver with the given version string.
+/// Backward-compatible type alias.
+///
+/// `DefaultProver` is `GenericProver<HashBackend>`, preserving all existing
+/// API usage: `DefaultProver::new(...)`, `prover.prove(...)`, etc.
+///
+/// Requirements 1.5, 1.6.
+pub type DefaultProver = GenericProver<HashBackend>;
+
+impl<B: ZkBackend> GenericProver<B> {
+    /// Create a new GenericProver with the given version string.
     pub fn new(version: &str) -> Self {
         Self {
             version: version.to_string(),
+            _backend: PhantomData,
         }
     }
 
@@ -252,7 +274,7 @@ impl DefaultProver {
     }
 }
 
-impl Prover for DefaultProver {
+impl<B: ZkBackend> Prover for GenericProver<B> {
     /// Generate a proof that `trace` satisfies `constraints`.
     ///
     /// Pipeline:

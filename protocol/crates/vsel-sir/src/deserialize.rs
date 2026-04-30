@@ -329,4 +329,75 @@ mod tests {
             other => panic!("expected If, got {:?}", other),
         }
     }
+
+    // -----------------------------------------------------------------------
+    // Example IR artifact deserialization tests (sir/examples/)
+    // Validates that export tooling output is consumable by Rust.
+    // Requirement: 9.7
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_deserialize_example_full_program() {
+        let json = include_str!("../../../../sir/examples/full_program.json");
+        let program = deserialize_program(json).unwrap();
+        assert_eq!(program.version, "0.1.0");
+        assert_eq!(program.state_schema.fields.len(), 3);
+        assert_eq!(program.input_schema.fields.len(), 3);
+        assert_eq!(program.transitions.len(), 3);
+        assert_eq!(program.transitions[0].name, "genesis");
+        assert_eq!(program.transitions[0].class, "Init");
+        assert_eq!(program.transitions[1].name, "deposit");
+        assert_eq!(program.transitions[1].class, "Update");
+        assert_eq!(program.transitions[2].name, "withdraw");
+        assert_eq!(program.transitions[2].class, "Update");
+        assert_eq!(program.invariants.len(), 3);
+        assert_eq!(program.observables.len(), 1);
+    }
+
+    #[test]
+    fn test_deserialize_example_update_transition() {
+        let json = include_str!("../../../../sir/examples/update_transition.json");
+        let transition: SirTransition = serde_json::from_str(json).unwrap();
+        assert_eq!(transition.name, "deposit");
+        assert_eq!(transition.class, "Update");
+        assert_eq!(transition.preconditions.len(), 1);
+        assert_eq!(transition.postconditions.len(), 1);
+        assert_eq!(transition.allowed_mutations, vec!["balance"]);
+    }
+
+    #[test]
+    fn test_deserialize_example_init_transition() {
+        let json = include_str!("../../../../sir/examples/init_transition.json");
+        let transition: SirTransition = serde_json::from_str(json).unwrap();
+        assert_eq!(transition.name, "genesis");
+        assert_eq!(transition.class, "Init");
+        assert!(transition.preconditions.is_empty());
+        assert_eq!(transition.postconditions.len(), 2);
+        assert_eq!(transition.allowed_mutations.len(), 3);
+    }
+
+    #[test]
+    fn test_deserialize_example_invariants() {
+        let json = include_str!("../../../../sir/examples/invariants.json");
+        let invariants: Vec<SirInvariant> = serde_json::from_str(json).unwrap();
+        assert_eq!(invariants.len(), 4);
+        assert_eq!(invariants[0].name, "L_cons");
+        assert_eq!(invariants[0].category, "local");
+        assert_eq!(invariants[1].name, "G_valid");
+        assert_eq!(invariants[1].category, "global");
+        assert_eq!(invariants[2].name, "G_solvency");
+        assert_eq!(invariants[2].category, "global");
+        assert_eq!(invariants[3].name, "E_cost");
+        assert_eq!(invariants[3].category, "economic");
+    }
+
+    #[test]
+    fn test_example_full_program_deterministic_reserialization() {
+        // Verify CONST-4: deserialize then re-serialize produces identical JSON
+        let json = include_str!("../../../../sir/examples/full_program.json");
+        let program: SirProgram = serde_json::from_str(json).unwrap();
+        let reserialized = serde_json::to_string_pretty(&program).unwrap();
+        let program2: SirProgram = serde_json::from_str(&reserialized).unwrap();
+        assert_eq!(program, program2);
+    }
 }

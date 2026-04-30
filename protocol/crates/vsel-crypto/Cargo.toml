@@ -3,9 +3,15 @@ name = "vsel-crypto"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["poseidon-legacy"]
+poseidon-legacy = []
+poseidon-goldilocks = []
+
 [dependencies]
 vsel-core = { path = "../vsel-core" }
 serde = { workspace = true }
+sha2 = "0.10"
 sha3 = { workspace = true }
 blake3 = { workspace = true }
 ed25519-dalek = { workspace = true }
@@ -14,3 +20,8 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 proptest = { workspace = true }
+criterion = { workspace = true }
+
+[[bench]]
+name = "crypto_benchmarks"
+harness = false

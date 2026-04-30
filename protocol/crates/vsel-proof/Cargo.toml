@@ -3,6 +3,30 @@ name = "vsel-proof"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["hash-backend"]
+hash-backend = []
+# Enables the Plonky3 STARK proof backend over the Goldilocks field.
+# Opt-in only — not included in default features.
+# All p3-* crates are optional and only pulled in when this feature is active.
+# Pinned to commit e99af4144f49defe3dda84bad0ab76036a08a016 (2026-04-12).
+# See docs/PLONKY3_VERSION.md for security analysis and upgrade policy.
+plonky3-backend = [
+    "dep:p3-uni-stark",
+    "dep:p3-goldilocks",
+    "dep:p3-fri",
+    "dep:p3-merkle-tree",
+    "dep:p3-poseidon2",
+    "dep:p3-symmetric",
+    "dep:p3-challenger",
+    "dep:p3-field",
+    "dep:p3-matrix",
+    "dep:p3-air",
+    "dep:p3-commit",
+    "dep:p3-dft",
+    "dep:bincode",
+]
+
 [dependencies]
 vsel-core = { path = "../vsel-core" }
 vsel-crypto = { path = "../vsel-crypto" }
@@ -12,5 +36,30 @@ serde = { workspace = true }
 sha3 = { workspace = true }
 thiserror = { workspace = true }
 
+# Plonky3 STARK dependencies — all optional, gated behind `plonky3-backend`.
+# Pinned to commit e99af4144f49defe3dda84bad0ab76036a08a016 from the
+# Plonky3 monorepo (2026-04-12, "Harden verifier shape checks").
+p3-uni-stark = { git = "https://github.com/Plonky3/Plonky3.git", rev = "e99af4144f49defe3dda84bad0ab76036a08a016", optional = true }
+p3-goldilocks = { git = "https://github.com/Plonky3/Plonky3.git", rev = "e99af4144f49defe3dda84bad0ab76036a08a016", optional = true }
+p3-fri = { git = "https://github.com/Plonky3/Plonky3.git", rev = "e99af4144f49defe3dda84bad0ab76036a08a016", optional = true }
+p3-merkle-tree = { git = "https://github.com/Plonky3/Plonky3.git", rev = "e99af4144f49defe3dda84bad0ab76036a08a016", optional = true }
+p3-poseidon2 = { git = "https://github.com/Plonky3/Plonky3.git", rev = "e99af4144f49defe3dda84bad0ab76036a08a016", optional = true }
+p3-symmetric = { git = "https://github.com/Plonky3/Plonky3.git", rev = "e99af4144f49defe3dda84bad0ab76036a08a016", optional = true }
+p3-challenger = { git = "https://github.com/Plonky3/Plonky3.git", rev = "e99af4144f49defe3dda84bad0ab76036a08a016", optional = true }
+p3-field = { git = "https://github.com/Plonky3/Plonky3.git", rev = "e99af4144f49defe3dda84bad0ab76036a08a016", optional = true }
+p3-matrix = { git = "https://github.com/Plonky3/Plonky3.git", rev = "e99af4144f49defe3dda84bad0ab76036a08a016", optional = true }
+p3-air = { git = "https://github.com/Plonky3/Plonky3.git", rev = "e99af4144f49defe3dda84bad0ab76036a08a016", optional = true }
+p3-commit = { git = "https://github.com/Plonky3/Plonky3.git", rev = "e99af4144f49defe3dda84bad0ab76036a08a016", optional = true }
+p3-dft = { git = "https://github.com/Plonky3/Plonky3.git", rev = "e99af4144f49defe3dda84bad0ab76036a08a016", optional = true }
+
+# Serialization for Plonky3 native proofs — optional, gated behind `plonky3-backend`.
+bincode = { version = "1", optional = true }
+
 [dev-dependencies]
 proptest = { workspace = true }
+criterion = { workspace = true }
+bincode = "1"
+
+[[bench]]
+name = "proof_benchmarks"
+harness = false

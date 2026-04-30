@@ -1,0 +1,13 @@
+[package]
+name = "vsel-traceability"
+version = "0.1.0"
+edition = "2021"
+description = "Traceability matrix: L0 Lean 4 invariants → L1 SIR/IR → L2 Rust transitions → L3 constraints → L4 proof obligations → NIST controls"
+
+[dependencies]
+serde = { workspace = true }
+sha3 = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

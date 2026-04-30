@@ -2,10 +2,18 @@
 //! Derived from CRYPTOGRAPHIC_MODEL.md, LONG_TERM_SECURITY_MODEL.md.
 
 pub mod domain;
+pub mod goldilocks;
 pub mod hash;
 pub mod keys;
+#[cfg(feature = "poseidon-legacy")]
+#[deprecated(note = "Use poseidon_goldilocks for production")]
+pub mod legacy_poseidon;
 pub mod migration;
+pub mod poseidon_goldilocks;
 pub mod signatures;
+
+pub use goldilocks::GoldilocksField;
+pub use goldilocks::reduce128;
 
 pub use domain::{
     create_domain_tag, domain_hash, domain_hash_blake3, verify_domain_separation,

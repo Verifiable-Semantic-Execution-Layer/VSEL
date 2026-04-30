@@ -7,16 +7,31 @@
 //! - **Total**: defined for all inputs (no panics, no errors)
 //! - **Deterministic**: same input always produces the same output
 //! - **Pure**: no side effects
+//! - **Injective** (for canonical components): distinct concrete values produce
+//!   distinct formal values, ensuring semantic preservation.
 //!
 //! The formal types use `SirValue` from `vsel-sir`, with `BTreeMap` for
 //! deterministic key ordering in all map constructions.
+//!
+//! ## Semantic Preservation
+//!
+//! All u128 values (balances, total_supply, economic parameters) are encoded as
+//! `SirValue::Bytes` using 16-byte little-endian representation to preserve full
+//! precision. Using `as i64` would silently truncate values > i64::MAX, breaking
+//! semantic preservation and injectivity.
+//!
+//! ## Injectivity
+//!
+//! The mapping is injective for canonical components: if `map_state(s1) = map_state(s2)`
+//! then `s1.canonical = s2.canonical`. This is verified by `verify_state_injectivity()`.
 
 use std::collections::BTreeMap;
 
 use vsel_core::input::{Authorization, Input};
 use vsel_core::observable::{Observable, TransitionStatus};
 use vsel_core::state::{
-    AccountData, CanonicalState, DerivedState, EconomicContext, Environment, State, TraceMetadata,
+    self, AccountData, CanonicalState, DerivedState, EconomicContext, Environment, State,
+    TraceMetadata,
 };
 use vsel_core::transition::TransitionClass;
 use vsel_core::types::*;
@@ -58,7 +73,15 @@ pub struct FormalObservable(pub SirValue);
 /// Map a concrete `State` to a `FormalState` (`SirValue::Map`).
 ///
 /// Total and deterministic. The formal state is a map with keys:
-/// `canonical`, `derived`, `environment`, `economic`, `metadata`.
+/// `canonical`, `derived`, `environment`, `economic`, `metadata`,
+/// and `derived_valid` (bool indicating D = Derive(C)).
+///
+/// Field-level semantic extraction:
+/// - Canonical: accounts (balances as u128 bytes, nonces, data), storage, system_data
+/// - Derived: state_root, auxiliary_roots, aggregates — verified against Derive(C)
+/// - Environment: timestamp, block_height, execution_domain
+/// - Economic: full parameter mapping (price_oracle, exposure_limits, etc.)
+/// - Metadata: sequence_index, previous_commitment, epoch, timestamp
 ///
 /// Requirement 4.1: μ_S is total and deterministic.
 pub fn map_state(concrete: &State) -> FormalState {
@@ -68,7 +91,44 @@ pub fn map_state(concrete: &State) -> FormalState {
     entries.insert("environment".to_string(), map_environment(&concrete.environment));
     entries.insert("economic".to_string(), map_economic_context(&concrete.economic));
     entries.insert("metadata".to_string(), map_trace_metadata(&concrete.metadata));
+
+    // Verify D = Derive(C) through the mapping (DEF-1 verification)
+    let recomputed_derived = state::derive(&concrete.canonical);
+    let derived_valid = concrete.derived == recomputed_derived;
+    entries.insert("derived_valid".to_string(), SirValue::Bool { value: derived_valid });
+
     FormalState(SirValue::Map { entries })
+}
+
+/// Verify injectivity of `map_state` for canonical components.
+///
+/// Returns true if `map_state(s1).canonical == map_state(s2).canonical` implies
+/// `s1.canonical == s2.canonical`. This is verified by checking that the
+/// canonical mapping is structurally injective — distinct canonical states
+/// produce distinct SIR values.
+///
+/// Requirement 4.1: μ_S injectivity for canonical components.
+pub fn verify_state_injectivity(s1: &State, s2: &State) -> bool {
+    let formal1 = map_state(s1);
+    let formal2 = map_state(s2);
+
+    // Extract canonical components from formal states
+    let canonical1 = match &formal1.0 {
+        SirValue::Map { entries } => entries.get("canonical"),
+        _ => None,
+    };
+    let canonical2 = match &formal2.0 {
+        SirValue::Map { entries } => entries.get("canonical"),
+        _ => None,
+    };
+
+    // Injectivity: if formal canonicals are equal, concrete canonicals must be equal
+    if canonical1 == canonical2 {
+        s1.canonical == s2.canonical
+    } else {
+        // Different formal canonicals — injectivity trivially holds
+        true
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -194,15 +254,20 @@ fn map_canonical_state(c: &CanonicalState) -> SirValue {
 }
 
 /// Map `AccountData` to `SirValue::Map`.
+///
+/// Balance is encoded as `SirValue::Bytes` (16-byte LE) to preserve full u128 precision.
+/// Using `as i64` would silently truncate values > i64::MAX, breaking injectivity.
 fn map_account_data(a: &AccountData) -> SirValue {
     let mut entries = BTreeMap::new();
-    entries.insert("balance".to_string(), SirValue::Int { value: a.balance as i64 });
+    entries.insert("balance".to_string(), map_u128(a.balance));
     entries.insert("nonce".to_string(), SirValue::Int { value: a.nonce as i64 });
     entries.insert("data".to_string(), SirValue::Bytes { value: a.data.clone() });
     SirValue::Map { entries }
 }
 
 /// Map `SystemData` to `SirValue::Map`.
+///
+/// total_supply is encoded as `SirValue::Bytes` (16-byte LE) to preserve full u128 precision.
 fn map_system_data(sd: &SystemData) -> SirValue {
     let mut entries = BTreeMap::new();
 
@@ -213,7 +278,7 @@ fn map_system_data(sd: &SystemData) -> SirValue {
     version.insert("patch".to_string(), SirValue::Int { value: sd.protocol_version.patch as i64 });
     entries.insert("protocol_version".to_string(), SirValue::Map { entries: version });
 
-    entries.insert("total_supply".to_string(), SirValue::Int { value: sd.total_supply as i64 });
+    entries.insert("total_supply".to_string(), map_u128(sd.total_supply));
 
     // Parameters: map of string keys to byte values
     let mut params = BTreeMap::new();
@@ -226,6 +291,8 @@ fn map_system_data(sd: &SystemData) -> SirValue {
 }
 
 /// Map `DerivedState` to `SirValue::Map`.
+///
+/// Aggregates are encoded as `SirValue::Bytes` (16-byte LE) to preserve full u128 precision.
 fn map_derived_state(d: &DerivedState) -> SirValue {
     let mut entries = BTreeMap::new();
     entries.insert("state_root".to_string(), map_hash(&d.state_root));
@@ -238,7 +305,7 @@ fn map_derived_state(d: &DerivedState) -> SirValue {
 
     let mut aggregates = BTreeMap::new();
     for (k, v) in &d.aggregates {
-        aggregates.insert(k.clone(), SirValue::Int { value: *v as i64 });
+        aggregates.insert(k.clone(), map_u128(*v));
     }
     entries.insert("aggregates".to_string(), SirValue::Map { entries: aggregates });
 
@@ -255,6 +322,9 @@ fn map_environment(e: &Environment) -> SirValue {
 }
 
 /// Map `EconomicContext` to `SirValue::Map`.
+///
+/// All u128 economic values (prices, limits, thresholds, fees, collateral ratios)
+/// are encoded as `SirValue::Bytes` (16-byte LE) to preserve full precision.
 fn map_economic_context(econ: &EconomicContext) -> SirValue {
     let mut entries = BTreeMap::new();
 
@@ -262,21 +332,21 @@ fn map_economic_context(econ: &EconomicContext) -> SirValue {
     let mut oracle = BTreeMap::new();
     for (pair, price) in &econ.price_oracle {
         let key = format!("{}_{}", pair.base, pair.quote);
-        oracle.insert(key, SirValue::Int { value: price.0 as i64 });
+        oracle.insert(key, map_u128(price.0));
     }
     entries.insert("price_oracle".to_string(), SirValue::Map { entries: oracle });
 
     // Exposure limits
     let mut limits = BTreeMap::new();
     for (id, limit) in &econ.exposure_limits {
-        limits.insert(hex_encode(&id.0), SirValue::Int { value: limit.0 as i64 });
+        limits.insert(hex_encode(&id.0), map_u128(limit.0));
     }
     entries.insert("exposure_limits".to_string(), SirValue::Map { entries: limits });
 
     // Liquidity thresholds
     let mut thresholds = BTreeMap::new();
     for (id, threshold) in &econ.liquidity_thresholds {
-        thresholds.insert(hex_encode(&id.0), SirValue::Int { value: threshold.0 as i64 });
+        thresholds.insert(hex_encode(&id.0), map_u128(threshold.0));
     }
     entries.insert("liquidity_thresholds".to_string(), SirValue::Map { entries: thresholds });
 
@@ -294,7 +364,7 @@ fn map_economic_context(econ: &EconomicContext) -> SirValue {
             PositionType::Short => "short",
             PositionType::Neutral => "neutral",
         };
-        collateral.insert(key.to_string(), SirValue::Int { value: ratio.0 as i64 });
+        collateral.insert(key.to_string(), map_u128(ratio.0));
     }
     entries.insert("collateral_requirements".to_string(), SirValue::Map { entries: collateral });
 
@@ -305,14 +375,16 @@ fn map_economic_context(econ: &EconomicContext) -> SirValue {
 }
 
 /// Map `FeeSchedule` to `SirValue::Map`.
+///
+/// All u128 fee values are encoded as `SirValue::Bytes` (16-byte LE).
 fn map_fee_schedule(fs: &FeeSchedule) -> SirValue {
     let mut entries = BTreeMap::new();
-    entries.insert("base_fee".to_string(), SirValue::Int { value: fs.base_fee as i64 });
-    entries.insert("fee_rate_bps".to_string(), SirValue::Int { value: fs.fee_rate_bps as i64 });
+    entries.insert("base_fee".to_string(), map_u128(fs.base_fee));
+    entries.insert("fee_rate_bps".to_string(), map_u128(fs.fee_rate_bps));
 
     let mut overrides = BTreeMap::new();
     for (k, v) in &fs.overrides {
-        overrides.insert(k.clone(), SirValue::Int { value: *v as i64 });
+        overrides.insert(k.clone(), map_u128(*v));
     }
     entries.insert("overrides".to_string(), SirValue::Map { entries: overrides });
 
@@ -320,24 +392,28 @@ fn map_fee_schedule(fs: &FeeSchedule) -> SirValue {
 }
 
 /// Map `EpochAccounting` to `SirValue::Map`.
+///
+/// total_fees_collected is encoded as `SirValue::Bytes` (16-byte LE) for u128 precision.
 fn map_epoch_accounting(ea: &EpochAccounting) -> SirValue {
     let mut entries = BTreeMap::new();
     entries.insert("epoch".to_string(), SirValue::Int { value: ea.epoch as i64 });
-    entries.insert("total_fees_collected".to_string(), SirValue::Int { value: ea.total_fees_collected as i64 });
+    entries.insert("total_fees_collected".to_string(), map_u128(ea.total_fees_collected));
     entries.insert("total_transactions".to_string(), SirValue::Int { value: ea.total_transactions as i64 });
     SirValue::Map { entries }
 }
 
 /// Map `EconomicParameters` to `SirValue::Map`.
+///
+/// All u128 parameter values are encoded as `SirValue::Bytes` (16-byte LE).
 fn map_economic_parameters(ep: &EconomicParameters) -> SirValue {
     let mut entries = BTreeMap::new();
-    entries.insert("min_collateral_ratio_bps".to_string(), SirValue::Int { value: ep.min_collateral_ratio_bps as i64 });
-    entries.insert("max_leverage_bps".to_string(), SirValue::Int { value: ep.max_leverage_bps as i64 });
-    entries.insert("dust_threshold".to_string(), SirValue::Int { value: ep.dust_threshold as i64 });
+    entries.insert("min_collateral_ratio_bps".to_string(), map_u128(ep.min_collateral_ratio_bps));
+    entries.insert("max_leverage_bps".to_string(), map_u128(ep.max_leverage_bps));
+    entries.insert("dust_threshold".to_string(), map_u128(ep.dust_threshold));
 
     let mut extra = BTreeMap::new();
     for (k, v) in &ep.extra {
-        extra.insert(k.clone(), SirValue::Int { value: *v as i64 });
+        extra.insert(k.clone(), map_u128(*v));
     }
     entries.insert("extra".to_string(), SirValue::Map { entries: extra });
 
@@ -422,6 +498,18 @@ fn map_trace_entry(te: &TraceEntry) -> SirValue {
 /// Uses lowercase hex for consistency.
 fn hex_encode(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{:02x}", b)).collect()
+}
+
+/// Map a u128 value to `SirValue::Bytes` using 16-byte little-endian encoding.
+///
+/// This preserves full u128 precision. Using `SirValue::Int { value: v as i64 }`
+/// would silently truncate values > i64::MAX (9,223,372,036,854,775,807),
+/// breaking semantic preservation and injectivity for balances, total_supply,
+/// and economic parameters that can legitimately exceed i64::MAX.
+///
+/// The encoding is injective: distinct u128 values produce distinct byte sequences.
+fn map_u128(v: u128) -> SirValue {
+    SirValue::Bytes { value: v.to_le_bytes().to_vec() }
 }
 
 // ---------------------------------------------------------------------------
@@ -638,20 +726,27 @@ pub fn verify_derived_commutativity(canonical: &CanonicalState) -> bool {
         // total_balance aggregate should match sum of account balances
         if let SirValue::Map { entries: canonical_map } = &formal_canonical {
             if let Some(SirValue::Map { entries: accounts }) = canonical_map.get("accounts") {
-                let total: i64 = accounts
+                let total: u128 = accounts
                     .values()
                     .filter_map(|v| {
                         if let SirValue::Map { entries } = v {
-                            if let Some(SirValue::Int { value }) = entries.get("balance") {
-                                return Some(*value);
+                            if let Some(SirValue::Bytes { value }) = entries.get("balance") {
+                                if value.len() == 16 {
+                                    return Some(u128::from_le_bytes(
+                                        value[..16].try_into().unwrap(),
+                                    ));
+                                }
                             }
                         }
                         None
                     })
                     .sum();
-                if let Some(SirValue::Int { value: agg_total }) = agg_entries.get("total_balance") {
-                    if *agg_total != total {
-                        return false;
+                if let Some(SirValue::Bytes { value: agg_bytes }) = agg_entries.get("total_balance") {
+                    if agg_bytes.len() == 16 {
+                        let agg_total = u128::from_le_bytes(agg_bytes[..16].try_into().unwrap());
+                        if agg_total != total {
+                            return false;
+                        }
                     }
                 }
             }
@@ -1007,6 +1102,9 @@ mod tests {
                 assert!(entries.contains_key("environment"));
                 assert!(entries.contains_key("economic"));
                 assert!(entries.contains_key("metadata"));
+                assert!(entries.contains_key("derived_valid"));
+                // For a properly constructed state, derived_valid should be true
+                assert_eq!(entries["derived_valid"], SirValue::Bool { value: true });
             }
             _ => panic!("map_state must produce SirValue::Map"),
         }
@@ -1481,5 +1579,139 @@ mod tests {
         let sigma = make_input("transfer", sender.to_vec());
         let s_prime = apply(&s, &sigma);
         assert!(verify_commutativity(&s, &sigma, &s_prime));
+    }
+
+    // -- map_u128 precision tests --
+
+    #[test]
+    fn test_map_u128_zero() {
+        let v = map_u128(0u128);
+        assert_eq!(v, SirValue::Bytes { value: 0u128.to_le_bytes().to_vec() });
+    }
+
+    #[test]
+    fn test_map_u128_max() {
+        let v = map_u128(u128::MAX);
+        assert_eq!(v, SirValue::Bytes { value: u128::MAX.to_le_bytes().to_vec() });
+    }
+
+    #[test]
+    fn test_map_u128_exceeds_i64_max() {
+        // This value would be truncated by `as i64`
+        let large_balance: u128 = (i64::MAX as u128) + 1;
+        let v = map_u128(large_balance);
+        if let SirValue::Bytes { value } = &v {
+            let decoded = u128::from_le_bytes(value[..16].try_into().unwrap());
+            assert_eq!(decoded, large_balance, "u128 precision must be preserved");
+        } else {
+            panic!("map_u128 must produce SirValue::Bytes");
+        }
+    }
+
+    #[test]
+    fn test_map_u128_injectivity() {
+        // Two distinct u128 values must produce distinct SirValue
+        assert_ne!(map_u128(0), map_u128(1));
+        assert_ne!(map_u128(u128::MAX), map_u128(u128::MAX - 1));
+        assert_ne!(map_u128(i64::MAX as u128), map_u128((i64::MAX as u128) + 1));
+    }
+
+    // -- verify_state_injectivity tests --
+
+    #[test]
+    fn test_state_injectivity_same_state() {
+        let s = build_valid_state(minimal_canonical());
+        assert!(verify_state_injectivity(&s, &s));
+    }
+
+    #[test]
+    fn test_state_injectivity_different_canonical() {
+        let s1 = build_valid_state(minimal_canonical());
+        let mut c2 = minimal_canonical();
+        c2.system_data.total_supply = 100;
+        c2.accounts.insert(
+            AccountId([1u8; 32]),
+            AccountData { balance: 100, nonce: 0, data: vec![] },
+        );
+        let s2 = build_valid_state(c2);
+        assert!(verify_state_injectivity(&s1, &s2));
+    }
+
+    #[test]
+    fn test_state_injectivity_large_balances() {
+        // Test with balances that would be truncated by `as i64`
+        let mut c1 = minimal_canonical();
+        let large_balance: u128 = (i64::MAX as u128) + 1;
+        c1.system_data.total_supply = large_balance;
+        c1.accounts.insert(
+            AccountId([1u8; 32]),
+            AccountData { balance: large_balance, nonce: 0, data: vec![] },
+        );
+        let s1 = build_valid_state(c1);
+
+        let mut c2 = minimal_canonical();
+        let large_balance_2: u128 = (i64::MAX as u128) + 2;
+        c2.system_data.total_supply = large_balance_2;
+        c2.accounts.insert(
+            AccountId([1u8; 32]),
+            AccountData { balance: large_balance_2, nonce: 0, data: vec![] },
+        );
+        let s2 = build_valid_state(c2);
+
+        // These states differ — injectivity must hold
+        assert!(verify_state_injectivity(&s1, &s2));
+        // And the formal states must differ (not truncated to same value)
+        assert_ne!(map_state(&s1), map_state(&s2));
+    }
+
+    // -- derived_valid field tests --
+
+    #[test]
+    fn test_map_state_derived_valid_true() {
+        let s = build_valid_state(minimal_canonical());
+        let formal = map_state(&s);
+        if let SirValue::Map { entries } = &formal.0 {
+            assert_eq!(entries["derived_valid"], SirValue::Bool { value: true });
+        }
+    }
+
+    #[test]
+    fn test_map_state_derived_valid_false_when_corrupted() {
+        let mut s = build_valid_state(minimal_canonical());
+        // Corrupt the derived state
+        s.derived.state_root = Hash([0xFFu8; 32]);
+        let formal = map_state(&s);
+        if let SirValue::Map { entries } = &formal.0 {
+            assert_eq!(entries["derived_valid"], SirValue::Bool { value: false });
+        }
+    }
+
+    // -- balance precision in canonical mapping --
+
+    #[test]
+    fn test_canonical_mapping_preserves_large_balance() {
+        let mut c = minimal_canonical();
+        let large_balance: u128 = u128::MAX / 2;
+        c.system_data.total_supply = large_balance;
+        c.accounts.insert(
+            AccountId([1u8; 32]),
+            AccountData { balance: large_balance, nonce: 0, data: vec![] },
+        );
+        let formal = map_canonical_state(&c);
+        if let SirValue::Map { entries } = &formal {
+            if let Some(SirValue::Map { entries: accounts }) = entries.get("accounts") {
+                let account_key = hex_encode(&[1u8; 32]);
+                if let Some(SirValue::Map { entries: acct }) = accounts.get(&account_key) {
+                    if let Some(SirValue::Bytes { value }) = acct.get("balance") {
+                        let decoded = u128::from_le_bytes(value[..16].try_into().unwrap());
+                        assert_eq!(decoded, large_balance, "large balance must be preserved");
+                    } else {
+                        panic!("balance must be SirValue::Bytes");
+                    }
+                } else {
+                    panic!("account not found in mapping");
+                }
+            }
+        }
     }
 }

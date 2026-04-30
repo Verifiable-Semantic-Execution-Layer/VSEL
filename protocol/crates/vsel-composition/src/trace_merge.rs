@@ -6,6 +6,15 @@
 //! Merges two execution traces from independent systems into a
 //! `ComposedTrace` that preserves ordering, records cross-system
 //! synchronization points, and computes a merged commitment hash.
+//!
+//! Temporal ordering verification (L-002 remediation):
+//! - Each individual trace must have non-decreasing timestamps.
+//! - At synchronization points, timestamps must be consistent across
+//!   both traces (equal, since sync points are defined by matching
+//!   timestamps).
+//! - Causal ordering across sync points: if sync point S1 precedes S2,
+//!   then S1's timestamp must be ≤ S2's timestamp in both traces.
+//! - Traces with ordering inconsistencies are rejected.
 
 use sha3::{Digest, Sha3_256};
 
@@ -18,6 +27,39 @@ use vsel_trace::engine::Trace;
 
 /// Domain separator for trace merge commitment computation.
 const DOMAIN_TRACE_MERGE: &[u8] = b"VSEL::v1::trace_merge";
+
+// ---------------------------------------------------------------------------
+// TraceMergeError — temporal ordering violations
+// ---------------------------------------------------------------------------
+
+/// Error type for trace merge temporal ordering violations.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TraceMergeError {
+    /// Timestamps within a single trace are not non-decreasing.
+    IntraTraceOrderingViolation {
+        /// Which system's trace has the violation ("A" or "B").
+        system: &'static str,
+        /// Index of the entry with the violation.
+        entry_index: u64,
+        /// Timestamp of the preceding entry.
+        preceding_timestamp: u64,
+        /// Timestamp of the violating entry.
+        violating_timestamp: u64,
+    },
+    /// Causal ordering violated across synchronization points: a later
+    /// sync point references entries with earlier timestamps than a
+    /// preceding sync point.
+    CrossTraceCausalViolation {
+        /// Index of the earlier synchronization point.
+        earlier_sync_index: u64,
+        /// Timestamp at the earlier sync point.
+        earlier_timestamp: u64,
+        /// Index of the later synchronization point.
+        later_sync_index: u64,
+        /// Timestamp at the later sync point.
+        later_timestamp: u64,
+    },
+}
 
 // ---------------------------------------------------------------------------
 // SyncType — classification of cross-system synchronization
@@ -87,17 +129,98 @@ pub struct ComposedTrace {
 /// systems share the same timestamp (indicating cross-system interaction).
 /// Computes a merged commitment hash binding both traces together.
 ///
-/// Requirements 11.4, 11.6.
-pub fn merge_traces(trace_a: &Trace, trace_b: &Trace) -> ComposedTrace {
+/// Validates temporal ordering:
+/// - Each trace must have non-decreasing timestamps (intra-trace ordering).
+/// - Synchronization points must have consistent causal ordering: if sync
+///   point S1 precedes S2, then S1's timestamp ≤ S2's timestamp.
+///
+/// Returns `Err(TraceMergeError)` if temporal ordering is violated.
+///
+/// Requirements 11.4, 11.6. Remediates L-002.
+pub fn merge_traces(trace_a: &Trace, trace_b: &Trace) -> Result<ComposedTrace, TraceMergeError> {
+    // Step 1: Validate intra-trace temporal ordering for both traces.
+    validate_intra_trace_ordering(trace_a, "A")?;
+    validate_intra_trace_ordering(trace_b, "B")?;
+
+    // Step 2: Detect synchronization points.
     let sync_points = detect_sync_points(trace_a, trace_b);
+
+    // Step 3: Validate cross-trace causal ordering at sync points.
+    validate_cross_trace_ordering(trace_a, trace_b, &sync_points)?;
+
+    // Step 4: Compute merged commitment.
     let merged_commitment = compute_merged_commitment(trace_a, trace_b, &sync_points);
 
-    ComposedTrace {
+    Ok(ComposedTrace {
         trace_a: trace_a.clone(),
         trace_b: trace_b.clone(),
         sync_points,
         merged_commitment,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Temporal ordering validation
+// ---------------------------------------------------------------------------
+
+/// Validate that timestamps within a single trace are non-decreasing.
+///
+/// Each entry's environment timestamp must be ≥ the preceding entry's
+/// timestamp. This enforces T_causal (causality preservation) within
+/// a single system's trace.
+fn validate_intra_trace_ordering(
+    trace: &Trace,
+    system: &'static str,
+) -> Result<(), TraceMergeError> {
+    for i in 1..trace.entries.len() {
+        let prev_ts = trace.entries[i - 1].environment.timestamp;
+        let curr_ts = trace.entries[i].environment.timestamp;
+        if curr_ts < prev_ts {
+            return Err(TraceMergeError::IntraTraceOrderingViolation {
+                system,
+                entry_index: trace.entries[i].index,
+                preceding_timestamp: prev_ts,
+                violating_timestamp: curr_ts,
+            });
+        }
     }
+    Ok(())
+}
+
+/// Validate causal ordering across synchronization points.
+///
+/// For consecutive sync points S_i and S_j (i < j), the timestamp at S_j
+/// must be ≥ the timestamp at S_i. Since sync points are defined by
+/// matching timestamps across both traces, we verify that the sequence
+/// of sync point timestamps is non-decreasing.
+fn validate_cross_trace_ordering(
+    trace_a: &Trace,
+    _trace_b: &Trace,
+    sync_points: &[SynchronizationPoint],
+) -> Result<(), TraceMergeError> {
+    for i in 1..sync_points.len() {
+        let prev_sp = &sync_points[i - 1];
+        let curr_sp = &sync_points[i];
+
+        // Get the timestamp at each sync point from trace A (both traces
+        // have the same timestamp at a sync point by definition).
+        let prev_ts = trace_a.entries[prev_sp.system_a_entry_index as usize]
+            .environment
+            .timestamp;
+        let curr_ts = trace_a.entries[curr_sp.system_a_entry_index as usize]
+            .environment
+            .timestamp;
+
+        if curr_ts < prev_ts {
+            return Err(TraceMergeError::CrossTraceCausalViolation {
+                earlier_sync_index: prev_sp.index,
+                earlier_timestamp: prev_ts,
+                later_sync_index: curr_sp.index,
+                later_timestamp: curr_ts,
+            });
+        }
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -339,7 +462,7 @@ mod tests {
     fn test_merge_empty_traces() {
         let a = make_trace(&[], 0x10);
         let b = make_trace(&[], 0x20);
-        let composed = merge_traces(&a, &b);
+        let composed = merge_traces(&a, &b).expect("empty traces should merge");
 
         assert!(composed.sync_points.is_empty());
         assert_eq!(composed.trace_a.entries.len(), 0);
@@ -350,7 +473,7 @@ mod tests {
     fn test_merge_preserves_original_traces() {
         let a = make_trace(&[1000, 2000, 3000], 0x10);
         let b = make_trace(&[1500, 2500], 0x20);
-        let composed = merge_traces(&a, &b);
+        let composed = merge_traces(&a, &b).expect("valid traces should merge");
 
         assert_eq!(composed.trace_a.entries.len(), 3);
         assert_eq!(composed.trace_b.entries.len(), 2);
@@ -363,7 +486,7 @@ mod tests {
         // Both traces have entries at timestamp 2000
         let a = make_trace(&[1000, 2000, 3000], 0x10);
         let b = make_trace(&[1500, 2000, 2500], 0x20);
-        let composed = merge_traces(&a, &b);
+        let composed = merge_traces(&a, &b).expect("valid traces should merge");
 
         // Should detect sync at timestamp 2000 (a[1] and b[1])
         assert_eq!(composed.sync_points.len(), 1);
@@ -380,7 +503,7 @@ mod tests {
         // Both traces share timestamps 1000 and 3000
         let a = make_trace(&[1000, 2000, 3000], 0x10);
         let b = make_trace(&[1000, 2500, 3000], 0x20);
-        let composed = merge_traces(&a, &b);
+        let composed = merge_traces(&a, &b).expect("valid traces should merge");
 
         assert_eq!(composed.sync_points.len(), 2);
         // First sync: a[0] and b[0] at timestamp 1000
@@ -395,7 +518,7 @@ mod tests {
     fn test_merge_no_sync_points() {
         let a = make_trace(&[1000, 2000], 0x10);
         let b = make_trace(&[1500, 2500], 0x20);
-        let composed = merge_traces(&a, &b);
+        let composed = merge_traces(&a, &b).expect("valid traces should merge");
 
         assert!(composed.sync_points.is_empty());
     }
@@ -405,8 +528,8 @@ mod tests {
         let a = make_trace(&[1000, 2000], 0x10);
         let b = make_trace(&[1500, 2500], 0x20);
 
-        let c1 = merge_traces(&a, &b);
-        let c2 = merge_traces(&a, &b);
+        let c1 = merge_traces(&a, &b).expect("valid traces should merge");
+        let c2 = merge_traces(&a, &b).expect("valid traces should merge");
 
         assert_eq!(c1.merged_commitment, c2.merged_commitment);
     }
@@ -417,8 +540,8 @@ mod tests {
         let a2 = make_trace(&[1000, 2000, 3000], 0x30);
         let b = make_trace(&[1500, 2500], 0x20);
 
-        let c1 = merge_traces(&a1, &b);
-        let c2 = merge_traces(&a2, &b);
+        let c1 = merge_traces(&a1, &b).expect("valid traces should merge");
+        let c2 = merge_traces(&a2, &b).expect("valid traces should merge");
 
         assert_ne!(c1.merged_commitment, c2.merged_commitment);
     }
@@ -428,8 +551,8 @@ mod tests {
         let a = make_trace(&[1000, 2000], 0x10);
         let b = make_trace(&[1500, 2500], 0x20);
 
-        let c1 = merge_traces(&a, &b);
-        let c2 = merge_traces(&b, &a);
+        let c1 = merge_traces(&a, &b).expect("valid traces should merge");
+        let c2 = merge_traces(&b, &a).expect("valid traces should merge");
 
         // Swapping A and B should produce a different commitment
         assert_ne!(c1.merged_commitment, c2.merged_commitment);
@@ -439,7 +562,7 @@ mod tests {
     fn test_sync_point_commitments_are_unique() {
         let a = make_trace(&[1000, 2000, 3000], 0x10);
         let b = make_trace(&[1000, 2000, 3000], 0x20);
-        let composed = merge_traces(&a, &b);
+        let composed = merge_traces(&a, &b).expect("valid traces should merge");
 
         // Each sync point should have a unique commitment
         for i in 0..composed.sync_points.len() {
@@ -459,10 +582,61 @@ mod tests {
     fn test_sync_point_indices_sequential() {
         let a = make_trace(&[1000, 2000, 3000], 0x10);
         let b = make_trace(&[1000, 2000, 3000], 0x20);
-        let composed = merge_traces(&a, &b);
+        let composed = merge_traces(&a, &b).expect("valid traces should merge");
 
         for (i, sp) in composed.sync_points.iter().enumerate() {
             assert_eq!(sp.index, i as u64);
         }
+    }
+
+    // -- Temporal ordering validation tests --
+
+    #[test]
+    fn test_merge_rejects_trace_a_with_decreasing_timestamps() {
+        let a = make_trace(&[2000, 1000], 0x10); // Decreasing: violation
+        let b = make_trace(&[1500, 2500], 0x20);
+        let result = merge_traces(&a, &b);
+
+        match result {
+            Err(TraceMergeError::IntraTraceOrderingViolation {
+                system,
+                entry_index,
+                preceding_timestamp,
+                violating_timestamp,
+            }) => {
+                assert_eq!(system, "A");
+                assert_eq!(entry_index, 1);
+                assert_eq!(preceding_timestamp, 2000);
+                assert_eq!(violating_timestamp, 1000);
+            }
+            other => panic!("Expected IntraTraceOrderingViolation for A, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_merge_rejects_trace_b_with_decreasing_timestamps() {
+        let a = make_trace(&[1000, 2000], 0x10);
+        let b = make_trace(&[3000, 1500], 0x20); // Decreasing: violation
+        let result = merge_traces(&a, &b);
+
+        match result {
+            Err(TraceMergeError::IntraTraceOrderingViolation {
+                system,
+                entry_index,
+                ..
+            }) => {
+                assert_eq!(system, "B");
+                assert_eq!(entry_index, 1);
+            }
+            other => panic!("Expected IntraTraceOrderingViolation for B, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_merge_accepts_equal_timestamps() {
+        // Equal consecutive timestamps are valid (non-decreasing).
+        let a = make_trace(&[1000, 1000, 2000], 0x10);
+        let b = make_trace(&[1500, 1500], 0x20);
+        assert!(merge_traces(&a, &b).is_ok());
     }
 }

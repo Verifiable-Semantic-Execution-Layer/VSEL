@@ -63,6 +63,145 @@ pub struct Witness {
 }
 
 // ---------------------------------------------------------------------------
+// WitnessEncoding — serializable witness for proof embedding
+// ---------------------------------------------------------------------------
+
+/// Encoded witness for embedding in proof structure.
+///
+/// Contains the full witness data in a serializable format suitable for
+/// binding to the proof via commitment: `Commit(W) ∈ proof.commitments`.
+///
+/// _Remediates: M-003 from ULTRA_ADVERSARIAL_AUDIT.md_
+#[derive(Clone, Debug)]
+pub struct WitnessEncoding {
+    /// Number of intermediate states.
+    pub intermediate_state_count: usize,
+    /// Commitments to each intermediate state's canonical form.
+    pub intermediate_state_commitments: Vec<vsel_core::types::Hash>,
+    /// Number of inputs in the sequence.
+    pub input_count: usize,
+    /// Encoded input data (payload type + data + auth nonce per input).
+    pub encoded_inputs: Vec<EncodedInput>,
+    /// Number of auxiliary computation values.
+    pub aux_count: usize,
+    /// Encoded auxiliary values (name + value bytes).
+    pub encoded_aux: Vec<(String, Vec<u8>)>,
+}
+
+/// Encoded input for witness embedding.
+#[derive(Clone, Debug)]
+pub struct EncodedInput {
+    /// Payload type string.
+    pub payload_type: String,
+    /// Payload data bytes.
+    pub payload_data: Vec<u8>,
+    /// Authorization nonce for binding.
+    pub auth_nonce: u64,
+}
+
+impl WitnessEncoding {
+    /// Encode a witness into a serializable format.
+    ///
+    /// Captures all semantic variables (inputs), derived variables
+    /// (intermediate state commitments), and auxiliary variables.
+    pub fn from_witness(witness: &Witness) -> Self {
+        let intermediate_state_commitments: Vec<vsel_core::types::Hash> = witness
+            .intermediate_states
+            .iter()
+            .map(|s| vsel_core::state::commit(&s.canonical))
+            .collect();
+
+        let encoded_inputs: Vec<EncodedInput> = witness
+            .input_sequence
+            .iter()
+            .map(|input| EncodedInput {
+                payload_type: input.payload.payload_type.clone(),
+                payload_data: input.payload.data.clone(),
+                auth_nonce: input.auth.nonce,
+            })
+            .collect();
+
+        let encoded_aux: Vec<(String, Vec<u8>)> = witness
+            .aux_computation
+            .values
+            .clone();
+
+        WitnessEncoding {
+            intermediate_state_count: witness.intermediate_states.len(),
+            intermediate_state_commitments,
+            input_count: witness.input_sequence.len(),
+            encoded_inputs,
+            aux_count: witness.aux_computation.values.len(),
+            encoded_aux,
+        }
+    }
+
+    /// Verify witness completeness: all semantic variables present,
+    /// all auxiliary variables present.
+    ///
+    /// Returns true if the encoding is complete and consistent.
+    pub fn verify_completeness(&self, witness: &Witness) -> bool {
+        // Check intermediate state count matches.
+        if self.intermediate_state_count != witness.intermediate_states.len() {
+            return false;
+        }
+        if self.intermediate_state_commitments.len() != self.intermediate_state_count {
+            return false;
+        }
+
+        // Check input count matches.
+        if self.input_count != witness.input_sequence.len() {
+            return false;
+        }
+        if self.encoded_inputs.len() != self.input_count {
+            return false;
+        }
+
+        // Check auxiliary count matches.
+        if self.aux_count != witness.aux_computation.values.len() {
+            return false;
+        }
+        if self.encoded_aux.len() != self.aux_count {
+            return false;
+        }
+
+        // Verify each intermediate state commitment matches.
+        for (i, state) in witness.intermediate_states.iter().enumerate() {
+            let expected = vsel_core::state::commit(&state.canonical);
+            if self.intermediate_state_commitments[i] != expected {
+                return false;
+            }
+        }
+
+        // Verify each encoded input matches.
+        for (i, input) in witness.input_sequence.iter().enumerate() {
+            let enc = &self.encoded_inputs[i];
+            if enc.payload_type != input.payload.payload_type {
+                return false;
+            }
+            if enc.payload_data != input.payload.data {
+                return false;
+            }
+            if enc.auth_nonce != input.auth.nonce {
+                return false;
+            }
+        }
+
+        // Verify each auxiliary value matches.
+        for (i, (name, value)) in witness.aux_computation.values.iter().enumerate() {
+            if self.encoded_aux[i].0 != *name {
+                return false;
+            }
+            if self.encoded_aux[i].1 != *value {
+                return false;
+            }
+        }
+
+        true
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Witness construction from execution trace
 // ---------------------------------------------------------------------------
 

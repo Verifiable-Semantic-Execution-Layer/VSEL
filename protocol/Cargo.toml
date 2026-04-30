@@ -11,6 +11,7 @@ members = [
     "crates/vsel-proof",
     "crates/vsel-composition",
     "crates/vsel-sir",
+    "crates/vsel-traceability",
 ]
 
 [workspace.dependencies]
@@ -21,3 +22,4 @@ blake3 = "1"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
 thiserror = "2"
 proptest = "1"
+criterion = { version = "0.5", features = ["html_reports"] }

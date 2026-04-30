@@ -272,6 +272,19 @@ fn apply_noop(s: &State) -> State {
 // ---------------------------------------------------------------------------
 
 /// Advance trace metadata: increment sequence_index, compute new commitment.
+///
+/// # Overflow behavior (L-004)
+///
+/// `sequence_index` is a `u64` monotonic counter. At `u64::MAX` the counter
+/// saturates — it remains at `u64::MAX` rather than wrapping. This preserves
+/// the G_mono (monotonic metadata) invariant: `post.sequence_index >= pre.sequence_index`
+/// always holds, even at the boundary. In practice `u64::MAX` (~1.8 × 10¹⁹)
+/// transitions are physically unreachable, but saturation makes the formal
+/// property unconditionally true.
+///
+/// `epoch` is not incremented by `advance_metadata`; it is advanced externally
+/// (e.g., by the replay/trace engine). If epoch were to be advanced at
+/// `u64::MAX`, the same saturating semantics should be applied by the caller.
 fn advance_metadata(m: &TraceMetadata) -> TraceMetadata {
     use sha3::{Digest, Sha3_256};
 
@@ -284,7 +297,7 @@ fn advance_metadata(m: &TraceMetadata) -> TraceMetadata {
     new_commitment.copy_from_slice(&result);
 
     TraceMetadata {
-        sequence_index: m.sequence_index + 1,
+        sequence_index: m.sequence_index.saturating_add(1),
         previous_commitment: Hash(new_commitment),
         epoch: m.epoch,
         timestamp: m.timestamp,

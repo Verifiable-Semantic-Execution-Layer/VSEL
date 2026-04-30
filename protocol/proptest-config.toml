@@ -1,0 +1,29 @@
+# Proptest configuration for VSEL protocol property tests.
+#
+# Requirements: 7.6, 7.8
+#
+# Proptest automatically:
+# - Outputs the seed on failure for reproducibility
+# - Saves regression files (*.proptest-regressions) alongside test files
+# - Shrinks failing examples to minimal counterexamples
+#
+# Seed Archival for CI:
+# - On failure, proptest prints: "Test failed: minimal failing input: ..."
+# - The seed is printed as: "proptest: Seed: <hex_seed>"
+# - CI workflows should capture test output and archive seeds as artifacts
+# - To reproduce a failure locally: PROPTEST_CASES=1 cargo test <test_name>
+#   with the regression file present
+#
+# Regression files:
+# - Stored as <test_file>.proptest-regressions alongside each test file
+# - These files are gitignored but should be archived in CI on failure
+# - Format: one regression case per line with the seed and shrunk input
+
+# Enable verbose shrinking output for better CI diagnostics
+verbose = 1
+
+# Fork mode disabled (use in-process for speed)
+fork = false
+
+# Default timeout per test case (in milliseconds) — 60 seconds
+timeout = 60000

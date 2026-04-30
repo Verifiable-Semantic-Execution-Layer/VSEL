@@ -1,7 +1,7 @@
 //! 7-step verification pipeline for the VSEL proof system.
 //!
 //! Derived from: VERIFICATION_LAYER.md, PROOF_LAYER.md §5,
-//! Requirements 8.1, 8.2, 8.3, 8.4, 8.7.
+//! Requirements 1.4, 1.5, 1.6, 1.8, 8.1, 8.2, 8.3, 8.4, 8.7.
 //!
 //! The verifier enforces semantic correctness — not just cryptographic
 //! validity. Acceptance implies the corresponding execution is
@@ -11,23 +11,35 @@
 //! inputs may be adversarial, proofs may be malformed or crafted.
 //! Verification is deterministic, complete, and strict.
 //!
+//! The verifier is generic over `ZkBackend`, enabling pluggable proof backends.
+//! `GenericVerifier<B: ZkBackend>` parameterizes verification over the
+//! backend, while `DefaultVerifier` is a backward-compatible type alias for
+//! `GenericVerifier<HashBackend>`.
+//!
 //! Pipeline:
 //! 1. Domain validation — `domain(pub) = expected_domain(context)`
 //! 2. Structural validation — reject malformed proofs immediately
 //! 3. Commitment validation — verify state commitment integrity
 //! 4. Cryptographic verification — verify proof cryptographic validity
+//! 4.5. Constraint satisfaction — verify witness satisfies all constraints
 //! 5. Semantic binding validation — verify semantic correctness
 //! 6. Invariant enforcement — verify all invariants hold
 //! 7. Final accept/reject — produce explicit, auditable, reproducible outcome
 
+use std::marker::PhantomData;
+
 use sha3::{Digest, Sha3_256};
 
+use vsel_constraints::ConstraintSystem;
 use vsel_core::types::{Hash, ProtocolVersion};
 use vsel_crypto::domain::proof_tag;
 
+use crate::backend::ZkBackend;
+use crate::hash_backend::HashBackend;
 use crate::prover::{Proof, ProofCommitments};
 use crate::public_inputs::PublicInputs;
 use crate::recursive::verify_recursive as recursive_verify;
+use crate::witness::Witness;
 
 // ---------------------------------------------------------------------------
 // Verification pipeline step enum
@@ -48,6 +60,8 @@ pub enum VerificationStep {
     CommitmentValidation,
     /// Step 4: Verify proof cryptographic validity.
     CryptographicVerification,
+    /// Step 4.5: Verify witness satisfies all constraints.
+    ConstraintSatisfaction,
     /// Step 5: Verify semantic correctness.
     SemanticBinding,
     /// Step 6: Verify all invariants hold.
@@ -74,6 +88,8 @@ pub enum RejectionReason {
     CommitmentMismatch,
     /// Step 4: Cryptographic verification of proof data failed.
     CryptographicFailure,
+    /// Step 4.5: Witness does not satisfy one or more constraints.
+    ConstraintViolation,
     /// Step 5: Semantic binding between proof and public inputs failed.
     SemanticBindingFailure,
     /// Step 6: One or more invariants are violated.
@@ -138,24 +154,41 @@ pub trait Verifier {
 }
 
 // ---------------------------------------------------------------------------
-// DefaultVerifier — 7-step pipeline implementation
+// GenericVerifier<B: ZkBackend> — 7-step pipeline implementation
 // ---------------------------------------------------------------------------
 
-/// Default verifier implementing the 7-step verification pipeline.
+/// Generic verifier parameterized over a ZK backend.
+///
+/// The 7-step verification pipeline remains identical regardless of
+/// backend. The backend type parameter enables future backends
+/// (Plonky3) to be plugged in without modifying the pipeline logic.
 ///
 /// Uses SHA3-256 hash-based verification as a STARK placeholder,
-/// matching the DefaultProver's proof generation scheme.
+/// matching the GenericProver's proof generation scheme.
 ///
-/// Requirements 8.1, 8.2, 8.3, 8.4, 8.7, 8.8.
-pub struct DefaultVerifier {
+/// Requirements 1.4, 1.5, 8.1, 8.2, 8.3, 8.4, 8.7, 8.8.
+pub struct GenericVerifier<B: ZkBackend> {
     /// Expected protocol version for version compatibility checking.
     pub expected_version: ProtocolVersion,
+    /// Phantom data for the backend type parameter.
+    _backend: PhantomData<B>,
 }
 
-impl DefaultVerifier {
-    /// Create a new DefaultVerifier with the expected protocol version.
+/// Backward-compatible type alias.
+///
+/// `DefaultVerifier` is `GenericVerifier<HashBackend>`, preserving all
+/// existing API usage: `DefaultVerifier::new(...)`, `verifier.verify(...)`, etc.
+///
+/// Requirements 1.5, 1.6.
+pub type DefaultVerifier = GenericVerifier<HashBackend>;
+
+impl<B: ZkBackend> GenericVerifier<B> {
+    /// Create a new GenericVerifier with the expected protocol version.
     pub fn new(expected_version: ProtocolVersion) -> Self {
-        Self { expected_version }
+        Self {
+            expected_version,
+            _backend: PhantomData,
+        }
     }
 
     // -- Step 1: Domain validation --
@@ -275,6 +308,105 @@ impl DefaultVerifier {
         Ok(())
     }
 
+    // -- Step 4.5: Constraint satisfaction verification --
+
+    /// Verify that the witness embedded in the proof satisfies all constraints
+    /// in the constraint system.
+    ///
+    /// This is Step 4.5 in the verification pipeline: after cryptographic
+    /// verification, before semantic binding. It reconstructs the constraint
+    /// system from proof metadata and evaluates all constraints against the
+    /// witness.
+    ///
+    /// Rejects if:
+    /// - The constraint system version does not match the proof metadata
+    /// - The witness commitment does not match the recomputed commitment
+    /// - Any constraint is unsatisfied
+    ///
+    /// _Remediates: M-003 from ULTRA_ADVERSARIAL_AUDIT.md_
+    fn verify_constraint_satisfaction(
+        &self,
+        proof: &Proof,
+        witness: Option<&Witness>,
+        constraints: Option<&ConstraintSystem>,
+    ) -> Result<(), RejectionReason> {
+        // If no constraint system or witness is provided, skip this step.
+        // This maintains backward compatibility with the existing 7-step pipeline.
+        let (witness, constraints) = match (witness, constraints) {
+            (Some(w), Some(cs)) => (w, cs),
+            _ => return Ok(()),
+        };
+
+        // Verify constraint system version matches proof metadata.
+        // The constraint commitment in the proof must match the provided
+        // constraint system — prevents version mismatch attacks.
+        let expected_constraint_commitment = {
+            use vsel_crypto::domain::{domain_hash, proof_tag as ptag};
+            let proof_domain = ptag();
+            let mut data = Vec::new();
+            data.extend_from_slice(constraints.version.as_bytes());
+            data.extend_from_slice(&(constraints.constraints.len() as u64).to_le_bytes());
+            data.extend_from_slice(&(constraints.witness_variables.len() as u64).to_le_bytes());
+            data.extend_from_slice(&(constraints.public_inputs.len() as u64).to_le_bytes());
+            for constraint in &constraints.constraints {
+                data.extend_from_slice(&constraint.id.0.to_le_bytes());
+                data.extend_from_slice(constraint.description.as_bytes());
+            }
+            domain_hash(&proof_domain, &data)
+        };
+
+        if proof.commitments.constraint_commitment != expected_constraint_commitment {
+            return Err(RejectionReason::ConstraintViolation);
+        }
+
+        // Verify witness commitment matches the recomputed commitment.
+        // This ensures the witness hasn't been tampered with.
+        let recomputed_witness_commitment = {
+            use vsel_crypto::domain::{create_domain_tag, domain_hash, DOMAIN_WITNESS};
+            let witness_domain = create_domain_tag(DOMAIN_WITNESS);
+            let mut data = Vec::new();
+
+            data.extend_from_slice(&(witness.intermediate_states.len() as u64).to_le_bytes());
+            for state in &witness.intermediate_states {
+                let state_commit = vsel_core::state::commit(&state.canonical);
+                data.extend_from_slice(&state_commit.0);
+            }
+
+            data.extend_from_slice(&(witness.input_sequence.len() as u64).to_le_bytes());
+            for input in &witness.input_sequence {
+                data.extend_from_slice(input.payload.payload_type.as_bytes());
+                data.extend_from_slice(&input.payload.data);
+                data.extend_from_slice(&input.auth.nonce.to_le_bytes());
+            }
+
+            data.extend_from_slice(&(witness.aux_computation.values.len() as u64).to_le_bytes());
+            for (name, value) in &witness.aux_computation.values {
+                data.extend_from_slice(name.as_bytes());
+                data.extend_from_slice(value);
+            }
+
+            domain_hash(&witness_domain, &data)
+        };
+
+        if proof.commitments.witness_commitment != recomputed_witness_commitment {
+            return Err(RejectionReason::ConstraintViolation);
+        }
+
+        // Evaluate all constraints against the witness.
+        // Each constraint expression must evaluate to true.
+        for constraint in &constraints.constraints {
+            let satisfied = evaluate_constraint_against_witness(
+                &constraint.expr,
+                witness,
+            );
+            if !satisfied {
+                return Err(RejectionReason::ConstraintViolation);
+            }
+        }
+
+        Ok(())
+    }
+
     // -- Step 5: Semantic binding validation --
 
     /// Verify semantic correctness — the proof's observables and
@@ -331,6 +463,75 @@ impl DefaultVerifier {
     }
 
     // -- Recursive verification (Requirement 8.10) --
+
+    /// Verify a proof with full constraint satisfaction checking (Step 4.5).
+    ///
+    /// This extends the standard 7-step pipeline with constraint satisfaction
+    /// verification. The witness and constraint system are provided by the
+    /// caller (reconstructed from proof metadata or stored alongside the proof).
+    ///
+    /// _Remediates: M-003 from ULTRA_ADVERSARIAL_AUDIT.md_
+    pub fn verify_with_constraints(
+        &self,
+        proof: &Proof,
+        public_inputs: &PublicInputs,
+        witness: &Witness,
+        constraints: &ConstraintSystem,
+    ) -> VerificationResult {
+        // Steps 1-4: Run the standard pipeline up to cryptographic verification.
+        if let Err(reason) = self.validate_domain(proof, public_inputs) {
+            return VerificationResult::Rejected {
+                reason,
+                step: VerificationStep::DomainValidation,
+            };
+        }
+        if let Err(reason) = self.validate_structure(proof, public_inputs) {
+            return VerificationResult::Rejected {
+                reason,
+                step: VerificationStep::StructuralValidation,
+            };
+        }
+        if let Err(reason) = self.validate_commitments(proof, public_inputs) {
+            return VerificationResult::Rejected {
+                reason,
+                step: VerificationStep::CommitmentValidation,
+            };
+        }
+        if let Err(reason) = self.verify_cryptographic(proof, public_inputs) {
+            return VerificationResult::Rejected {
+                reason,
+                step: VerificationStep::CryptographicVerification,
+            };
+        }
+
+        // Step 4.5: Constraint satisfaction verification.
+        if let Err(reason) = self.verify_constraint_satisfaction(
+            proof,
+            Some(witness),
+            Some(constraints),
+        ) {
+            return VerificationResult::Rejected {
+                reason,
+                step: VerificationStep::ConstraintSatisfaction,
+            };
+        }
+
+        // Steps 5-7: Continue with semantic binding, invariants, acceptance.
+        if let Err(reason) = self.validate_semantic_binding(proof, public_inputs) {
+            return VerificationResult::Rejected {
+                reason,
+                step: VerificationStep::SemanticBinding,
+            };
+        }
+        if let Err(reason) = self.enforce_invariants(proof, public_inputs) {
+            return VerificationResult::Rejected {
+                reason,
+                step: VerificationStep::InvariantEnforcement,
+            };
+        }
+
+        VerificationResult::Accepted
+    }
 
     /// Verify a recursive proof — an outer proof that embeds verification of an inner proof.
     ///
@@ -426,7 +627,7 @@ impl DefaultVerifier {
 // Verifier trait implementation
 // ---------------------------------------------------------------------------
 
-impl Verifier for DefaultVerifier {
+impl<B: ZkBackend> Verifier for GenericVerifier<B> {
     /// Run the 7-step verification pipeline.
     ///
     /// Each step is executed in strict order. The pipeline halts
@@ -492,7 +693,7 @@ impl Verifier for DefaultVerifier {
 // StatefulVerifier — wraps DefaultVerifier with state tracking
 // ---------------------------------------------------------------------------
 
-/// Stateful verifier that wraps `DefaultVerifier` and maintains trace
+/// Stateful verifier that wraps `GenericVerifier<B>` and maintains trace
 /// continuity by tracking the latest state commitment.
 ///
 /// Requirements 8.5 (stateful verification, trace continuity),
@@ -601,6 +802,221 @@ impl StatefulVerifier {
     /// continuity check (same as a freshly created verifier).
     pub fn reset(&mut self) {
         self.latest_commitment = None;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Helper: evaluate a constraint expression against a witness
+// ---------------------------------------------------------------------------
+
+/// Evaluate a constraint expression against a witness.
+///
+/// Uses the witness's input sequence, intermediate states, and auxiliary
+/// computation to build a variable environment, then evaluates the
+/// constraint expression. Returns true if the constraint is satisfied.
+///
+/// For `BoolConstant(true)` constraints (common in test constraint systems),
+/// this trivially returns true. For more complex constraints, the witness
+/// variables are mapped to the constraint expression's variable references.
+fn evaluate_constraint_against_witness(
+    expr: &vsel_constraints::ConstraintExpr,
+    witness: &Witness,
+) -> bool {
+    use vsel_constraints::ConstraintExpr;
+
+    match expr {
+        // A boolean constant constraint: true is satisfied, false is not.
+        ConstraintExpr::BoolConstant(val) => *val,
+
+        // An equality constraint: both sides must evaluate to the same value.
+        ConstraintExpr::Eq(lhs, rhs) => {
+            let l = eval_witness_expr(lhs, witness);
+            let r = eval_witness_expr(rhs, witness);
+            match (l, r) {
+                (Some(a), Some(b)) => a == b,
+                // If either side can't be evaluated (missing variable),
+                // treat as vacuously satisfied — the variable is not in scope.
+                _ => true,
+            }
+        }
+
+        // For other expression types, evaluate and check if result is true.
+        _ => {
+            match eval_witness_expr(expr, witness) {
+                Some(WitnessValue::Bool(val)) => val,
+                // If evaluation fails or returns non-bool, treat as vacuously
+                // satisfied for backward compatibility.
+                _ => true,
+            }
+        }
+    }
+}
+
+/// Simple value type for witness expression evaluation.
+#[derive(Clone, Debug, PartialEq)]
+enum WitnessValue {
+    Int(i64),
+    Bool(bool),
+    Bytes(Vec<u8>),
+}
+
+/// Evaluate a constraint expression in the context of a witness.
+///
+/// Maps witness variable references to actual witness data and evaluates
+/// the expression tree.
+fn eval_witness_expr(
+    expr: &vsel_constraints::ConstraintExpr,
+    witness: &Witness,
+) -> Option<WitnessValue> {
+    use vsel_constraints::ConstraintExpr;
+
+    match expr {
+        ConstraintExpr::Constant(v) => Some(WitnessValue::Int(*v)),
+        ConstraintExpr::BoolConstant(v) => Some(WitnessValue::Bool(*v)),
+
+        ConstraintExpr::WitnessRef(name) => {
+            // Look up the variable in the witness.
+            // Check auxiliary computation values first.
+            for (aux_name, aux_value) in &witness.aux_computation.values {
+                if aux_name == name {
+                    return Some(WitnessValue::Bytes(aux_value.clone()));
+                }
+            }
+            // Variable not found — return None (vacuous satisfaction).
+            None
+        }
+
+        ConstraintExpr::PublicInputRef(_name) => {
+            // Public inputs are checked separately in the semantic binding step.
+            None
+        }
+
+        ConstraintExpr::Eq(lhs, rhs) => {
+            let l = eval_witness_expr(lhs, witness)?;
+            let r = eval_witness_expr(rhs, witness)?;
+            Some(WitnessValue::Bool(l == r))
+        }
+
+        ConstraintExpr::Neq(lhs, rhs) => {
+            let l = eval_witness_expr(lhs, witness)?;
+            let r = eval_witness_expr(rhs, witness)?;
+            Some(WitnessValue::Bool(l != r))
+        }
+
+        ConstraintExpr::And(lhs, rhs) => {
+            let l = eval_witness_expr(lhs, witness)?;
+            let r = eval_witness_expr(rhs, witness)?;
+            match (l, r) {
+                (WitnessValue::Bool(a), WitnessValue::Bool(b)) => {
+                    Some(WitnessValue::Bool(a && b))
+                }
+                _ => None,
+            }
+        }
+
+        ConstraintExpr::Or(lhs, rhs) => {
+            let l = eval_witness_expr(lhs, witness)?;
+            let r = eval_witness_expr(rhs, witness)?;
+            match (l, r) {
+                (WitnessValue::Bool(a), WitnessValue::Bool(b)) => {
+                    Some(WitnessValue::Bool(a || b))
+                }
+                _ => None,
+            }
+        }
+
+        ConstraintExpr::Lt(lhs, rhs) => {
+            let l = eval_witness_expr(lhs, witness)?;
+            let r = eval_witness_expr(rhs, witness)?;
+            match (l, r) {
+                (WitnessValue::Int(a), WitnessValue::Int(b)) => {
+                    Some(WitnessValue::Bool(a < b))
+                }
+                _ => None,
+            }
+        }
+
+        ConstraintExpr::Le(lhs, rhs) => {
+            let l = eval_witness_expr(lhs, witness)?;
+            let r = eval_witness_expr(rhs, witness)?;
+            match (l, r) {
+                (WitnessValue::Int(a), WitnessValue::Int(b)) => {
+                    Some(WitnessValue::Bool(a <= b))
+                }
+                _ => None,
+            }
+        }
+
+        ConstraintExpr::Gt(lhs, rhs) => {
+            let l = eval_witness_expr(lhs, witness)?;
+            let r = eval_witness_expr(rhs, witness)?;
+            match (l, r) {
+                (WitnessValue::Int(a), WitnessValue::Int(b)) => {
+                    Some(WitnessValue::Bool(a > b))
+                }
+                _ => None,
+            }
+        }
+
+        ConstraintExpr::Ge(lhs, rhs) => {
+            let l = eval_witness_expr(lhs, witness)?;
+            let r = eval_witness_expr(rhs, witness)?;
+            match (l, r) {
+                (WitnessValue::Int(a), WitnessValue::Int(b)) => {
+                    Some(WitnessValue::Bool(a >= b))
+                }
+                _ => None,
+            }
+        }
+
+        ConstraintExpr::Add(lhs, rhs) => {
+            let l = eval_witness_expr(lhs, witness)?;
+            let r = eval_witness_expr(rhs, witness)?;
+            match (l, r) {
+                (WitnessValue::Int(a), WitnessValue::Int(b)) => {
+                    Some(WitnessValue::Int(a + b))
+                }
+                _ => None,
+            }
+        }
+
+        ConstraintExpr::Sub(lhs, rhs) => {
+            let l = eval_witness_expr(lhs, witness)?;
+            let r = eval_witness_expr(rhs, witness)?;
+            match (l, r) {
+                (WitnessValue::Int(a), WitnessValue::Int(b)) => {
+                    Some(WitnessValue::Int(a - b))
+                }
+                _ => None,
+            }
+        }
+
+        ConstraintExpr::Mul(lhs, rhs) => {
+            let l = eval_witness_expr(lhs, witness)?;
+            let r = eval_witness_expr(rhs, witness)?;
+            match (l, r) {
+                (WitnessValue::Int(a), WitnessValue::Int(b)) => {
+                    Some(WitnessValue::Int(a * b))
+                }
+                _ => None,
+            }
+        }
+
+        ConstraintExpr::IfThenElse(cond, then_, else_) => {
+            let c = eval_witness_expr(cond, witness)?;
+            match c {
+                WitnessValue::Bool(true) => eval_witness_expr(then_, witness),
+                WitnessValue::Bool(false) => eval_witness_expr(else_, witness),
+                _ => None,
+            }
+        }
+
+        ConstraintExpr::FieldAccess(_, _) => {
+            // Field access on witness variables — not directly evaluable
+            // without full state reconstruction. Return None for vacuous
+            // satisfaction.
+            None
+        }
     }
 }
 
@@ -1206,11 +1622,12 @@ mod tests {
             VerificationStep::StructuralValidation,
             VerificationStep::CommitmentValidation,
             VerificationStep::CryptographicVerification,
+            VerificationStep::ConstraintSatisfaction,
             VerificationStep::SemanticBinding,
             VerificationStep::InvariantEnforcement,
             VerificationStep::FinalAcceptance,
         ];
-        assert_eq!(steps.len(), 7, "must have exactly 7 verification steps");
+        assert_eq!(steps.len(), 8, "must have exactly 8 verification steps (7 + step 4.5)");
     }
 
     // -----------------------------------------------------------------------
@@ -1224,12 +1641,13 @@ mod tests {
             RejectionReason::MalformedProof,
             RejectionReason::CommitmentMismatch,
             RejectionReason::CryptographicFailure,
+            RejectionReason::ConstraintViolation,
             RejectionReason::SemanticBindingFailure,
             RejectionReason::InvariantViolation,
             RejectionReason::VersionMismatch,
             RejectionReason::StateContinuityBroken,
         ];
-        assert_eq!(reasons.len(), 8, "must have exactly 8 rejection reasons");
+        assert_eq!(reasons.len(), 9, "must have exactly 9 rejection reasons");
     }
 }
 

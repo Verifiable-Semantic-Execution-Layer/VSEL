@@ -3,6 +3,11 @@ name = "vsel-composition"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+# Forward plonky3-backend feature to vsel-proof for composition property tests.
+plonky3-backend = ["vsel-proof/plonky3-backend"]
+
 [dependencies]
 vsel-core = { path = "../vsel-core" }
 vsel-proof = { path = "../vsel-proof" }
@@ -13,4 +18,5 @@ thiserror = { workspace = true }
 
 [dev-dependencies]
 vsel-crypto = { path = "../vsel-crypto" }
+vsel-constraints = { path = "../vsel-constraints" }
 proptest = { workspace = true }

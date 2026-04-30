@@ -1,0 +1,61 @@
+[package]
+name = "vsel-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+# Workspace crates under test — path dependencies relative to fuzz/
+vsel-crypto = { path = "../crates/vsel-crypto" }
+vsel-proof = { path = "../crates/vsel-proof" }
+vsel-constraints = { path = "../crates/vsel-constraints" }
+vsel-sir = { path = "../crates/vsel-sir" }
+vsel-core = { path = "../crates/vsel-core" }
+vsel-trace = { path = "../crates/vsel-trace" }
+
+# Prevent this from being discovered as a workspace member
+[workspace]
+
+# --------------------------------------------------------------------------
+# Fuzz targets
+# --------------------------------------------------------------------------
+
+[[bin]]
+name = "fuzz_goldilocks_arith"
+path = "fuzz_targets/fuzz_goldilocks_arith.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_poseidon_permute"
+path = "fuzz_targets/fuzz_poseidon_permute.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_poseidon_hash_bytes"
+path = "fuzz_targets/fuzz_poseidon_hash_bytes.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_proof_deser"
+path = "fuzz_targets/fuzz_proof_deser.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_constraint_eval"
+path = "fuzz_targets/fuzz_constraint_eval.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_witness_construct"
+path = "fuzz_targets/fuzz_witness_construct.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_sir_deser"
+path = "fuzz_targets/fuzz_sir_deser.rs"
+doc = false
