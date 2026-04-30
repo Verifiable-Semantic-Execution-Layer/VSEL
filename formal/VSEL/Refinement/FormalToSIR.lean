@@ -34,12 +34,27 @@ open VSEL.Foundations
 -- =========================================================================
 
 opaque SIRState : Type
+
+axiom SIRState.inhabited : Inhabited SIRState
+noncomputable instance : Inhabited SIRState := SIRState.inhabited
+
 opaque SIRInput : Type
-opaque SIRTransition : SIRState → SIRInput → SIRState
+
+axiom SIRInput.inhabited : Inhabited SIRInput
+noncomputable instance : Inhabited SIRInput := SIRInput.inhabited
+
+noncomputable opaque SIRTransition : SIRState → SIRInput → SIRState
 
 -- =========================================================================
 -- Mapping from SIR to formal
 -- =========================================================================
+
+instance : Inhabited Input where
+  default := {
+    payload := { payloadType := "", data := [] }
+    auth := { classicalSig := [], pqcSig := [], publicKey := { classical := [], pqc := [] }, nonce := 0, domain := { hash := default } }
+    aux := { data := [] }
+  }
 
 opaque SIR_to_Formal_State : SIRState → State
 opaque SIR_to_Formal_Input : SIRInput → Input
@@ -82,7 +97,7 @@ axiom r01_invariant_correspondence (s_sir : SIRState) :
 /-- R01-4: SIR transition is deterministic — automatic for Lean functions.
     SIRTransition is a function, so it produces exactly one result. -/
 theorem r01_sir_deterministic (s_sir : SIRState) (σ_sir : SIRInput) :
-    ∃! s', SIRTransition s_sir σ_sir = s' := by
+    ∃ s', SIRTransition s_sir σ_sir = s' ∧ ∀ y, SIRTransition s_sir σ_sir = y → y = s' := by
   exact ⟨SIRTransition s_sir σ_sir, rfl, fun _ h => h.symm⟩
 
 -- =========================================================================
@@ -201,7 +216,7 @@ theorem tp12_guard_exhaustiveness (s : State) (sigma : Input) :
 
 /-- TP-12 stronger: Classify produces exactly one result (determinism). -/
 theorem tp12_guard_exhaustiveness_unique (s : State) (sigma : Input) :
-    ∃! tc, Classify s sigma = tc := by
+    ∃ tc, Classify s sigma = tc ∧ ∀ y, Classify s sigma = y → y = tc := by
   exact ⟨Classify s sigma, rfl, fun _ h => h.symm⟩
 
 -- =========================================================================

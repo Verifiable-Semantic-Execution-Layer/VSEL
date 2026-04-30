@@ -1,5 +1,5 @@
 /-
-  VSEL Semantic Mapping — μ_S, μ_Σ, μ_T, μ_O definitions
+  VSEL Semantic Mapping — mu_S, mu_Sigma, mu_T, mu_O definitions
   Mirrors: protocol/crates/vsel-mapping/src/mapping.rs
   Requirements: 9.6, 4.1
 
@@ -26,63 +26,70 @@ open VSEL.Foundations
 -- Formal types — targets of the semantic mapping
 -- =========================================================================
 
-/-- Formal state — the target of μ_S.
+/-- Formal state — the target of mu_S.
     Opaque: represents the SIR-level state representation. -/
-opaque FormalState : Type
+structure FormalState where
+  data : List (String × List UInt8)
+  deriving DecidableEq, Repr, Inhabited
 
-/-- Formal input — the target of μ_Σ.
+/-- Formal input — the target of mu_Sigma.
     Opaque: represents the SIR-level input representation. -/
-opaque FormalInput : Type
+structure FormalInput where
+  data : List (String × List UInt8)
+  deriving DecidableEq, Repr, Inhabited
 
-/-- Formal observable — the target of μ_O.
+/-- Formal observable — the target of mu_O.
     Opaque: represents the SIR-level observable representation. -/
-opaque FormalObservable : Type
+structure FormalObservable where
+  data : List (String × List UInt8)
+  deriving DecidableEq, Repr, Inhabited
 
-/-- Formal transition — a triple (pre_f, σ_f, post_f) in the formal domain. -/
+/-- Formal transition — a triple (pre_f, sigma_f, post_f) in the formal domain. -/
 structure FormalTransition where
   pre : FormalState
   input : FormalInput
   post : FormalState
+  deriving DecidableEq, Repr, Inhabited
 
 -- =========================================================================
--- Semantic mapping functions — μ_S, μ_Σ, μ_T, μ_O
+-- Semantic mapping functions — mu_S, mu_Sigma, mu_T, mu_O
 -- =========================================================================
 
-/-- μ_S : State → FormalState — map concrete state to formal state.
+/-- mu_S : State -> FormalState — map concrete state to formal state.
     Opaque: mirrors `map_state` in Rust (mapping.rs).
     Total and deterministic (Requirement 4.1). -/
-opaque μ_S : State → FormalState
+opaque mu_S : State → FormalState
 
-/-- μ_Σ : Input → FormalInput — map concrete input to formal input.
+/-- mu_Sigma : Input -> FormalInput — map concrete input to formal input.
     Opaque: mirrors `map_input` in Rust (mapping.rs).
     Total and deterministic (Requirement 4.1). -/
-opaque μ_Σ : Input → FormalInput
+opaque mu_Sigma : Input → FormalInput
 
-/-- μ_O : Observable → FormalObservable — map concrete observable to formal observable.
+/-- mu_O : Observable -> FormalObservable — map concrete observable to formal observable.
     Opaque: mirrors `map_observable` in Rust (mapping.rs).
     Total and deterministic (Requirement 4.1). -/
-opaque μ_O : Observable → FormalObservable
+opaque mu_O : Observable → FormalObservable
 
-/-- μ_T : State × Input × State → FormalTransition — map concrete transition triple.
-    Defined as composition of μ_S and μ_Σ (mirrors `map_transition` in Rust). -/
-def μ_T (pre : State) (sigma : Input) (post : State) : FormalTransition :=
-  { pre := μ_S pre, input := μ_Σ sigma, post := μ_S post }
+/-- mu_T : State x Input x State -> FormalTransition — map concrete transition triple.
+    Defined as composition of mu_S and mu_Sigma (mirrors `map_transition` in Rust). -/
+def mu_T (pre : State) (sigma : Input) (post : State) : FormalTransition :=
+  { pre := mu_S pre, input := mu_Sigma sigma, post := mu_S post }
 
 -- =========================================================================
 -- Formal-side execution functions (opaque)
 -- =========================================================================
 
-/-- Apply_f : FormalState → FormalInput → FormalState
+/-- Apply_f : FormalState -> FormalInput -> FormalState
     The formal-side transition function.
     Opaque: this is the SIR-level Apply. -/
 opaque Apply_f : FormalState → FormalInput → FormalState
 
-/-- Obs_f : FormalState → FormalInput → FormalState → FormalObservable
+/-- Obs_f : FormalState -> FormalInput -> FormalState -> FormalObservable
     The formal-side observable function.
     Opaque: this is the SIR-level Obs. -/
 opaque Obs_f : FormalState → FormalInput → FormalState → FormalObservable
 
-/-- Derive_f : FormalState → FormalState
+/-- Derive_f : FormalState -> FormalState
     The formal-side derived state computation.
     Opaque: this is the SIR-level Derive. -/
 opaque Derive_f : FormalState → FormalState
@@ -91,13 +98,20 @@ opaque Derive_f : FormalState → FormalState
 -- Canonicalization functions (opaque — implementation in Rust)
 -- =========================================================================
 
-/-- Canonicalize_Input : Input → Input
+/-- Canonicalize_Input : Input -> Input
     Normalize a concrete input into canonical form.
     Opaque: mirrors `canonicalize_input` in Rust (canonicalization.rs).
     Must be idempotent (DEF-5). -/
+instance : Inhabited Input where
+  default := {
+    payload := { payloadType := "", data := [] }
+    auth := { classicalSig := [], pqcSig := [], publicKey := { classical := [], pqc := [] }, nonce := 0, domain := { hash := default } }
+    aux := { data := [] }
+  }
+
 opaque Canonicalize_Input : Input → Input
 
-/-- Canonicalize_State : State → State
+/-- Canonicalize_State : State -> State
     Normalize a concrete state into canonical form.
     Opaque: mirrors `canonicalize_state` in Rust (canonicalization.rs).
     Must be idempotent (DEF-5). -/
@@ -107,22 +121,25 @@ opaque Canonicalize_State : State → State
 -- Totality and determinism
 -- =========================================================================
 
-/-- μ_S is deterministic — automatic for Lean functions, stated explicitly
+/-- mu_S is deterministic — automatic for Lean functions, stated explicitly
     for documentation and cross-reference with Requirement 4.1. -/
-theorem μ_S_deterministic (s : State) : ∃! f, μ_S s = f := by
-  exact ⟨μ_S s, rfl, fun _ h => h.symm⟩
+theorem mu_S_deterministic (s : State) :
+    ∃ f, mu_S s = f ∧ ∀ g, mu_S s = g → g = f := by
+  exact ⟨mu_S s, rfl, fun _ h => h.symm⟩
 
-/-- μ_Σ is deterministic — automatic for Lean functions. -/
-theorem μ_Σ_deterministic (sigma : Input) : ∃! f, μ_Σ sigma = f := by
-  exact ⟨μ_Σ sigma, rfl, fun _ h => h.symm⟩
+/-- mu_Sigma is deterministic — automatic for Lean functions. -/
+theorem mu_Sigma_deterministic (sigma : Input) :
+    ∃ f, mu_Sigma sigma = f ∧ ∀ g, mu_Sigma sigma = g → g = f := by
+  exact ⟨mu_Sigma sigma, rfl, fun _ h => h.symm⟩
 
-/-- μ_O is deterministic — automatic for Lean functions. -/
-theorem μ_O_deterministic (obs : Observable) : ∃! f, μ_O obs = f := by
-  exact ⟨μ_O obs, rfl, fun _ h => h.symm⟩
+/-- mu_O is deterministic — automatic for Lean functions. -/
+theorem mu_O_deterministic (obs : Observable) :
+    ∃ f, mu_O obs = f ∧ ∀ g, mu_O obs = g → g = f := by
+  exact ⟨mu_O obs, rfl, fun _ h => h.symm⟩
 
-/-- μ_T composes μ_S and μ_Σ correctly. -/
-theorem μ_T_composition (pre : State) (sigma : Input) (post : State) :
-    μ_T pre sigma post = { pre := μ_S pre, input := μ_Σ sigma, post := μ_S post } := by
+/-- mu_T composes mu_S and mu_Sigma correctly. -/
+theorem mu_T_composition (pre : State) (sigma : Input) (post : State) :
+    mu_T pre sigma post = { pre := mu_S pre, input := mu_Sigma sigma, post := mu_S post } := by
   rfl
 
 end VSEL.Mapping

@@ -70,6 +70,9 @@ instance (tc₁ tc₂ : TransitionClass) : Decidable (tc₁ ≤ tc₂) :=
     matching guard determines the class, guaranteeing exhaustiveness
     and disjointness.
     Opaque: concrete guard logic is in Rust. -/
+instance : Inhabited TransitionClass where
+  default := .noop
+
 opaque Classify (s : State) (sigma : Input) : TransitionClass
 
 -- ---------------------------------------------------------------------------
@@ -83,6 +86,15 @@ opaque Classify (s : State) (sigma : Input) : TransitionClass
     - Error-safe (LEM-7): invalid inputs produce an error state with
       invariants preserved.
     Opaque: concrete transition logic is in Rust. -/
+instance : Inhabited State where
+  default := {
+    canonical := { accounts := [], storage := [], systemData := { protocolVersion := { major := 0, minor := 0, patch := 0 }, totalSupply := 0, parameters := [] } }
+    derived := default
+    environment := { timestamp := 0, blockHeight := 0, executionDomain := { hash := default } }
+    economic := default
+    metadata := { sequenceIndex := 0, previousCommitment := default, epoch := 0, timestamp := 0 }
+  }
+
 opaque Apply (s : State) (sigma : Input) : State
 
 -- ---------------------------------------------------------------------------
@@ -93,7 +105,7 @@ opaque Apply (s : State) (sigma : Input) : State
     but stated explicitly for documentation). For all s, σ:
     Apply(s, σ) produces exactly one result. -/
 theorem apply_deterministic (s : State) (sigma : Input) :
-    ∃! s', Apply s sigma = s' := by
+    ∃ s', Apply s sigma = s' ∧ ∀ s'', Apply s sigma = s'' → s'' = s' := by
   exact ⟨Apply s sigma, rfl, fun _ h => h.symm⟩
 
 /-- AX-2: Closure — Apply always returns a valid state.
@@ -135,6 +147,9 @@ structure Observable where
 
 /-- Obs: S × Σ × S → O — deterministic observable function (DEF-4).
     Opaque: concrete implementation is in Rust. -/
+instance : Inhabited Observable where
+  default := { transitionClass := .noop, outputs := [], gasUsed := 0, status := .success }
+
 opaque Obs (s : State) (sigma : Input) (s' : State) : Observable
 
 end VSEL.Foundations

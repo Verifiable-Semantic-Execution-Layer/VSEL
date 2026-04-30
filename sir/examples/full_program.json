@@ -1,0 +1,357 @@
+{
+  "input_schema": {
+    "fields": [
+      {
+        "field_type": "Bytes",
+        "name": "sender"
+      },
+      {
+        "field_type": "Bytes",
+        "name": "receiver"
+      },
+      {
+        "field_type": "Int",
+        "name": "amount"
+      }
+    ]
+  },
+  "invariants": [
+    {
+      "category": "local",
+      "expr": {
+        "kind": "BinOp",
+        "left": {
+          "expr": {
+            "kind": "Var",
+            "name": "state"
+          },
+          "field": "balance",
+          "kind": "FieldAccess"
+        },
+        "op": "ge",
+        "right": {
+          "kind": "Literal",
+          "value": {
+            "type": "Int",
+            "value": 0
+          }
+        }
+      },
+      "name": "L_cons"
+    },
+    {
+      "category": "global",
+      "expr": {
+        "kind": "BinOp",
+        "left": {
+          "expr": {
+            "kind": "Var",
+            "name": "state"
+          },
+          "field": "nonce",
+          "kind": "FieldAccess"
+        },
+        "op": "ge",
+        "right": {
+          "kind": "Literal",
+          "value": {
+            "type": "Int",
+            "value": 0
+          }
+        }
+      },
+      "name": "G_valid"
+    },
+    {
+      "category": "economic",
+      "expr": {
+        "kind": "Literal",
+        "value": {
+          "type": "Bool",
+          "value": true
+        }
+      },
+      "name": "E_cost"
+    }
+  ],
+  "observables": [
+    {
+      "expr": {
+        "expr": {
+          "kind": "Var",
+          "name": "state"
+        },
+        "field": "balance",
+        "kind": "FieldAccess"
+      },
+      "name": "total_balance"
+    }
+  ],
+  "state_schema": {
+    "fields": [
+      {
+        "field_type": "Int",
+        "name": "balance"
+      },
+      {
+        "field_type": "Int",
+        "name": "nonce"
+      },
+      {
+        "field_type": "Map",
+        "name": "storage"
+      }
+    ]
+  },
+  "transitions": [
+    {
+      "allowed_mutations": [
+        "balance",
+        "nonce",
+        "storage"
+      ],
+      "body": {
+        "kind": "Literal",
+        "value": {
+          "entries": {
+            "balance": {
+              "type": "Int",
+              "value": 0
+            },
+            "nonce": {
+              "type": "Int",
+              "value": 0
+            },
+            "storage": {
+              "entries": {},
+              "type": "Map"
+            }
+          },
+          "type": "Map"
+        }
+      },
+      "class": "Init",
+      "name": "genesis",
+      "postconditions": [
+        {
+          "kind": "BinOp",
+          "left": {
+            "expr": {
+              "kind": "Var",
+              "name": "state"
+            },
+            "field": "balance",
+            "kind": "FieldAccess"
+          },
+          "op": "eq",
+          "right": {
+            "kind": "Literal",
+            "value": {
+              "type": "Int",
+              "value": 0
+            }
+          }
+        }
+      ],
+      "preconditions": []
+    },
+    {
+      "allowed_mutations": [
+        "balance"
+      ],
+      "body": {
+        "body": {
+          "kind": "Var",
+          "name": "new_balance"
+        },
+        "kind": "Let",
+        "name": "new_balance",
+        "value": {
+          "kind": "BinOp",
+          "left": {
+            "expr": {
+              "kind": "Var",
+              "name": "state"
+            },
+            "field": "balance",
+            "kind": "FieldAccess"
+          },
+          "op": "add",
+          "right": {
+            "expr": {
+              "kind": "Var",
+              "name": "input"
+            },
+            "field": "amount",
+            "kind": "FieldAccess"
+          }
+        }
+      },
+      "class": "Update",
+      "name": "deposit",
+      "postconditions": [
+        {
+          "kind": "BinOp",
+          "left": {
+            "expr": {
+              "kind": "Var",
+              "name": "state"
+            },
+            "field": "balance",
+            "kind": "FieldAccess"
+          },
+          "op": "ge",
+          "right": {
+            "kind": "Literal",
+            "value": {
+              "type": "Int",
+              "value": 0
+            }
+          }
+        }
+      ],
+      "preconditions": [
+        {
+          "kind": "BinOp",
+          "left": {
+            "expr": {
+              "kind": "Var",
+              "name": "input"
+            },
+            "field": "amount",
+            "kind": "FieldAccess"
+          },
+          "op": "gt",
+          "right": {
+            "kind": "Literal",
+            "value": {
+              "type": "Int",
+              "value": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "allowed_mutations": [
+        "balance"
+      ],
+      "body": {
+        "cond": {
+          "kind": "BinOp",
+          "left": {
+            "expr": {
+              "kind": "Var",
+              "name": "state"
+            },
+            "field": "balance",
+            "kind": "FieldAccess"
+          },
+          "op": "ge",
+          "right": {
+            "expr": {
+              "kind": "Var",
+              "name": "input"
+            },
+            "field": "amount",
+            "kind": "FieldAccess"
+          }
+        },
+        "else_": {
+          "expr": {
+            "kind": "Var",
+            "name": "state"
+          },
+          "field": "balance",
+          "kind": "FieldAccess"
+        },
+        "kind": "If",
+        "then_": {
+          "kind": "BinOp",
+          "left": {
+            "expr": {
+              "kind": "Var",
+              "name": "state"
+            },
+            "field": "balance",
+            "kind": "FieldAccess"
+          },
+          "op": "sub",
+          "right": {
+            "expr": {
+              "kind": "Var",
+              "name": "input"
+            },
+            "field": "amount",
+            "kind": "FieldAccess"
+          }
+        }
+      },
+      "class": "Update",
+      "name": "withdraw",
+      "postconditions": [
+        {
+          "kind": "BinOp",
+          "left": {
+            "expr": {
+              "kind": "Var",
+              "name": "state"
+            },
+            "field": "balance",
+            "kind": "FieldAccess"
+          },
+          "op": "ge",
+          "right": {
+            "kind": "Literal",
+            "value": {
+              "type": "Int",
+              "value": 0
+            }
+          }
+        }
+      ],
+      "preconditions": [
+        {
+          "kind": "BinOp",
+          "left": {
+            "expr": {
+              "kind": "Var",
+              "name": "input"
+            },
+            "field": "amount",
+            "kind": "FieldAccess"
+          },
+          "op": "gt",
+          "right": {
+            "kind": "Literal",
+            "value": {
+              "type": "Int",
+              "value": 0
+            }
+          }
+        },
+        {
+          "kind": "BinOp",
+          "left": {
+            "expr": {
+              "kind": "Var",
+              "name": "state"
+            },
+            "field": "balance",
+            "kind": "FieldAccess"
+          },
+          "op": "ge",
+          "right": {
+            "expr": {
+              "kind": "Var",
+              "name": "input"
+            },
+            "field": "amount",
+            "kind": "FieldAccess"
+          }
+        }
+      ]
+    }
+  ],
+  "version": "0.1.0"
+}

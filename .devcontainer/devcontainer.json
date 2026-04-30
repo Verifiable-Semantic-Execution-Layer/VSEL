@@ -1,0 +1,74 @@
+{
+  "name": "VSEL Protocol",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": {
+      "LEAN_TOOLCHAIN": "leanprover/lean4:v4.8.0"
+    }
+  },
+  "remoteUser": "vscode",
+
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.rulers": [100],
+        "files.trimTrailingWhitespace": true,
+
+        "rust-analyzer.cargo.buildScripts.enable": true,
+        "rust-analyzer.check.command": "clippy",
+        "rust-analyzer.check.extraArgs": ["--all-targets", "--all-features"],
+        "rust-analyzer.linkedProjects": ["protocol/Cargo.toml"],
+
+        "lean4.lakeEnabled": true,
+
+        "python.defaultInterpreterPath": "/usr/bin/python3",
+        "python.testing.pytestEnabled": true,
+        "python.testing.pytestArgs": ["tools"],
+
+        "[rust]": {
+          "editor.defaultFormatter": "rust-lang.rust-analyzer"
+        },
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff"
+        },
+        "[lean4]": {
+          "editor.defaultFormatter": "leanprover.lean4"
+        }
+      },
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "leanprover.lean4",
+        "alygin.vscode-tlaplus",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "tamasfe.even-better-toml",
+        "serayuzgur.crates",
+        "vadimcn.vscode-lldb",
+        "eamodio.gitlens",
+        "github.copilot"
+      ]
+    }
+  },
+
+  "forwardPorts": [],
+
+  "postCreateCommand": "bash -c 'echo \"[VSEL] Building project...\" && cd formal && lake build && cd ../protocol && cargo build && echo \"[VSEL] Build complete.\"'",
+
+  "containerEnv": {
+    "TLA2TOOLS": "/opt/tla/tla2tools.jar",
+    "PROPTEST_CASES": "100",
+    "RUST_BACKTRACE": "1"
+  },
+
+  "mounts": [
+    "source=vsel-cargo-cache,target=/home/vscode/.cargo/registry,type=volume",
+    "source=vsel-lean-cache,target=/home/vscode/.elan,type=volume",
+    "source=vsel-target-cache,target=${containerWorkspaceFolder}/protocol/target,type=volume"
+  ]
+}

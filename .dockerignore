@@ -1,0 +1,41 @@
+# VSEL Protocol — Docker build context exclusions
+# Task 23.5 | Requirements: 17.4
+
+# Git
+.git
+.gitignore
+
+# IDE / editor
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Build artifacts (rebuilt inside container)
+protocol/target
+formal/.lake
+formal/lake-packages
+
+# Node modules (MCP server)
+mcp-vsel/node_modules
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# LaTeX build artifacts
+paper/*.aux
+paper/*.log
+paper/*.out
+preprint/*.aux
+preprint/*.log
+preprint/*.out
+preprint/*.toc
+
+# Dev container (not needed in production image)
+.devcontainer
+
+# Kiro config
+.kiro
+.kirograph

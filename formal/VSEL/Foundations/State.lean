@@ -14,12 +14,33 @@
 namespace VSEL.Foundations
 
 -- ---------------------------------------------------------------------------
+-- Instances for Fin n → UInt8 (fixed-length byte arrays)
+-- We use ByteArray32 as a wrapper to avoid universe issues with autoImplicit=false.
+-- ---------------------------------------------------------------------------
+
+/-- 32-byte array wrapper with decidable equality and repr. -/
+structure ByteArray32 where
+  data : List UInt8
+  len_eq : data.length = 32 := by decide
+  deriving Repr
+
+instance : DecidableEq ByteArray32 :=
+  fun a b =>
+    if h : a.data = b.data then
+      isTrue (by cases a; cases b; simp at h; subst h; rfl)
+    else
+      isFalse (by intro heq; apply h; cases heq; rfl)
+
+instance : Inhabited ByteArray32 where
+  default := { data := List.replicate 32 0, len_eq := by native_decide }
+
+-- ---------------------------------------------------------------------------
 -- Base types (mirrors types.rs)
 -- ---------------------------------------------------------------------------
 
-/-- 32-byte account identifier. Modeled as a fixed-length list of bytes. -/
+/-- 32-byte account identifier. -/
 structure AccountId where
-  bytes : Fin 32 → UInt8
+  bytes : ByteArray32
   deriving DecidableEq, Repr
 
 /-- Byte-vector storage key. -/
@@ -34,7 +55,7 @@ structure StorageValue where
 
 /-- 32-byte cryptographic hash. -/
 structure Hash where
-  bytes : Fin 32 → UInt8
+  bytes : ByteArray32
   deriving DecidableEq, Repr
 
 /-- Domain separation tag — wraps a Hash for domain-separated crypto operations. -/
@@ -76,7 +97,7 @@ structure Price where
 
 /-- 32-byte entity identifier. -/
 structure EntityId where
-  bytes : Fin 32 → UInt8
+  bytes : ByteArray32
   deriving DecidableEq, Repr
 
 /-- Exposure limit for an entity. -/
@@ -86,7 +107,7 @@ structure ExposureLimit where
 
 /-- 32-byte pool identifier. -/
 structure PoolId where
-  bytes : Fin 32 → UInt8
+  bytes : ByteArray32
   deriving DecidableEq, Repr
 
 /-- Liquidity threshold for a pool. -/
@@ -237,7 +258,28 @@ structure State where
 
 /-- The zero hash (all bytes zero). -/
 def zeroHash : Hash :=
-  { bytes := fun _ => 0 }
+  { bytes := default }
+
+-- ---------------------------------------------------------------------------
+-- Inhabited instances for opaque return types
+-- ---------------------------------------------------------------------------
+
+instance : Inhabited Hash where
+  default := { bytes := default }
+
+instance : Inhabited DerivedState where
+  default := { stateRoot := default, auxiliaryRoots := [], aggregates := [] }
+
+instance : Inhabited EconomicContext where
+  default := {
+    priceOracle := []
+    exposureLimits := []
+    liquidityThresholds := []
+    feeSchedule := { baseFee := 0, feeRateBps := 0, overrides := [] }
+    epochAccounting := { epoch := 0, totalFeesCollected := 0, totalTransactions := 0 }
+    collateralRequirements := []
+    economicParameters := { maxLeverageBps := 0, minCollateralRatioBps := 0, dustThreshold := 0, extra := [] }
+  }
 
 -- ---------------------------------------------------------------------------
 -- Derive functions (opaque — implementation in Rust, proven properties in Lean)

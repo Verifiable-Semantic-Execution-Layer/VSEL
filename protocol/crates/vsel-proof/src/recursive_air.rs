@@ -1,3 +1,16 @@
+//! # ⚠️ Integration Status
+//!
+//! This module is implemented and unit-tested but NOT integrated into
+//! the proving pipeline. `compose_binary()` in `plonky3_backend.rs`
+//! constructs a `RecursiveVerifierAir` but assigns it to `_recursive_air`
+//! (unused). Composition currently uses semantic (SHA3-256 hash-based)
+//! state chaining.
+//!
+//! See `docs/PROOF_LAYER.md` §Composition Architecture Status for the
+//! integration roadmap.
+//!
+//! ---
+//!
 //! RecursiveVerifierAir — inner STARK verifier encoded as AIR constraints.
 //!
 //! Derived from: design.md Component 4, PROOF_LAYER.md §6,

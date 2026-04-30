@@ -1,0 +1,255 @@
+# VSEL Protocol — Weekly CI Pipeline
+# Requirements: 7.7, 9.2, 9.4, 9.5, 9.6, 10.3, 10.4, 11.1, 11.6
+#
+# Weekly tier: deep verification (~12 hours target)
+#   - All nightly checks
+#   - Property tests with PROPTEST_CASES=100000
+#   - TLC with MC_large.cfg (10 accounts, MaxBalance=1000, 10-hour timeout)
+#   - Full audit evidence archival
+#   - Combined model checking coverage report
+#   - GitHub issue creation on TLC counterexample
+#   - Weekly pass enforced as release gate
+
+name: VSEL Weekly
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly Sunday midnight UTC
+  workflow_dispatch: {}   # Allow manual trigger
+
+concurrency:
+  group: weekly-${{ github.ref }}
+  cancel-in-progress: false  # Don't cancel weekly runs
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ─────────────────────────────────────────────
+  # Property Tests — 100,000 cases
+  # Requirements: 7.7
+  # ─────────────────────────────────────────────
+  property-tests-100k:
+    name: Property Tests (100,000 cases)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            protocol/target
+          key: weekly-prop-${{ hashFiles('protocol/Cargo.lock') }}
+          restore-keys: weekly-prop-
+
+      - name: Run property tests (100,000 cases)
+        working-directory: protocol
+        env:
+          PROPTEST_CASES: "100000"
+        run: cargo test --test '*' -- --test-threads=2
+
+      - name: Archive proptest seeds on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proptest-seeds-weekly
+          path: |
+            protocol/**/proptest-regressions/
+            protocol/**/*.proptest-regressions
+          retention-days: 90
+
+  # ─────────────────────────────────────────────
+  # TLA+ — Large Configuration
+  # Requirements: 9.2, 9.4, 9.5, 9.6
+  # ─────────────────────────────────────────────
+  tlaplus-large:
+    name: TLA+ — Model Checking (Large)
+    runs-on: ubuntu-latest
+    timeout-minutes: 600  # 10 hours
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install TLA+ tools
+        run: |
+          mkdir -p "$HOME/tla"
+          curl -sSL -o "$HOME/tla/tla2tools.jar" \
+            "https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar"
+          echo "TLA2TOOLS=$HOME/tla/tla2tools.jar" >> "$GITHUB_ENV"
+
+      - name: Check Properties.tla with MC_large.cfg
+        working-directory: tla
+        run: |
+          java -cp "$TLA2TOOLS" tlc2.TLC Properties.tla \
+            -config MC_large.cfg -workers auto 2>&1 | tee tlc_large_output.txt
+        continue-on-error: true
+
+      - name: Parse TLC results
+        id: tlc-parse
+        working-directory: tla
+        run: |
+          if [ -f tlc_large_output.txt ]; then
+            echo "=== TLC Large Results ==="
+            grep -E '(states generated|distinct states|Finished in|Error:|violated)' tlc_large_output.txt || true
+
+            # Check for violations
+            if grep -qiE '(violated|Error:)' tlc_large_output.txt; then
+              echo "tlc_passed=false" >> "$GITHUB_OUTPUT"
+              echo "::error::TLC large model checking found a violation"
+            else
+              echo "tlc_passed=true" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "tlc_passed=false" >> "$GITHUB_OUTPUT"
+            echo "::error::TLC output file not found"
+          fi
+
+      - name: Create GitHub issue on counterexample
+        if: steps.tlc-parse.outputs.tlc_passed == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = 'TLC model checking (MC_large.cfg) found a violation during the weekly run.\n\n';
+            try {
+              const output = fs.readFileSync('tla/tlc_large_output.txt', 'utf8');
+              const errorLines = output.split('\n').filter(l =>
+                l.match(/Error:|violated|counterexample/i)
+              ).join('\n');
+              body += '```\n' + errorLines.substring(0, 3000) + '\n```\n\n';
+            } catch (e) {
+              body += 'Could not read TLC output.\n\n';
+            }
+            body += `**Config:** MC_large.cfg (10 accounts, MaxBalance=1000, MaxSeqIndex=4)\n`;
+            body += `**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n`;
+            body += `**Commit:** ${context.sha}\n`;
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[TLC] Counterexample found in weekly MC_large run`,
+              body: body,
+              labels: ['bug', 'tla+', 'model-checking']
+            });
+
+      - name: Archive TLC results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tlc-results-large
+          path: tla/tlc_large_output.txt
+          retention-days: 365
+
+  # ─────────────────────────────────────────────
+  # Full Backend Tests with Plonky3
+  # ─────────────────────────────────────────────
+  full-backend-tests:
+    name: Full Backend + Differential Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            protocol/target
+          key: weekly-backend-${{ hashFiles('protocol/Cargo.lock') }}
+          restore-keys: weekly-backend-
+
+      - name: Run all tests with plonky3-backend
+        working-directory: protocol
+        env:
+          PROPTEST_CASES: "1000"
+        run: cargo test --features plonky3-backend -- --test-threads=2
+
+  # ─────────────────────────────────────────────
+  # Audit Evidence Archival
+  # Requirements: 10.3, 10.4
+  # ─────────────────────────────────────────────
+  audit-evidence:
+    name: Audit Evidence Archive
+    runs-on: ubuntu-latest
+    needs:
+      - property-tests-100k
+      - tlaplus-large
+      - full-backend-tests
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate audit evidence summary
+        run: |
+          mkdir -p audit-evidence
+          cat > audit-evidence/weekly-summary.json <<EOF
+          {
+            "run_id": "${{ github.run_id }}",
+            "commit": "${{ github.sha }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "tier": "weekly",
+            "proptest_cases": 100000,
+            "tlc_config": "MC_large.cfg",
+            "property_tests_result": "${{ needs.property-tests-100k.result }}",
+            "tlc_result": "${{ needs.tlaplus-large.result }}",
+            "backend_tests_result": "${{ needs.full-backend-tests.result }}",
+            "requirements_covered": [
+              "7.7", "9.2", "9.4", "9.5", "9.6",
+              "10.3", "10.4", "11.1", "11.6"
+            ]
+          }
+          EOF
+
+      - name: Archive audit evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-evidence-weekly-${{ github.sha }}
+          path: audit-evidence/
+          retention-days: 365
+
+  # ─────────────────────────────────────────────
+  # Weekly Gate — Release gate enforcement
+  # Requirements: 11.6
+  # ─────────────────────────────────────────────
+  weekly-gate:
+    name: Weekly Gate — Release Gate
+    runs-on: ubuntu-latest
+    needs:
+      - property-tests-100k
+      - tlaplus-large
+      - full-backend-tests
+      - audit-evidence
+    if: always()
+    steps:
+      - name: Evaluate weekly results (release gate)
+        run: |
+          echo "Weekly Gate — evaluating results for release readiness"
+          echo "NOTE: Weekly tier must pass before any release branch merge (Req 11.6)"
+          failed=false
+          if [ "${{ needs.property-tests-100k.result }}" != "success" ]; then
+            echo "::error::Property tests (100k) failed — release blocked"
+            failed=true
+          fi
+          if [ "${{ needs.tlaplus-large.result }}" != "success" ]; then
+            echo "::error::TLA+ large model checking failed — release blocked"
+            failed=true
+          fi
+          if [ "${{ needs.full-backend-tests.result }}" != "success" ]; then
+            echo "::error::Full backend tests failed — release blocked"
+            failed=true
+          fi
+          if [ "$failed" = "true" ]; then
+            echo "::error::Weekly verification failed. Production releases require full weekly pass."
+            exit 1
+          fi
+          echo "All weekly checks passed. Release gate: OPEN."

@@ -1,0 +1,70 @@
+{
+  "allowed_mutations": [
+    "balance",
+    "nonce",
+    "storage"
+  ],
+  "body": {
+    "kind": "Literal",
+    "value": {
+      "entries": {
+        "balance": {
+          "type": "Int",
+          "value": 0
+        },
+        "nonce": {
+          "type": "Int",
+          "value": 0
+        },
+        "storage": {
+          "entries": {},
+          "type": "Map"
+        }
+      },
+      "type": "Map"
+    }
+  },
+  "class": "Init",
+  "name": "genesis",
+  "postconditions": [
+    {
+      "kind": "BinOp",
+      "left": {
+        "expr": {
+          "kind": "Var",
+          "name": "state"
+        },
+        "field": "balance",
+        "kind": "FieldAccess"
+      },
+      "op": "eq",
+      "right": {
+        "kind": "Literal",
+        "value": {
+          "type": "Int",
+          "value": 0
+        }
+      }
+    },
+    {
+      "kind": "BinOp",
+      "left": {
+        "expr": {
+          "kind": "Var",
+          "name": "state"
+        },
+        "field": "nonce",
+        "kind": "FieldAccess"
+      },
+      "op": "eq",
+      "right": {
+        "kind": "Literal",
+        "value": {
+          "type": "Int",
+          "value": 0
+        }
+      }
+    }
+  ],
+  "preconditions": []
+}

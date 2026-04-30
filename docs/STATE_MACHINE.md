@@ -245,6 +245,36 @@ Constraint:
 * ordering must be preserved
 * no implicit reordering
 
+#### 5.5.1 Batch Intermediate Invariant Policy
+
+Batch execution is sequential application with **per-step invariant validation**.
+Each input σ_i in the batch is executed through the full 7-step pipeline
+(§6), including postcondition validation (step 5) and derived state
+recalculation (step 6). If any intermediate state s_i violates any
+invariant, the entire batch is rejected — no partial application is
+committed.
+
+Formally:
+
+[
+\forall i \in [1, n]: \text{Invariants}(s_i) \text{ must hold}
+]
+
+If there exists any i such that the intermediate state s_i produced by
+applying σ_i violates an invariant, then:
+
+[
+\text{execute\_batch}(s, [\sigma_1, ..., \sigma_n]) = \text{Error}
+]
+
+even if the final state s_n would restore the invariant. This policy
+prevents transient invariant violations from being masked by subsequent
+operations within the same batch.
+
+This is a deliberate design choice: batch execution provides no
+"transaction-level" invariant relaxation. Every intermediate state must
+be independently valid.
+
 ---
 
 ## 6. Transition Execution Pipeline

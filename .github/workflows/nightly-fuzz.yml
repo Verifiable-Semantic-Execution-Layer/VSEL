@@ -1,0 +1,199 @@
+# VSEL Protocol — Nightly Fuzzing Pipeline
+# Requirements: 6.6
+#
+# Runs each cargo-fuzz target for 5 minutes on nightly builds using the
+# accumulated corpus for regression detection. Any crash is treated as a
+# CI failure and the crash artifact is uploaded for investigation.
+#
+# Fuzz targets:
+#   - fuzz_goldilocks_arith    (GoldilocksField arithmetic)
+#   - fuzz_poseidon_permute    (Poseidon permutation)
+#   - fuzz_poseidon_hash_bytes (Poseidon hash_bytes)
+#   - fuzz_proof_deser         (StarkProof deserialization)
+#   - fuzz_constraint_eval     (ConstraintExpr evaluation)
+#   - fuzz_witness_construct   (Witness construction)
+#   - fuzz_sir_deser           (SIR deserialization)
+
+name: VSEL Nightly Fuzz
+
+on:
+  schedule:
+    - cron: '30 3 * * *'  # Daily at 3:30 AM UTC (after nightly.yml at 2 AM)
+  workflow_dispatch: {}    # Allow manual trigger
+
+concurrency:
+  group: nightly-fuzz-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  # Duration per fuzz target in seconds (5 minutes)
+  FUZZ_DURATION: "300"
+
+jobs:
+  # ─────────────────────────────────────────────
+  # Build fuzz targets once, then run in parallel
+  # ─────────────────────────────────────────────
+  fuzz-build:
+    name: Build Fuzz Targets
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: llvm-tools-preview
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            protocol/fuzz/target
+          key: fuzz-build-${{ hashFiles('protocol/fuzz/Cargo.toml', 'protocol/Cargo.lock') }}
+          restore-keys: fuzz-build-
+
+      - name: Build all fuzz targets
+        working-directory: protocol
+        run: cargo fuzz build
+
+      - name: Upload fuzz build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-build
+          path: protocol/fuzz/target
+          retention-days: 1
+
+  # ─────────────────────────────────────────────
+  # Fuzz targets — run in parallel via matrix
+  # ─────────────────────────────────────────────
+  fuzz-run:
+    name: Fuzz — ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    needs: fuzz-build
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - fuzz_goldilocks_arith
+          - fuzz_poseidon_permute
+          - fuzz_poseidon_hash_bytes
+          - fuzz_proof_deser
+          - fuzz_constraint_eval
+          - fuzz_witness_construct
+          - fuzz_sir_deser
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: llvm-tools-preview
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            protocol/fuzz/target
+          key: fuzz-build-${{ hashFiles('protocol/fuzz/Cargo.toml', 'protocol/Cargo.lock') }}
+          restore-keys: fuzz-build-
+
+      # Restore accumulated corpus from previous runs
+      - name: Restore corpus cache
+        uses: actions/cache@v4
+        with:
+          path: protocol/fuzz/corpus/${{ matrix.target }}
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.run_number }}
+          restore-keys: |
+            fuzz-corpus-${{ matrix.target }}-
+
+      - name: Run fuzz target (${{ matrix.target }}, ${{ env.FUZZ_DURATION }}s)
+        working-directory: protocol
+        run: |
+          mkdir -p fuzz/corpus/${{ matrix.target }}
+          cargo fuzz run ${{ matrix.target }} \
+            -- -max_total_time=${{ env.FUZZ_DURATION }} \
+               -print_final_stats=1 \
+            2>&1 | tee fuzz_output_${{ matrix.target }}.txt
+          echo "Fuzzing completed for ${{ matrix.target }}"
+
+      - name: Check for crashes
+        if: always()
+        working-directory: protocol
+        run: |
+          ARTIFACT_DIR="fuzz/artifacts/${{ matrix.target }}"
+          if [ -d "$ARTIFACT_DIR" ] && [ "$(ls -A "$ARTIFACT_DIR" 2>/dev/null)" ]; then
+            echo "::error::Crashes found for ${{ matrix.target }}!"
+            ls -la "$ARTIFACT_DIR"
+            for crash in "$ARTIFACT_DIR"/*; do
+              echo "--- Crash input: $crash ---"
+              xxd "$crash" | head -20
+            done
+            exit 1
+          else
+            echo "No crashes found for ${{ matrix.target }}"
+          fi
+
+      - name: Upload crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crashes-${{ matrix.target }}
+          path: |
+            protocol/fuzz/artifacts/${{ matrix.target }}/
+            protocol/fuzz_output_${{ matrix.target }}.txt
+          retention-days: 90
+
+      - name: Upload fuzzing output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-output-${{ matrix.target }}
+          path: protocol/fuzz_output_${{ matrix.target }}.txt
+          retention-days: 30
+
+      # Save updated corpus for next run
+      - name: Save corpus cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: protocol/fuzz/corpus/${{ matrix.target }}
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.run_number }}
+
+  # ─────────────────────────────────────────────
+  # Nightly Fuzz Gate
+  # ─────────────────────────────────────────────
+  fuzz-gate:
+    name: Fuzz Gate — All Targets
+    runs-on: ubuntu-latest
+    needs: fuzz-run
+    if: always()
+    steps:
+      - name: Evaluate fuzzing results
+        run: |
+          echo "Nightly Fuzz Gate — evaluating results"
+          if [ "${{ needs.fuzz-run.result }}" != "success" ]; then
+            echo "::error::One or more fuzz targets found crashes. Check artifacts for details."
+            echo ""
+            echo "Investigation steps:"
+            echo "  1. Download crash artifacts from this workflow run"
+            echo "  2. Reproduce locally: cargo fuzz run <target> <crash_input>"
+            echo "  3. Minimize: cargo fuzz tmin <target> <crash_input>"
+            echo "  4. Create regression test and fix the issue"
+            echo ""
+            echo "Critical findings (block all work):"
+            echo "  - fuzz_goldilocks_arith: result >= p"
+            echo "  - fuzz_poseidon_permute: non-deterministic output"
+            echo "  - fuzz_proof_deser: accepts malformed data"
+            exit 1
+          fi
+          echo "All fuzz targets completed without crashes."

@@ -541,3 +541,66 @@ It is designed so that:
 * weak assumptions fail early
 * incomplete thinking is exposed
 * correctness is enforced, not assumed
+
+---
+
+## 18. v1.1 — Circuit-Level Recursive Composition
+
+### Objective
+
+Replace semantic (SHA3-256 hash-based) proof composition with circuit-level recursion, so that composed proofs carry cryptographic evidence that each inner proof was independently valid — not just hash-chained.
+
+### Background
+
+In v1.0, `compose_binary()` in `plonky3_backend.rs` assembles composed proofs using SHA3-256 hashing of inner proofs' FRI commitments. The `RecursiveVerifierAir` struct exists in `recursive_air.rs` with correct AIR constraints and 33 passing unit tests, but it is assigned to `_recursive_air` (unused) in the composition pipeline. See `docs/PROOF_LAYER.md` §Composition Architecture Status for the full v1.0 architecture description and security analysis.
+
+### Integration Plan
+
+#### 18.1 Replace Hash Composition with Recursive Proving
+
+* Replace SHA3-256 hash composition in `compose_binary()` with `p3_uni_stark::prove()` over `RecursiveVerifierAir`
+* The outer STARK proof encodes `Verify(π_inner)` as AIR constraints, so the verifier cryptographically enforces the recursive trust chain instead of relying on runtime hash checks
+* Remove the `_recursive_air` dead assignment and wire `RecursiveVerifierAir` into the proving call
+
+#### 18.2 Execution Trace Generation for Recursive Verifier
+
+* Generate the execution trace for the recursive verifier from inner proof data:
+  * **FRI commitments → Merkle path witness columns**: encode each Merkle authentication path as witness rows, with path indices, sibling hashes, and root commitments as column values
+  * **Query responses → FRI folding witness columns**: encode FRI query-response pairs as witness rows, with evaluation points, folded values, and consistency checks as column values
+* The trace must be deterministic given the inner proof — no external randomness in witness generation
+
+#### 18.3 Composed Proof Verification
+
+* Verify composed proofs using `p3_uni_stark::verify()` with the recursive verifier AIR
+* The verifier checks that the outer proof satisfies `RecursiveVerifierAir` constraints, which encode the inner proof's FRI verification as polynomial identities
+* This eliminates the trust assumption that the composer honestly ran the inner prover — the STARK proof itself is the evidence
+
+#### 18.4 Inline Poseidon2 as Degree-7 AIR Constraints
+
+* Inline Poseidon2 hash evaluation as degree-7 AIR constraints within `RecursiveVerifierAir` for defense-in-depth (addressing audit Finding 5)
+* This ensures the Merkle path verification inside the recursive circuit uses the same hash function as the outer STARK, preventing hash-function mismatch attacks
+* Degree-7 constraints are compatible with the Plonky3 AIR framework's constraint degree budget
+
+### Estimated Effort
+
+2–4 weeks engineering time, covering:
+
+* Witness generation from inner proof data (~1 week)
+* Integration of `RecursiveVerifierAir` into `compose_binary()` proving path (~1 week)
+* Inline Poseidon2 constraint implementation and testing (~0.5–1 week)
+* End-to-end integration testing and benchmark validation (~0.5–1 week)
+
+### Dependencies
+
+* **Plonky3 recursive proving API stability**: The integration depends on `p3_uni_stark::prove()` and `p3_uni_stark::verify()` maintaining their current interface. If the Plonky3 team introduces breaking changes to the proving API or AIR trait bounds, the integration timeline extends.
+* **v1.0 completion**: All v1.0 documentation, fuzzing, and benchmark tasks must be complete before v1.1 work begins.
+
+### Audit Requirement
+
+Circuit-level recursion introduces new attack surface:
+
+* Underconstrained witness columns in the recursive verifier trace
+* Degree overflow in Poseidon2 inline constraints
+* Soundness loss from incorrect FRI folding encoding
+
+A dedicated Phase 6.1 audit is required before v1.1 ships, with attack goals targeting recursive proof forgery, witness malleability in the recursive trace, and Poseidon2 constraint completeness.

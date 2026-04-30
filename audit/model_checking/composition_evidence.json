@@ -1,0 +1,77 @@
+{
+  "metadata": {
+    "spec": "Composition.tla",
+    "config": "Composition_MC.cfg",
+    "tlc_version": "2026.04.27.203507",
+    "tlc_revision": "e3142ca",
+    "tla_spec_git_commit": "90e8dd4a8367c413e439fa3d298fa91334fb14ba",
+    "execution_timestamp": "2026-04-29T16:00:08Z",
+    "completion_timestamp": "2026-04-29T16:00:11Z",
+    "platform": "Mac OS X 26.3.1 x86_64, Eclipse Adoptium 17.0.16 64bit",
+    "workers": 14,
+    "heap_memory_mb": 3641,
+    "offheap_memory_mb": 64
+  },
+  "config_parameters": {
+    "AccountIDs_A": ["a1", "a2"],
+    "AccountIDs_B": ["b1", "b2"],
+    "MaxBalance": 5,
+    "MaxSeqIndex": 2,
+    "TOTAL_SUPPLY": 10,
+    "check_deadlock": false
+  },
+  "results": {
+    "outcome": "Model checking completed. No error has been found.",
+    "states_generated": 126218,
+    "distinct_states": 7154,
+    "states_left_on_queue": 0,
+    "search_depth": 4,
+    "initial_states": 146,
+    "execution_time_seconds": 3,
+    "fingerprint_collision_probability": "4.6E-11",
+    "average_outdegree": 1,
+    "min_outdegree": 0,
+    "max_outdegree": 31,
+    "p95_outdegree": 10,
+    "counterexamples_found": 0
+  },
+  "invariants": {
+    "composition": {
+      "TypeOK": "PASS",
+      "CrossSystemConservation": "PASS",
+      "SharedStateConsistency": "PASS",
+      "NoCompositionEscape": "PASS",
+      "AllCompositionInvariants": "PASS"
+    }
+  },
+  "tla_modules_parsed": [
+    "Composition.tla"
+  ],
+  "composition_model_description": {
+    "systems": 2,
+    "system_a_accounts": ["a1", "a2"],
+    "system_b_accounts": ["b1", "b2"],
+    "transitions": [
+      "DoTransfer_A (internal transfer within system A)",
+      "DoTransfer_B (internal transfer within system B)",
+      "CrossTransfer_AtoB (cross-system transfer A→B)",
+      "CrossTransfer_BtoA (cross-system transfer B→A)",
+      "UpdateSharedState_A (system A updates shared state)",
+      "UpdateSharedState_B (system B updates shared state)"
+    ],
+    "invariants_checked": {
+      "TypeOK": "Both systems remain well-typed (balances in 0..MaxBalance, supplies and indices in Nat)",
+      "CrossSystemConservation": "total_supply_a + total_supply_b = TOTAL_SUPPLY (CI-1)",
+      "SharedStateConsistency": "shared_state ∈ Nat — single shared variable ensures consistency (CI-2)",
+      "NoCompositionEscape": "TypeOK_A ∧ TypeOK_B ∧ StructuralValidity_A ∧ StructuralValidity_B ∧ CrossSystemConservation (CI-3)",
+      "AllCompositionInvariants": "Conjunction of all composition invariants"
+    }
+  },
+  "verification_summary": {
+    "total_invariants_checked": 5,
+    "total_properties_passed": 5,
+    "total_properties_failed": 0,
+    "state_space_exhaustively_explored": true,
+    "note": "Composition_MC.cfg provides complete exhaustive state space exploration with 2 accounts per system, MaxBalance=5, MaxSeqIndex=2, TOTAL_SUPPLY=10. All 5 composition invariants verified across 7,154 distinct reachable states with zero counterexamples. The fingerprint collision probability of 4.6E-11 provides extremely high confidence in completeness."
+  }
+}

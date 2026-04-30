@@ -1,0 +1,93 @@
+[
+  {
+    "category": "local",
+    "expr": {
+      "kind": "BinOp",
+      "left": {
+        "expr": {
+          "kind": "Var",
+          "name": "state"
+        },
+        "field": "balance",
+        "kind": "FieldAccess"
+      },
+      "op": "ge",
+      "right": {
+        "kind": "Literal",
+        "value": {
+          "type": "Int",
+          "value": 0
+        }
+      }
+    },
+    "name": "L_cons"
+  },
+  {
+    "category": "global",
+    "expr": {
+      "kind": "BinOp",
+      "left": {
+        "expr": {
+          "kind": "Var",
+          "name": "state"
+        },
+        "field": "nonce",
+        "kind": "FieldAccess"
+      },
+      "op": "ge",
+      "right": {
+        "kind": "Literal",
+        "value": {
+          "type": "Int",
+          "value": 0
+        }
+      }
+    },
+    "name": "G_valid"
+  },
+  {
+    "category": "global",
+    "expr": {
+      "kind": "BinOp",
+      "left": {
+        "expr": {
+          "kind": "Var",
+          "name": "state"
+        },
+        "field": "balance",
+        "kind": "FieldAccess"
+      },
+      "op": "gt",
+      "right": {
+        "kind": "BinOp",
+        "left": {
+          "kind": "Literal",
+          "value": {
+            "type": "Int",
+            "value": 0
+          }
+        },
+        "op": "sub",
+        "right": {
+          "kind": "Literal",
+          "value": {
+            "type": "Int",
+            "value": 1
+          }
+        }
+      }
+    },
+    "name": "G_solvency"
+  },
+  {
+    "category": "economic",
+    "expr": {
+      "kind": "Literal",
+      "value": {
+        "type": "Bool",
+        "value": true
+      }
+    },
+    "name": "E_cost"
+  }
+]

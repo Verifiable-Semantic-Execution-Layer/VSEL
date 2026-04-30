@@ -30,7 +30,7 @@ open VSEL.Foundations
 
 -- =========================================================================
 -- THM-1 (TP-2): Execution-Mapping Commutativity
--- μ_S(Apply(s, σ)) = Apply_f(μ_S(s), μ_Σ(σ))
+-- mu_S(Apply(s, sigma)) = Apply_f(mu_S(s), mu_Sigma(sigma))
 --
 -- This is the fundamental semantic preservation theorem. It states that
 -- applying a transition concretely and then mapping the result to the
@@ -42,10 +42,10 @@ open VSEL.Foundations
 -- =========================================================================
 
 /-- THM-1 (TP-2): Execution-mapping commutativity.
-    ∀ s σ, μ_S(Apply(s, σ)) = Apply_f(μ_S(s), μ_Σ(σ))
+    ∀ s sigma, mu_S(Apply(s, sigma)) = Apply_f(mu_S(s), mu_Sigma(sigma))
     Requirement: 4.2, 9.6 -/
 axiom thm1_execution_commutativity (s : State) (sigma : Input) :
-  μ_S (Apply s sigma) = Apply_f (μ_S s) (μ_Σ sigma)
+  mu_S (Apply s sigma) = Apply_f (mu_S s) (mu_Sigma sigma)
 
 -- =========================================================================
 -- THM-4 (TP-9): Auxiliary Data Independence
@@ -72,45 +72,45 @@ axiom thm4_auxiliary_independence (s : State) (p : Payload) (a : Authorization)
     If two inputs differ only in aux, their formal post-states are equal. -/
 theorem thm4_formal_corollary (s : State) (p : Payload) (a : Authorization)
     (aux₁ aux₂ : AuxiliaryData) :
-    μ_S (Apply s { payload := p, auth := a, aux := aux₁ })
-      = μ_S (Apply s { payload := p, auth := a, aux := aux₂ }) := by
+    mu_S (Apply s { payload := p, auth := a, aux := aux₁ })
+      = mu_S (Apply s { payload := p, auth := a, aux := aux₂ }) := by
   rw [thm4_auxiliary_independence s p a aux₁ aux₂]
 
 -- =========================================================================
 -- THM-5: Derived State Commutativity
--- μ_D(Derive(C)) = Derive_f(μ_C(C))
+-- mu_D(Derive(C)) = Derive_f(mu_C(C))
 --
 -- Mapping the derived state of a canonical state is equivalent to
 -- computing the formal derived state from the mapped canonical state.
 --
--- We express this using the full state mapping since μ_S includes
+-- We express this using the full state mapping since mu_S includes
 -- the derived component.
 -- =========================================================================
 
-/-- μ_C : CanonicalState → FormalState — map canonical state component.
+/-- mu_C : CanonicalState → FormalState — map canonical state component.
     Opaque: extracts and maps just the canonical component. -/
-opaque μ_C : CanonicalState → FormalState
+opaque mu_C : CanonicalState → FormalState
 
 /-- Opaque mapping of DerivedState to FormalState (for the derived component). -/
-opaque μ_D : DerivedState → FormalState
+opaque mu_D : DerivedState → FormalState
 
 /-- THM-5: Derived state commutativity.
-    μ_D(Derive(C)) = Derive_f(μ_C(C))
+    mu_D(Derive(C)) = Derive_f(mu_C(C))
     Mapping the result of Derive is equivalent to applying Derive_f
     to the mapped canonical state.
     Requirement: 4.6 -/
 axiom thm5_derived_commutativity (c : CanonicalState) :
-  μ_D (Derive c) = Derive_f (μ_C c)
+  mu_D (Derive c) = Derive_f (mu_C c)
 
 /-- Corollary: Derive is deterministic through the mapping.
     Computing Derive twice and mapping yields the same formal state. -/
 theorem thm5_derive_deterministic_mapping (c : CanonicalState) :
-    μ_D (Derive c) = μ_D (Derive c) := by
+    mu_D (Derive c) = mu_D (Derive c) := by
   rfl
 
 -- =========================================================================
 -- TP-7: Canonicalization Idempotence
--- Canonicalize(Canonicalize(σ)) = Canonicalize(σ)
+-- Canonicalize(Canonicalize(sigma)) = Canonicalize(sigma)
 -- Canonicalize(Canonicalize(s)) = Canonicalize(s)
 --
 -- Canonicalization is idempotent: applying it twice yields the same
@@ -122,7 +122,7 @@ theorem thm5_derive_deterministic_mapping (c : CanonicalState) :
 -- =========================================================================
 
 /-- TP-7a: Input canonicalization idempotence (DEF-5).
-    ∀ σ, Canonicalize_Input(Canonicalize_Input(σ)) = Canonicalize_Input(σ)
+    ∀ sigma, Canonicalize_Input(Canonicalize_Input(sigma)) = Canonicalize_Input(sigma)
     Requirement: 4.4, 9.6 -/
 axiom tp7_input_canonicalization_idempotent (sigma : Input) :
   Canonicalize_Input (Canonicalize_Input sigma) = Canonicalize_Input sigma
@@ -149,42 +149,42 @@ theorem tp7_state_canon_triple (s : State) :
 
 -- =========================================================================
 -- TP-8: Canonicalization Semantic Preservation
--- μ_Σ(Canonicalize_Input(σ)) = μ_Σ(σ)
+-- mu_Sigma(Canonicalize_Input(sigma)) = mu_Sigma(sigma)
 --
 -- Canonicalization does not change the semantic meaning of an input.
 -- The formal representation of a canonicalized input is identical to
 -- the formal representation of the original input.
 --
--- Axiomatized because both μ_Σ and Canonicalize_Input are opaque.
+-- Axiomatized because both mu_Sigma and Canonicalize_Input are opaque.
 -- Validated by differential testing in Rust.
 -- =========================================================================
 
 /-- TP-8a: Input canonicalization semantic preservation.
-    ∀ σ, μ_Σ(Canonicalize_Input(σ)) = μ_Σ(σ)
+    ∀ sigma, mu_Sigma(Canonicalize_Input(sigma)) = mu_Sigma(sigma)
     Canonical form maps to the same formal input as the original.
     Requirement: 4.4, 9.6 -/
 axiom tp8_input_canonicalization_preserves_semantics (sigma : Input) :
-  μ_Σ (Canonicalize_Input sigma) = μ_Σ sigma
+  mu_Sigma (Canonicalize_Input sigma) = mu_Sigma sigma
 
 /-- TP-8b: State canonicalization semantic preservation.
-    ∀ s, μ_S(Canonicalize_State(s)) = μ_S(s)
+    ∀ s, mu_S(Canonicalize_State(s)) = mu_S(s)
     Canonical form maps to the same formal state as the original.
     Requirement: 4.4, 9.6 -/
 axiom tp8_state_canonicalization_preserves_semantics (s : State) :
-  μ_S (Canonicalize_State s) = μ_S s
+  mu_S (Canonicalize_State s) = mu_S s
 
 /-- Corollary: Canonicalization commutes with execution through the mapping.
     Apply on canonicalized inputs maps the same as Apply on original inputs. -/
 theorem tp8_canon_execution_corollary (s : State) (sigma : Input) :
-    μ_S (Apply s (Canonicalize_Input sigma))
-      = Apply_f (μ_S s) (μ_Σ sigma) := by
+    mu_S (Apply s (Canonicalize_Input sigma))
+      = Apply_f (mu_S s) (mu_Sigma sigma) := by
   rw [thm1_execution_commutativity s (Canonicalize_Input sigma)]
   rw [tp8_input_canonicalization_preserves_semantics sigma]
 
 /-- Corollary: Canonicalized state execution maps the same. -/
 theorem tp8_canon_state_execution_corollary (s : State) (sigma : Input) :
-    μ_S (Apply (Canonicalize_State s) sigma)
-      = Apply_f (μ_S s) (μ_Σ sigma) := by
+    mu_S (Apply (Canonicalize_State s) sigma)
+      = Apply_f (mu_S s) (mu_Sigma sigma) := by
   rw [thm1_execution_commutativity (Canonicalize_State s) sigma]
   rw [tp8_state_canonicalization_preserves_semantics s]
 
@@ -202,14 +202,14 @@ axiom canon_clears_aux (p : Payload) (a : Authorization) (aux₁ aux₂ : Auxili
 /-- Execution on canonicalized inputs with different aux yields same formal state. -/
 theorem canon_aux_formal_equivalence (s : State) (p : Payload) (a : Authorization)
     (aux₁ aux₂ : AuxiliaryData) :
-    μ_S (Apply s (Canonicalize_Input { payload := p, auth := a, aux := aux₁ }))
-      = μ_S (Apply s (Canonicalize_Input { payload := p, auth := a, aux := aux₂ })) := by
+    mu_S (Apply s (Canonicalize_Input { payload := p, auth := a, aux := aux₁ }))
+      = mu_S (Apply s (Canonicalize_Input { payload := p, auth := a, aux := aux₂ })) := by
   rw [canon_clears_aux p a aux₁ aux₂]
 
 /-- THM-1 applied twice: sequential transitions commute through the mapping. -/
 theorem thm1_sequential (s : State) (sigma₁ sigma₂ : Input) :
-    μ_S (Apply (Apply s sigma₁) sigma₂)
-      = Apply_f (Apply_f (μ_S s) (μ_Σ sigma₁)) (μ_Σ sigma₂) := by
+    mu_S (Apply (Apply s sigma₁) sigma₂)
+      = Apply_f (Apply_f (mu_S s) (mu_Sigma sigma₁)) (mu_Sigma sigma₂) := by
   rw [thm1_execution_commutativity (Apply s sigma₁) sigma₂]
   rw [thm1_execution_commutativity s sigma₁]
 

@@ -1,0 +1,77 @@
+{
+  "allowed_mutations": [
+    "balance"
+  ],
+  "body": {
+    "body": {
+      "kind": "Var",
+      "name": "new_balance"
+    },
+    "kind": "Let",
+    "name": "new_balance",
+    "value": {
+      "kind": "BinOp",
+      "left": {
+        "expr": {
+          "kind": "Var",
+          "name": "state"
+        },
+        "field": "balance",
+        "kind": "FieldAccess"
+      },
+      "op": "add",
+      "right": {
+        "expr": {
+          "kind": "Var",
+          "name": "input"
+        },
+        "field": "amount",
+        "kind": "FieldAccess"
+      }
+    }
+  },
+  "class": "Update",
+  "name": "deposit",
+  "postconditions": [
+    {
+      "kind": "BinOp",
+      "left": {
+        "expr": {
+          "kind": "Var",
+          "name": "state"
+        },
+        "field": "balance",
+        "kind": "FieldAccess"
+      },
+      "op": "ge",
+      "right": {
+        "kind": "Literal",
+        "value": {
+          "type": "Int",
+          "value": 0
+        }
+      }
+    }
+  ],
+  "preconditions": [
+    {
+      "kind": "BinOp",
+      "left": {
+        "expr": {
+          "kind": "Var",
+          "name": "input"
+        },
+        "field": "amount",
+        "kind": "FieldAccess"
+      },
+      "op": "gt",
+      "right": {
+        "kind": "Literal",
+        "value": {
+          "type": "Int",
+          "value": 0
+        }
+      }
+    }
+  ]
+}

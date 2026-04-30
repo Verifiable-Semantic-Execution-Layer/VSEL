@@ -1,0 +1,106 @@
+{
+  "metadata": {
+    "spec": "Properties.tla",
+    "config": "MC_micro.cfg",
+    "tlc_version": "2026.04.27.203507",
+    "tlc_revision": "e3142ca",
+    "tla_spec_git_commit": "73b354b7ed910c4a05c906b0fa4606aba387ab47",
+    "execution_timestamp": "2026-04-29T12:45:27Z",
+    "completion_timestamp": "2026-04-29T12:46:11Z",
+    "platform": "Mac OS X 26.3.1 x86_64, Eclipse Adoptium 17.0.16 64bit",
+    "workers": 14,
+    "heap_memory_mb": 3641,
+    "offheap_memory_mb": 64
+  },
+  "config_parameters": {
+    "AccountIDs": ["A", "B"],
+    "MaxBalance": 3,
+    "MaxSeqIndex": 3,
+    "DustThreshold": 1,
+    "MaxFeeRateBps": 10000,
+    "check_deadlock": false
+  },
+  "results": {
+    "outcome": "Model checking completed. No error has been found.",
+    "states_generated": 25780,
+    "distinct_states": 20195,
+    "states_left_on_queue": 0,
+    "search_depth": 4,
+    "initial_states": 16,
+    "execution_time_seconds": 46,
+    "fingerprint_collision_probability": "6.1E-12",
+    "average_outdegree": 1,
+    "min_outdegree": 0,
+    "max_outdegree": 17,
+    "p95_outdegree": 10,
+    "counterexamples_found": 0
+  },
+  "invariants": {
+    "core": {
+      "StateValidity": "PASS",
+      "ResourceConservation": "PASS",
+      "TraceResourceConservation": "PASS",
+      "GuardExhaustiveness": "PASS",
+      "GuardDisjointness": "PASS",
+      "TransitionDeterminism": "PASS",
+      "DerivedConsistency": "PASS"
+    },
+    "supporting": {
+      "TypeOK": "PASS",
+      "T_no_revert": "PASS",
+      "T_causal": "PASS",
+      "T_complete": "PASS",
+      "E_cost": "PASS",
+      "G_solvency": "PASS",
+      "G_dust": "PASS",
+      "AllErrorPathsPreserveState": "PASS",
+      "ErrorPathConservation": "PASS",
+      "ErrorPathDerivedConsistency": "PASS",
+      "PriorityCorrectness": "PASS",
+      "NoopIsCatchAll": "PASS"
+    },
+    "temporal_state_predicates": {
+      "NoRollback": "PASS",
+      "CausalOrdering": "PASS",
+      "NoHiddenTransitions": "PASS",
+      "EventualProgress": "PASS",
+      "BoundedTraceLength": "PASS",
+      "TraceMonotonic": "PASS",
+      "CommitmentProgression": "PASS"
+    }
+  },
+  "temporal_properties": {
+    "NoRollbackTemporal": "PASS",
+    "CausalOrderingTemporal": "PASS"
+  },
+  "tla_modules_parsed": [
+    "Properties.tla",
+    "Invariants.tla",
+    "TransitionPartitioning.tla",
+    "ErrorHandling.tla",
+    "TemporalProperties.tla",
+    "StateMachine.tla"
+  ],
+  "scalability_analysis": {
+    "mc_small_attempted": true,
+    "mc_small_config": {
+      "AccountIDs": ["A", "B", "C"],
+      "MaxBalance": 10,
+      "MaxSeqIndex": 5
+    },
+    "mc_small_outcome": "INTRACTABLE",
+    "mc_small_states_generated_before_termination": 9325554,
+    "mc_small_distinct_states_before_termination": 4999194,
+    "mc_small_states_remaining_on_queue": 4843078,
+    "mc_small_runtime_before_termination_minutes": 76,
+    "mc_small_note": "MC_small.cfg (3 accounts, MaxBalance=10, MaxSeqIndex=5) proved intractable — generated 9.3M+ states over 76+ minutes without completing, with 4.8M states still queued. Multiple strategies attempted (BFS, DFID, simulation, reduced configs) all failed to complete. The state space grows combinatorially with account count and balance range."
+  },
+  "verification_summary": {
+    "total_invariants_checked": 26,
+    "total_temporal_properties_checked": 2,
+    "total_properties_passed": 28,
+    "total_properties_failed": 0,
+    "state_space_exhaustively_explored": true,
+    "note": "MC_micro.cfg provides complete exhaustive state space exploration with reduced parameters (2 accounts, MaxBalance=3, MaxSeqIndex=3). All 28 properties verified across 20,195 distinct reachable states with zero counterexamples. The fingerprint collision probability of 6.1E-12 provides extremely high confidence in completeness."
+  }
+}

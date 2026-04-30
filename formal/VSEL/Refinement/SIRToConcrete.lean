@@ -3,12 +3,12 @@
   Requirements: 9.2, 9.6
 
   Proves that the Rust concrete execution is a faithful refinement of the SIR.
-  Uses semantic mapping functions μ_S, μ_Σ from `VSEL.Mapping.SemanticMapping`
+  Uses semantic mapping functions mu_S, mu_Sigma from `VSEL.Mapping.SemanticMapping`
   and the commutativity theorems from `VSEL.Mapping.Commutativity`.
 
   Proof obligations:
-  - R12-1: μ_S totality
-  - R12-2: μ_S determinism
+  - R12-1: mu_S totality
+  - R12-2: mu_S determinism
   - R12-3: Execution-mapping commutativity (THM-1 / TP-2)
   - R12-4: Observable commutativity (THM-2)
   - R12-5: Encoding injectivity (DEF-2)
@@ -22,6 +22,7 @@ import VSEL.Foundations.Input
 import VSEL.Foundations.Transition
 import VSEL.Mapping.SemanticMapping
 import VSEL.Mapping.Commutativity
+import VSEL.Mapping.Observable
 
 namespace VSEL.Refinement
 
@@ -29,49 +30,49 @@ open VSEL.Foundations
 open VSEL.Mapping
 
 -- =========================================================================
--- R12-1: μ_S totality — automatic for Lean functions, stated for documentation
+-- R12-1: mu_S totality — automatic for Lean functions, stated for documentation
 -- =========================================================================
 
-/-- R12-1: μ_S is total — defined for all states.
+/-- R12-1: mu_S is total — defined for all states.
     Automatic for Lean functions (all functions are total).
     Stated explicitly for documentation and cross-reference with Requirement 9.2. -/
-theorem r12_μ_S_total (s : State) : ∃! f, μ_S s = f := by
-  exact ⟨μ_S s, rfl, fun _ h => h.symm⟩
+theorem r12_mu_S_total (s : State) : ∃ f, mu_S s = f ∧ ∀ y, mu_S s = y → y = f := by
+  exact ⟨mu_S s, rfl, fun _ h => h.symm⟩
 
 -- =========================================================================
--- R12-2: μ_S determinism — automatic for Lean functions
+-- R12-2: mu_S determinism — automatic for Lean functions
 -- =========================================================================
 
-/-- R12-2: μ_S is deterministic — same input always produces same output.
+/-- R12-2: mu_S is deterministic — same input always produces same output.
     Automatic for Lean functions (pure, no side effects).
     Requirement: 9.2 -/
-theorem r12_μ_S_deterministic (s : State) : μ_S s = μ_S s := by rfl
+theorem r12_mu_S_deterministic (s : State) : mu_S s = mu_S s := by rfl
 
 -- =========================================================================
 -- R12-3: Execution-mapping commutativity (THM-1 / TP-2)
--- μ_S(Apply_c(s, σ)) = Apply_f(μ_S(s), μ_Σ(σ))
+-- mu_S(Apply_c(s, sigma)) = Apply_f(mu_S(s), mu_Sigma(sigma))
 -- =========================================================================
 
 /-- R12-3: Execution-mapping commutativity (THM-1 / TP-2).
-    μ_S(Apply(s, σ)) = Apply_f(μ_S(s), μ_Σ(σ))
+    mu_S(Apply(s, sigma)) = Apply_f(mu_S(s), mu_Sigma(sigma))
     Re-stated from Commutativity.lean as the R₁₂ refinement obligation.
     Requirement: 9.2, 9.6 -/
 theorem r12_execution_commutativity (s : State) (sigma : Input) :
-    μ_S (Apply s sigma) = Apply_f (μ_S s) (μ_Σ sigma) :=
+    mu_S (Apply s sigma) = Apply_f (mu_S s) (mu_Sigma sigma) :=
   thm1_execution_commutativity s sigma
 
 -- =========================================================================
 -- R12-4: Observable commutativity (THM-2)
--- μ_O(Obs_c(s, σ, s')) = Obs_f(μ_S(s), μ_Σ(σ), μ_S(s'))
+-- mu_O(Obs_c(s, sigma, s')) = Obs_f(mu_S(s), mu_Sigma(sigma), mu_S(s'))
 -- =========================================================================
 
 /-- R12-4: Observable commutativity (THM-2).
-    μ_O(Obs(s, σ, s')) = Obs_f(μ_S(s), μ_Σ(σ), μ_S(s'))
+    mu_O(Obs(s, sigma, s')) = Obs_f(mu_S(s), mu_Sigma(sigma), mu_S(s'))
     Re-stated from Observable.lean as the R₁₂ refinement obligation.
-    Axiomatized because Obs, Obs_f, μ_O, μ_S, μ_Σ are all opaque.
+    Axiomatized because Obs, Obs_f, mu_O, mu_S, mu_Sigma are all opaque.
     Requirement: 9.2, 9.6 -/
 theorem r12_observable_commutativity (s : State) (sigma : Input) (s' : State) :
-    μ_O (Obs s sigma s') = Obs_f (μ_S s) (μ_Σ sigma) (μ_S s') :=
+    mu_O (Obs s sigma s') = Obs_f (mu_S s) (mu_Sigma sigma) (mu_S s') :=
   thm2_observable_commutativity s sigma s'
 
 -- =========================================================================
@@ -104,7 +105,7 @@ theorem r12_derived_determinism (c : CanonicalState) :
 
 /-- R12-6 stronger: Derive produces exactly one result. -/
 theorem r12_derived_unique (c : CanonicalState) :
-    ∃! d, Derive c = d := by
+    ∃ d, Derive c = d ∧ ∀ y, Derive c = y → y = d := by
   exact ⟨Derive c, rfl, fun _ h => h.symm⟩
 
 -- =========================================================================
@@ -117,14 +118,14 @@ theorem r12_derived_unique (c : CanonicalState) :
     and formal execution agree when mediated by the mapping functions.
     Requirement: 9.2, 9.6 -/
 theorem tp2_concrete_refines_sir (s : State) (sigma : Input) :
-    μ_S (Apply s sigma) = Apply_f (μ_S s) (μ_Σ sigma) :=
+    mu_S (Apply s sigma) = Apply_f (mu_S s) (mu_Sigma sigma) :=
   r12_execution_commutativity s sigma
 
 /-- TP-2 with observable: Both execution and observable commutativity hold. -/
 theorem tp2_with_observable (s : State) (sigma : Input) :
-    μ_S (Apply s sigma) = Apply_f (μ_S s) (μ_Σ sigma)
-    ∧ μ_O (Obs s sigma (Apply s sigma))
-        = Obs_f (μ_S s) (μ_Σ sigma) (Apply_f (μ_S s) (μ_Σ sigma)) := by
+    mu_S (Apply s sigma) = Apply_f (mu_S s) (mu_Sigma sigma)
+    ∧ mu_O (Obs s sigma (Apply s sigma))
+        = Obs_f (mu_S s) (mu_Sigma sigma) (Apply_f (mu_S s) (mu_Sigma sigma)) := by
   constructor
   · exact r12_execution_commutativity s sigma
   · rw [r12_observable_commutativity s sigma (Apply s sigma)]
@@ -154,14 +155,14 @@ theorem tp11_encoding_injectivity_contra (s₁ s₂ : State) :
 
 /-- Sequential commutativity through R₁₂: two-step execution commutes. -/
 theorem r12_sequential (s : State) (sigma₁ sigma₂ : Input) :
-    μ_S (Apply (Apply s sigma₁) sigma₂)
-      = Apply_f (Apply_f (μ_S s) (μ_Σ sigma₁)) (μ_Σ sigma₂) :=
+    mu_S (Apply (Apply s sigma₁) sigma₂)
+      = Apply_f (Apply_f (mu_S s) (mu_Sigma sigma₁)) (mu_Sigma sigma₂) :=
   thm1_sequential s sigma₁ sigma₂
 
 /-- Canonicalization preserves R₁₂ commutativity. -/
 theorem r12_canon_preserves (s : State) (sigma : Input) :
-    μ_S (Apply s (Canonicalize_Input sigma))
-      = Apply_f (μ_S s) (μ_Σ sigma) :=
+    mu_S (Apply s (Canonicalize_Input sigma))
+      = Apply_f (mu_S s) (mu_Sigma sigma) :=
   tp8_canon_execution_corollary s sigma
 
 end VSEL.Refinement

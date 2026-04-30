@@ -140,7 +140,10 @@ opaque SIRProgramR23 : Type
 /-- Compile: SIRProgram → ConstraintSystem — deterministic constraint
     derivation from SIR/IR.
     Opaque: the compiler is in Rust. -/
-opaque Compile : SIRProgramR23 → ConstraintSystemR23
+axiom ConstraintSystemR23.inhabited : Inhabited ConstraintSystemR23
+noncomputable instance : Inhabited ConstraintSystemR23 := ConstraintSystemR23.inhabited
+
+noncomputable opaque Compile : SIRProgramR23 → ConstraintSystemR23
 
 /-- CONST-4: Constraint derivation determinism.
     The same SIR/IR program always produces the same constraint system.
@@ -151,7 +154,7 @@ theorem const4_derivation_determinism (p : SIRProgramR23) :
 
 /-- CONST-4 stronger: Compile produces exactly one result. -/
 theorem const4_derivation_unique (p : SIRProgramR23) :
-    ∃! cs, Compile p = cs := by
+    ∃ cs, Compile p = cs ∧ ∀ y, Compile p = y → y = cs := by
   exact ⟨Compile p, rfl, fun _ h => h.symm⟩
 
 -- =========================================================================

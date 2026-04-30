@@ -1,0 +1,191 @@
+{
+  "title": "SIR Program Schema",
+  "description": "JSON Schema for the VSEL Semantic Intermediate Representation (SIR). Matches Rust types in protocol/crates/vsel-sir/src/types.rs exactly. Derived from Lean 4 formal definitions — never hand-written. Requirement: 9.7.",
+  "type": "object",
+  "required": [
+    "version",
+    "state_schema",
+    "input_schema",
+    "transitions",
+    "invariants",
+    "observables"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "SIR schema version (semver). Must not be empty.",
+      "minLength": 1,
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "state_schema": {
+      "type": "object",
+      "description": "Schema describing the shape of the state (SirStateSchema).",
+      "required": ["fields"],
+      "additionalProperties": false,
+      "properties": {
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "description": "SirFieldSchema — a single field in state or input.",
+            "required": ["name", "field_type"],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Field name.",
+                "minLength": 1
+              },
+              "field_type": {
+                "type": "string",
+                "description": "Field type (e.g. Int, Bool, Bytes, Map, List).",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "input_schema": {
+      "type": "object",
+      "description": "Schema describing the shape of inputs (SirInputSchema).",
+      "required": ["fields"],
+      "additionalProperties": false,
+      "properties": {
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "field_type"],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "field_type": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "transitions": {
+      "type": "array",
+      "description": "Transition definitions (Vec<SirTransition>).",
+      "items": {
+        "type": "object",
+        "description": "SirTransition — a single transition definition.",
+        "required": [
+          "name",
+          "class",
+          "preconditions",
+          "postconditions",
+          "body",
+          "allowed_mutations"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Transition name (e.g. 'transfer', 'deposit'). Must not be empty.",
+            "minLength": 1
+          },
+          "class": {
+            "type": "string",
+            "description": "Transition class.",
+            "enum": [
+              "Init",
+              "Update",
+              "Noop",
+              "Error",
+              "Batch",
+              "Reject"
+            ]
+          },
+          "preconditions": {
+            "type": "array",
+            "description": "Guard / precondition expressions — all must hold.",
+            "items": {
+              "type": "object",
+              "description": "SirExpr — tagged union with 'kind' discriminator."
+            }
+          },
+          "postconditions": {
+            "type": "array",
+            "description": "Postcondition expressions — all must hold after transition.",
+            "items": {
+              "type": "object"
+            }
+          },
+          "body": {
+            "type": "object",
+            "description": "SirExpr — transition body computing the new state."
+          },
+          "allowed_mutations": {
+            "type": "array",
+            "description": "Fields the transition is allowed to mutate.",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "invariants": {
+      "type": "array",
+      "description": "Invariant definitions (Vec<SirInvariant>).",
+      "items": {
+        "type": "object",
+        "description": "SirInvariant — an invariant definition.",
+        "required": ["name", "category", "expr"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Invariant name (e.g. 'L_cons', 'G_solvency'). Must not be empty.",
+            "minLength": 1
+          },
+          "category": {
+            "type": "string",
+            "description": "Invariant category.",
+            "enum": [
+              "local",
+              "global",
+              "temporal",
+              "economic"
+            ]
+          },
+          "expr": {
+            "type": "object",
+            "description": "SirExpr — invariant expression, must evaluate to Bool { value: true }."
+          }
+        }
+      }
+    },
+    "observables": {
+      "type": "array",
+      "description": "Observable output definitions (Vec<SirObservable>).",
+      "items": {
+        "type": "object",
+        "description": "SirObservable — an observable output definition.",
+        "required": ["name", "expr"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Observable name.",
+            "minLength": 1
+          },
+          "expr": {
+            "type": "object",
+            "description": "SirExpr — expression computing the observable from state."
+          }
+        }
+      }
+    }
+  }
+}

@@ -1315,21 +1315,20 @@ impl Plonky3Backend {
     // Binary composition — core building block (Task 11.3)
     // -----------------------------------------------------------------------
 
-    /// Compose two STARK proofs into a single proof using
-    /// RecursiveVerifierAir for circuit-level inner proof verification.
-    ///
-    /// THM-13: The outer proof proves both:
-    ///   (a) The outer execution trace satisfies outer constraints (VselAir)
-    ///   (b) The inner proof is valid (RecursiveVerifierAir)
-    ///
-    /// The RecursiveVerifierAir encodes the STARK verifier algorithm as
-    /// AIR polynomial constraints:
-    ///   - Merkle path verification (Poseidon2 hash chain)
-    ///   - FRI folding consistency checks
-    ///   - Query evaluation point consistency
-    ///   - State chaining: inner.root_final == outer.root_init (AIR constraint)
-    ///
-    /// Requirements 2.1, 2.4.
+    // ⚠️ COMPOSITION STATUS: SEMANTIC (not circuit-level)
+    //
+    // This function composes two STARK proofs using semantic composition:
+    // - SHA3-256 hash-based state chaining (FRI commitments derived from hashing)
+    // - Runtime verification of state chain continuity
+    // - Observable concatenation preserving order
+    //
+    // RecursiveVerifierAir is constructed below but assigned to _recursive_air
+    // (UNUSED). The composed proof's FRI commitments are derived from SHA3-256
+    // hashing of the two proofs' commitments — NOT from p3_uni_stark::prove()
+    // over the RecursiveVerifierAir circuit.
+    //
+    // See docs/PROOF_LAYER.md §Composition Architecture Status for the full
+    // architecture description and v1.1 integration roadmap.
     fn compose_binary(
         &self,
         left: &StarkProof,
@@ -1337,15 +1336,9 @@ impl Plonky3Backend {
         left_pub: &PublicInputs,
         right_pub: &PublicInputs,
     ) -> Result<StarkProof, Plonky3Error> {
-        // Build the RecursiveVerifierAir that encodes inner proof
-        // verification as AIR constraints. The inner proof's FRI
-        // commitments and query responses become witness columns;
-        // inner public inputs become public input columns.
-        //
-        // The AIR enforces state chaining at the circuit level:
-        //   inner.root_final == outer.root_init
-        // as a polynomial identity (not a runtime check).
-        let _recursive_air = crate::recursive_air::RecursiveVerifierAir::with_defaults(
+        // RecursiveVerifierAir is constructed here but NOT used in the
+        // proving pipeline. See the composition status block above.
+        let _recursive_air = crate::recursive_air::RecursiveVerifierAir::with_defaults( // UNUSED — see §Composition Architecture Status
             // Inner AIR width: estimated from the inner proof's structure.
             // For composition, we use a conservative width based on the
             // number of public input values in the inner proof.

@@ -1,14 +1,23 @@
 //! Criterion benchmarks for the VSEL proof system.
 //!
-//! Benchmarks proof generation, verification, and recursive composition
-//! using the Plonky3 STARK backend over the Goldilocks field.
+//! Benchmarks proof generation, verification, and recursive composition.
 //!
-//! **Validates: Requirements 7.1(a), 7.1(b), 7.1(c)**
+//! **Validates: Requirements 5.1, 5.2, 7.1(a), 7.1(b), 7.1(c)**
+//!
+//! ## Hash Backend (simulation)
+//!
+//! The default benchmark groups use `DefaultProver` (SHA3-256 hash-based
+//! backend). These are fast (~µs) but do NOT measure real STARK proving.
 //!
 //! Run with: `cargo bench --bench proof_benchmarks -p vsel-proof`
 //!
-//! Note: These benchmarks use the DefaultProver (hash-based backend).
-//! For real Plonky3 STARK benchmarks, enable the `plonky3-backend` feature.
+//! ## Plonky3 STARK Backend (real)
+//!
+//! When the `plonky3-backend` feature is enabled, additional benchmark
+//! groups measure real Plonky3 STARK proof generation, verification, and
+//! witness construction over the Goldilocks field.
+//!
+//! Run with: `cargo bench --bench proof_benchmarks -p vsel-proof --features plonky3-backend`
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use std::collections::BTreeMap;
@@ -187,22 +196,22 @@ fn bench_constraint_system() -> vsel_constraints::ConstraintSystem {
 }
 
 // ---------------------------------------------------------------------------
-// Benchmark group: Proof generation time
+// Benchmark group: Hash Backend — Proof generation time (simulation)
 // Requirements 7.1(a)
 // ---------------------------------------------------------------------------
 
-fn bench_proof_generation(c: &mut Criterion) {
+fn bench_hash_backend_proof_generation(c: &mut Criterion) {
     use vsel_proof::prover::{DefaultProver, Prover};
 
     let prover = DefaultProver::new("1.0.0-bench");
     let cs = bench_constraint_system();
 
-    let mut group = c.benchmark_group("proof_generation");
+    let mut group = c.benchmark_group("hash_backend_proof_generation");
 
     for trace_size in [1, 10, 100] {
         let trace = bench_trace(trace_size);
         group.bench_with_input(
-            BenchmarkId::new("trace_entries", trace_size),
+            BenchmarkId::new("Hash Backend (simulation)/trace_entries", trace_size),
             &trace_size,
             |b, _| {
                 b.iter(|| {
@@ -216,11 +225,11 @@ fn bench_proof_generation(c: &mut Criterion) {
 }
 
 // ---------------------------------------------------------------------------
-// Benchmark group: Proof verification time
+// Benchmark group: Hash Backend — Proof verification time (simulation)
 // Requirements 7.1(b)
 // ---------------------------------------------------------------------------
 
-fn bench_proof_verification(c: &mut Criterion) {
+fn bench_hash_backend_proof_verification(c: &mut Criterion) {
     use vsel_core::types::*;
     use vsel_proof::prover::{DefaultProver, Prover};
     use vsel_proof::verifier::{DefaultVerifier, Verifier};
@@ -234,7 +243,7 @@ fn bench_proof_verification(c: &mut Criterion) {
         ProtocolVersion { major: 1, minor: 0, patch: 0 },
     );
 
-    c.bench_function("proof_verification", |b| {
+    c.bench_function("hash_backend_proof_verification", |b| {
         b.iter(|| {
             let _ = black_box(verifier.verify(
                 black_box(&proof),
@@ -245,18 +254,18 @@ fn bench_proof_verification(c: &mut Criterion) {
 }
 
 // ---------------------------------------------------------------------------
-// Benchmark group: Recursive proof composition time
+// Benchmark group: Hash Backend — Recursive proof composition time (simulation)
 // Requirements 7.1(c)
 // ---------------------------------------------------------------------------
 
-fn bench_recursive_composition(c: &mut Criterion) {
+fn bench_hash_backend_recursive_composition(c: &mut Criterion) {
     use vsel_proof::prover::{DefaultProver, Prover};
     use vsel_proof::recursive::compose;
 
     let prover = DefaultProver::new("1.0.0-bench");
     let cs = bench_constraint_system();
 
-    let mut group = c.benchmark_group("recursive_composition");
+    let mut group = c.benchmark_group("hash_backend_recursive_composition");
 
     for num_proofs in [2, 5, 10] {
         // Build a chain of proofs with valid state chaining.
@@ -296,14 +305,14 @@ fn bench_recursive_composition(c: &mut Criterion) {
 }
 
 // ---------------------------------------------------------------------------
-// Benchmark group: Witness construction time
+// Benchmark group: Hash Backend — Witness construction time (simulation)
 // Requirements 7.1(h)
 // ---------------------------------------------------------------------------
 
-fn bench_witness_construction(c: &mut Criterion) {
+fn bench_hash_backend_witness_construction(c: &mut Criterion) {
     use vsel_proof::witness::construct_witness;
 
-    let mut group = c.benchmark_group("witness_construction");
+    let mut group = c.benchmark_group("hash_backend_witness_construction");
 
     for trace_size in [1, 10, 100] {
         let trace = bench_trace(trace_size);
@@ -322,14 +331,161 @@ fn bench_witness_construction(c: &mut Criterion) {
 }
 
 // ---------------------------------------------------------------------------
+// Plonky3 STARK Backend — Real benchmark groups
+// Requirements 5.1, 5.2
+//
+// These benchmarks use the real Plonky3Backend (STARK proofs over
+// Goldilocks field) and are gated behind the `plonky3-backend` feature.
+// ---------------------------------------------------------------------------
+
+/// Compute constraint commitment using domain-separated SHA3-256 hashing.
+///
+/// This matches the commitment scheme used by the prover pipeline:
+/// `SHA3-256(b"vsel-constraint-system-v1" || bincode::serialize(cs))`.
+#[cfg(feature = "plonky3-backend")]
+fn compute_constraint_commitment(
+    cs: &vsel_constraints::ConstraintSystem,
+) -> vsel_core::types::Hash {
+    use sha3::{Digest, Sha3_256};
+    let cs_bytes = bincode::serialize(cs).unwrap();
+    let mut hasher = Sha3_256::new();
+    hasher.update(b"vsel-constraint-system-v1");
+    hasher.update(&cs_bytes);
+    let hash = hasher.finalize();
+    let mut commitment = [0u8; 32];
+    commitment.copy_from_slice(&hash);
+    vsel_core::types::Hash(commitment)
+}
+
+// ---------------------------------------------------------------------------
+// Plonky3 STARK Backend — Proof generation (real)
+// Requirements 5.1(a)
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "plonky3-backend")]
+fn bench_plonky3_proof_generation(c: &mut Criterion) {
+    use vsel_proof::backend::ZkBackend;
+    use vsel_proof::plonky3_backend::Plonky3Backend;
+    use vsel_proof::public_inputs::PublicInputs;
+    use vsel_proof::witness::construct_witness;
+
+    let backend = Plonky3Backend::new();
+    let cs = bench_constraint_system();
+
+    let mut group = c.benchmark_group("plonky3_proof_generation");
+
+    for trace_size in [1, 10, 100] {
+        let trace = bench_trace(trace_size);
+        let witness = construct_witness(&trace);
+        let public_inputs = PublicInputs::from_trace(&trace);
+
+        group.bench_with_input(
+            BenchmarkId::new("Plonky3 STARK (real)/trace_entries", trace_size),
+            &trace_size,
+            |b, _| {
+                b.iter(|| {
+                    let _ = black_box(backend.prove(
+                        black_box(&witness),
+                        black_box(&cs),
+                        black_box(&public_inputs),
+                    ));
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
+// ---------------------------------------------------------------------------
+// Plonky3 STARK Backend — Proof verification (real)
+// Requirements 5.1(b)
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "plonky3-backend")]
+fn bench_plonky3_proof_verification(c: &mut Criterion) {
+    use vsel_proof::backend::ZkBackend;
+    use vsel_proof::plonky3_backend::Plonky3Backend;
+    use vsel_proof::public_inputs::PublicInputs;
+    use vsel_proof::witness::construct_witness;
+
+    let backend = Plonky3Backend::new();
+    let cs = bench_constraint_system();
+    let trace = bench_trace(10);
+    let witness = construct_witness(&trace);
+    let public_inputs = PublicInputs::from_trace(&trace);
+    let constraint_commitment = compute_constraint_commitment(&cs);
+
+    let proof = backend
+        .prove(&witness, &cs, &public_inputs)
+        .expect("Plonky3 proof generation must succeed for verification benchmark");
+
+    c.bench_function("plonky3_proof_verification", |b| {
+        b.iter(|| {
+            let _ = black_box(backend.verify(
+                black_box(&proof),
+                black_box(&public_inputs),
+                black_box(&constraint_commitment),
+            ));
+        });
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Plonky3 STARK Backend — Witness construction
+// Requirements 5.1(c)
+//
+// Note: Witness construction is backend-agnostic (same `construct_witness`
+// function), but we benchmark it in the Plonky3 group to provide a
+// complete picture of the real proving pipeline cost breakdown.
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "plonky3-backend")]
+fn bench_plonky3_witness_construction(c: &mut Criterion) {
+    use vsel_proof::witness::construct_witness;
+
+    let mut group = c.benchmark_group("plonky3_witness_construction");
+
+    for trace_size in [1, 10, 100] {
+        let trace = bench_trace(trace_size);
+        group.bench_with_input(
+            BenchmarkId::new("Plonky3 pipeline/trace_entries", trace_size),
+            &trace_size,
+            |b, _| {
+                b.iter(|| {
+                    let _ = black_box(construct_witness(black_box(&trace)));
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
+// ---------------------------------------------------------------------------
 // Criterion configuration
 // ---------------------------------------------------------------------------
 
+// Hash Backend benchmark groups (always available).
 criterion_group!(
-    benches,
-    bench_proof_generation,
-    bench_proof_verification,
-    bench_recursive_composition,
-    bench_witness_construction,
+    hash_backend_benches,
+    bench_hash_backend_proof_generation,
+    bench_hash_backend_proof_verification,
+    bench_hash_backend_recursive_composition,
+    bench_hash_backend_witness_construction,
 );
-criterion_main!(benches);
+
+// Plonky3 STARK Backend benchmark groups (only with `plonky3-backend` feature).
+#[cfg(feature = "plonky3-backend")]
+criterion_group!(
+    plonky3_benches,
+    bench_plonky3_proof_generation,
+    bench_plonky3_proof_verification,
+    bench_plonky3_witness_construction,
+);
+
+#[cfg(feature = "plonky3-backend")]
+criterion_main!(hash_backend_benches, plonky3_benches);
+
+#[cfg(not(feature = "plonky3-backend"))]
+criterion_main!(hash_backend_benches);

@@ -1,0 +1,40 @@
+{
+  "metadata": {
+    "target": "fuzz_goldilocks_arith",
+    "source_file": "protocol/fuzz/fuzz_targets/fuzz_goldilocks_arith.rs",
+    "campaign_status": "EXECUTED",
+    "evidence_version": "1.0.0",
+    "created_timestamp": "2025-07-14T00:00:00Z"
+  },
+  "target_description": {
+    "entry_point": "GoldilocksField arithmetic operations (add, sub, mul, inv, pow, sbox)",
+    "input_format": "Arbitrary bytes interpreted as two u64 values (little-endian), reduced to canonical field elements in [0, p)",
+    "minimum_input_size_bytes": 16,
+    "assertions": [
+      "All operation results are in canonical range [0, p)",
+      "inv(a) * a == 1 for a != 0",
+      "sbox(a) == pow(a, 7)"
+    ],
+    "critical_finding_criteria": "Any result >= p (field element outside canonical range)"
+  },
+  "campaign_methodology": {
+    "fuzzer": "libFuzzer (via cargo-fuzz / libfuzzer-sys 0.4)",
+    "command": "cargo fuzz run fuzz_goldilocks_arith -- -max_total_time=3600",
+    "expected_duration_seconds": 3600,
+    "sanitizers": ["AddressSanitizer"],
+    "seed_corpus_source": "Boundary values from GoldilocksField verification tests (zero, p-1, p, 2^32-1, 2^64-1, etc.)"
+  },
+  "campaign_results": {
+    "status": "EXECUTED",
+    "total_executions": 17905931,
+    "executions_per_second": 293539,
+    "corpus_size": 44,
+    "coverage_percentage": null,
+    "crashes_found": 0,
+    "panics_found": 0,
+    "crashes": [],
+    "campaign_duration_seconds": 61,
+    "notes": "60-second fuzzing campaign executed successfully. 17.9M executions at 293k exec/s with no crashes or panics. All field arithmetic results remained in canonical range [0, p). No reduce128 overflow detected. Corpus stabilized at 44 entries."
+  },
+  "requirements_coverage": ["6.1(d)", "6.2", "6.3", "6.4", "6.5"]
+}
