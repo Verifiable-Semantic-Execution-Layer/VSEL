@@ -1,0 +1,370 @@
+{
+  "_description": "UNVERSIONED POLICY - Policy without version binding demonstrating drift risks",
+  "_attack_vectors": [
+    "1. Applied to incompatible protocol versions with undefined semantics",
+    "2. Semantic drift across upgrades without detection",
+    "3. Legacy interpretation in modern context",
+    "4. Forward-compatibility assumptions exploited"
+  ],
+  "_missing_bindings": [
+    "protocol_version.min",
+    "protocol_version.max",
+    "protocol_version.compatibility_check",
+    "upgrade_policy.semantic_equivalence_required",
+    "compilation.version_verification"
+  ],
+  "schema_version": "1.0.0",
+  "policy_id": "pol_unversioned_treasury",
+  "semantic_hash": "0xunversionedhash123456789",
+  "governance": {
+    "approved_at_block": 1000000,
+    "approved_by": "governance_vsel_main",
+    "approval_transaction": "0xabc123def456789abc123def456789abc123def456789abc123def456789abc1",
+    "approval_quorum": 7,
+    "approval_threshold": 10,
+    "semantic_manifest": {
+      "description": "Unversioned Treasury Policy - Vulnerable to semantic drift",
+      "purpose": "Demonstrate version binding vulnerabilities",
+      "reviewed_by": [],
+      "disclosure_url": null,
+      "_warning": "This policy lacks version constraints and may drift"
+    }
+  },
+  "_version_binding": {
+    "min_version": null,
+    "max_version": null,
+    "expiry_block": null,
+    "_status": "UNBOUND - accepts any protocol version"
+  },
+  "protocol_version": {
+    "_comment": "All null - no version binding whatsoever",
+    "min_version": null,
+    "max_version": null,
+    "expiry_block": null,
+    "compatible_versions": null,
+    "upgrade_migration_required": null
+  },
+  "domain_binding": {
+    "domain": "mainnet",
+    "domain_tag": "0x5643454c5f4d41494e4e4554",
+    "subdomain": "treasury.operations",
+    "environment": "production"
+  },
+  "constraints": {
+    "authorization": {
+      "type": "multisig",
+      "threshold": 2,
+      "total_signers": 3,
+      "_version_context": "Defined for protocol v1 semantics",
+      "_risk": "V2 multisig implementation may interpret differently",
+      "signature_scheme": "Ed25519",
+      "_v2_note": "V2 requires hybrid signatures, this policy doesn't specify"
+    },
+    "temporal": {
+      "time_lock": {
+        "duration_seconds": 7200,
+        "_v1_semantics": "2 hours in v1 (block-based estimation)",
+        "_v2_risk": "V2 uses precise timestamps, interpretation diverges",
+        "_v3_risk": "V3 may remove time_lock in certain contexts"
+      },
+      "validity_window": {
+        "not_before": null,
+        "not_after": null,
+        "_eternal": "No expiration, may outlive intended use"
+      }
+    },
+    "economic": {
+      "amount_limits": {
+        "max_transaction_amount": "1000000000000000000000",
+        "_v1_semantics": "Amount in base units",
+        "_v2_risk": "V2 introduces decimal tokens, interpretation ambiguous",
+        "_v3_risk": "V3 adds fee abstraction, net amount unclear"
+      }
+    },
+    "_compilation": {
+      "_v1": "Compiled to Groth16 constraints",
+      "_v2": "Should compile to PLONK, but unversioned keeps Groth16",
+      "_v3": "V3 uses STARKs, Groth16 deprecated",
+      "_risk": "Compilation target undefined, may use deprecated/unsafe system"
+    }
+  },
+  "upgrade_policy": {
+    "_status": "UNDEFINED",
+    "auto_upgrade_minor": null,
+    "requires_reapproval_for_major": null,
+    "migration_path": null,
+    "semantic_equivalence_required": null,
+    "_default_behavior": "Carries forward without verification"
+  },
+  "compilation": {
+    "target_constraint_system": "groth16",
+    "_deprecated": true,
+    "_v2_system": "plonk",
+    "_v3_system": "stark",
+    "_risk": "Compiles to deprecated constraint system",
+    "optimization_level": "balanced",
+    "formal_verification": {
+      "equivalence_proof": null,
+      "verified_by": null,
+      "verification_timestamp": null
+    },
+    "_version_specific": {
+      "compiler_version": "v1.0.0",
+      "_current": "v3.2.1",
+      "_compatibility": "untested"
+    }
+  },
+  "metadata": {
+    "created_at": 1672531200,
+    "created_by": "vsel_governance_v1",
+    "_protocol_context": "V1 only",
+    "last_modified": null,
+    "immutable": true,
+    "tags": ["treasury", "unversioned", "vulnerable-to-drift"],
+    "dependencies": [],
+    "supersedes": null
+  },
+  "semantic_drift_scenarios": [
+    {
+      "name": "v1_to_v2_drift",
+      "description": "Policy defined in V1 applied to V2",
+      "v1_semantics": {
+        "multisig": "Ed25519 only",
+        "time_lock": "Block-based estimation",
+        "amount": "Base units only",
+        "gas": "Fixed price"
+      },
+      "v2_semantics": {
+        "multisig": "Hybrid (Ed25519 + ML-DSA-65)",
+        "time_lock": "Precise timestamp-based",
+        "amount": "Supports decimals",
+        "gas": "Dynamic pricing"
+      },
+      "drift_impact": {
+        "multisig": "Policy doesn't require PQC, vulnerable to quantum attack",
+        "time_lock": "Block estimation vs timestamps diverge by minutes",
+        "amount": "Decimal interpretation allows fractional token exploits",
+        "gas": "Fixed gas assumption broken, transactions may fail"
+      },
+      "severity": "high"
+    },
+    {
+      "name": "v2_to_v3_drift",
+      "description": "Policy carried to V3 without update",
+      "v2_features": {
+        "constraint_system": "PLONK",
+        "proof_system": "SNARK",
+        "state_model": "account-based"
+      },
+      "v3_features": {
+        "constraint_system": "STARK",
+        "proof_system": "FRI-based",
+        "state_model": "UTXO-based"
+      },
+      "drift_impact": {
+        "compilation": "Groth16 constraints may not compile to STARK",
+        "state_references": "Account-based policy invalid in UTXO model",
+        "proof_verification": "SNARK proofs rejected by V3 STARK verifier",
+        "state_proofs": "Account proofs incompatible with UTXO commitments"
+      },
+      "severity": "critical"
+    },
+    {
+      "name": "forward_compatibility_assumption",
+      "description": "Assuming policy valid for all future versions",
+      "assumption": "Policy semantics preserved across all upgrades",
+      "reality": "V4 may introduce breaking changes",
+      "v4_hypothetical_changes": {
+        "multisig": "Quantum-secure signatures mandatory",
+        "time_lock": "Relative timelocks only (no absolute)",
+        "authorization": "Identity-based credentials replace keys"
+      },
+      "drift_impact": {
+        "multisig": "Ed25519 rejected in V4",
+        "time_lock": "Absolute timestamps unsupported",
+        "authorization": "Key-based policy invalid in identity system"
+      },
+      "severity": "critical"
+    },
+    {
+      "name": "compilation_target_obsolescence",
+      "description": "Policy compiles to deprecated constraint system",
+      "v1_target": "Groth16",
+      "v2_target": "PLONK",
+      "v3_target": "STARK",
+      "current_policy_target": "Groth16",
+      "drift_impact": {
+        "v2_verification": "Groth16 verifier may be deprecated",
+        "v3_verification": "Groth16 proofs rejected, STARK required",
+        "trusted_setup": "Groth16 requires trusted setup, STARKs don't",
+        "security_model": "Trusted setup assumptions differ"
+      },
+      "severity": "high"
+    },
+    {
+      "name": "interpretation_context_loss",
+      "description": "Original interpretation context lost over time",
+      "v1_context": {
+        "block_time": "12 seconds average",
+        "token_decimals": "18 fixed",
+        "signature_format": "raw bytes",
+        "state_root": "patricia_trie"
+      },
+      "current_context": {
+        "block_time": "variable (2-30 seconds)",
+        "token_decimals": "configurable per-token",
+        "signature_format": "compressed + recovery",
+        "state_root": "verkle_trie"
+      },
+      "drift_impact": {
+        "time_lock": "7200 seconds no longer approximates specific block count",
+        "amount_parsing": "Fixed 18-decimal assumption may be wrong",
+        "signature_verification": "Raw format may not match current standard",
+        "state_proofs": "Patricia proofs invalid in Verkle model"
+      },
+      "severity": "medium"
+    }
+  ],
+  "attack_exploits": [
+    {
+      "name": "version_confusion",
+      "description": "Exploit different interpretations across versions",
+      "steps": [
+        "Policy committed in V1 with Ed25519-only multisig",
+        "V2 requires hybrid signatures for security",
+        "Attacker submits V1-style Ed25519-only proof",
+        "If system accepts unversioned policy, PQC security bypassed"
+      ],
+      "mitigation": "Reject unversioned policies, require explicit version binding"
+    },
+    {
+      "name": "semantic_downgrade",
+      "description": "Force interpretation under older, weaker semantics",
+      "steps": [
+        "Policy lacks version binding",
+        "Attacker argues for V1 interpretation (weaker)",
+        "Current version is V3 (stronger)",
+        "Policy applied with V1 semantics despite V3 context"
+      ],
+      "mitigation": "Version binding with semantic equivalence verification"
+    },
+    {
+      "name": "eternal_policy_exploit",
+      "description": "Policy never expires, outlives security assumptions",
+      "steps": [
+        "Policy approved in 2024 with then-current assumptions",
+        "Cryptographic assumptions change by 2030",
+        "Policy still valid due to no expiry",
+        "Exploit now-broken cryptographic assumptions"
+      ],
+      "mitigation": "Mandatory expiry dates, periodic re-approval"
+    },
+    {
+      "name": "compilation_backdoor",
+      "description": "Compile to deprecated/insecure constraint system",
+      "steps": [
+        "Policy specifies Groth16 compilation",
+        "V3 system prefers STARKs but supports Groth16 legacy",
+        "Attacker exploits Groth16-specific vulnerabilities",
+        "Trusted setup manipulation, etc."
+      ],
+      "mitigation": "Disallow deprecated compilation targets"
+    }
+  ],
+  "detection_tests": [
+    {
+      "name": "version_binding_presence",
+      "description": "Verify policy has explicit version constraints",
+      "check": "policy.protocol_version.min_version != null",
+      "unversioned_policy_result": "FAIL - all version fields null"
+    },
+    {
+      "name": "compilation_target_current",
+      "description": "Verify policy compiles to current constraint system",
+      "check": "policy.compilation.target == current_system()",
+      "unversioned_policy_result": "FAIL - may target deprecated system"
+    },
+    {
+      "name": "semantic_equivalence_verification",
+      "description": "Verify policy semantics valid in current version",
+      "check": "prove_semantic_equivalence(policy, current_version())",
+      "unversioned_policy_result": "FAIL - equivalence not proven"
+    },
+    {
+      "name": "expiry_date_present",
+      "description": "Verify policy has expiration date",
+      "check": "policy.expiry_block != null || policy.valid_until != null",
+      "unversioned_policy_result": "FAIL - no expiry defined"
+    },
+    {
+      "name": "upgrade_migration_defined",
+      "description": "Verify policy has upgrade path defined",
+      "check": "policy.upgrade_policy.migration_path != null",
+      "unversioned_policy_result": "FAIL - no migration defined"
+    }
+  ],
+  "mitigation_requirements": [
+    {
+      "requirement": "mandatory_version_binding",
+      "description": "All policies must specify min/max compatible protocol versions",
+      "enforcement": "Reject policies with null version fields",
+      "test": "assert(policy.protocol_version.min_version.is_some())"
+    },
+    {
+      "requirement": "semantic_equivalence_verification",
+      "description": "Verify policy semantics valid in current version",
+      "enforcement": "Formal proof or comprehensive testing required",
+      "test": "verify_semantic_equivalence(policy, current_version)"
+    },
+    {
+      "requirement": "compilation_target_validation",
+      "description": "Policy must target currently supported constraint system",
+      "enforcement": "Reject deprecated compilation targets",
+      "test": "assert(supported_systems.contains(policy.compilation.target))"
+    },
+    {
+      "requirement": "version_specific_semantics",
+      "description": "Policy semantics interpreted according to specified version",
+      "enforcement": "Version-gated interpretation",
+      "test": "interpret(policy, policy.protocol_version.min_version)"
+    },
+    {
+      "requirement": "automatic_expiry",
+      "description": "Policies expire after fixed period or version count",
+      "enforcement": "Expiry block automatically calculated if not specified",
+      "test": "assert(policy.expiry_block <= current_block + MAX_POLICY_AGE)"
+    },
+    {
+      "requirement": "upgrade_migration",
+      "description": "Explicit migration path for protocol upgrades",
+      "enforcement": "Policies require migration validation to carry forward",
+      "test": "assert(validate_migration(policy, old_version, new_version).is_ok())"
+    },
+    {
+      "requirement": "version_conflict_rejection",
+      "description": "Reject policy if version context incompatible",
+      "enforcement": "Check policy version against current protocol version",
+      "test": "if !policy.is_compatible(current_version) { reject() }"
+    }
+  ],
+  "recommendations": {
+    "immediate": [
+      "Add explicit version binding to all policies",
+      "Define semantic equivalence criteria",
+      "Implement version-specific interpretation",
+      "Add automatic expiry for unversioned policies"
+    ],
+    "short_term": [
+      "Create policy migration framework",
+      "Validate compilation targets",
+      "Implement semantic drift detection",
+      "Add version compatibility checks"
+    ],
+    "long_term": [
+      "Formal verification of cross-version equivalence",
+      "Automated policy migration testing",
+      "Semantic versioning for policy language",
+      "Policy deprecation and cleanup mechanisms"
+    ]
+  }
+}

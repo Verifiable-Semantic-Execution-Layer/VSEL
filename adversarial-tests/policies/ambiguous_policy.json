@@ -1,0 +1,217 @@
+{
+  "schema_version": "1.0.0",
+  "policy_id": "pol_ambiguous_treasury",
+  "semantic_hash": "0xambiguous_hash_not_verified",
+  "governance": {
+    "approved_at_block": null,
+    "approved_by": null,
+    "approval_transaction": null,
+    "approval_quorum": null,
+    "approval_threshold": null,
+    "semantic_manifest": {
+      "description": "Ambiguous Treasury Policy - DO NOT USE IN PRODUCTION",
+      "purpose": "Demonstrate policy ambiguity vulnerabilities",
+      "reviewed_by": [],
+      "disclosure_url": null
+    }
+  },
+  "protocol_version": {
+    "min_version": null,
+    "max_version": null,
+    "expiry_block": null
+  },
+  "domain_binding": {
+    "domain": "unspecified",
+    "domain_tag": null,
+    "subdomain": null,
+    "environment": "unknown"
+  },
+  "constraints": {
+    "authorization": {
+      "type": "multisig",
+      "threshold": "majority",
+      "total_signers": 5,
+      "signer_requirements": {
+        "min_hybrid_signatures": null,
+        "signature_schemes": ["unspecified"],
+        "key_refresh_interval": null
+      },
+      "role_hierarchy": {
+        "admin": {
+          "can_override": "maybe",
+          "inherits_constraints": "sometimes",
+          "additional_requirements": ["as_needed"]
+        },
+        "operator": {
+          "can_override": "case_by_case",
+          "inherits_constraints": "unclear",
+          "additional_requirements": ["varies"]
+        }
+      }
+    },
+    "temporal": {
+      "time_lock": {
+        "duration_seconds": "reasonable",
+        "min_delay_blocks": "several",
+        "max_execution_window": "not_too_long"
+      },
+      "validity_window": {
+        "not_before": null,
+        "not_after": null
+      },
+      "rate_limit": {
+        "max_transactions_per_hour": "some",
+        "max_amount_per_day": "enough"
+      }
+    },
+    "economic": {
+      "amount_limits": {
+        "min_transaction_amount": "small",
+        "max_transaction_amount": "large",
+        "daily_aggregate_limit": "sufficient"
+      },
+      "balance_invariants": {
+        "require_positive_balance": "generally",
+        "conservation_of_value": "usually",
+        "no_dilution_without_minting_rights": null
+      }
+    },
+    "execution": {
+      "max_gas_limit": "standard",
+      "required_confirmations": "enough",
+      "revert_on_failure": "sometimes",
+      "atomic_execution": "mostly"
+    }
+  },
+  "actor_binding": {
+    "authorized_actors": [
+      {
+        "actor_id": "anyone",
+        "role": "flexible",
+        "kyc_status": "unknown",
+        "reputation_score": null,
+        "public_key": null
+      }
+    ],
+    "actor_verification": {
+      "require_on_chain_identity": "optional",
+      "require_reputation_threshold": null,
+      "revoke_on_kyc_expiry": "maybe"
+    }
+  },
+  "context_requirements": {
+    "oracle_dependencies": [],
+    "state_conditions": {
+      "require_contract_not_paused": null,
+      "require_no_emergency_active": "unclear",
+      "require_upgrade_not_pending": null
+    },
+    "external_calls": {
+      "allowed_external_contracts": ["any"],
+      "forbidden_operations": []
+    }
+  },
+  "emergency_provisions": {
+    "emergency_override": {
+      "enabled": "probably",
+      "requires_multisig": "if_convenient",
+      "emergency_threshold": "whoever_is_available",
+      "absolute_invariants": [],
+      "max_duration_blocks": "until_resolved",
+      "automatic_recovery": "hopefully",
+      "emergency_actions_log": null
+    }
+  },
+  "conflict_resolution": {
+    "precedence": "depends",
+    "hierarchy": [
+      "whatever_seems_right"
+    ],
+    "on_conflict": "figure_it_out"
+  },
+  "compilation": {
+    "target_constraint_system": "unspecified",
+    "optimization_level": "whatever",
+    "formal_verification": {
+      "equivalence_proof": null,
+      "verified_by": null,
+      "verification_timestamp": null
+    }
+  },
+  "metadata": {
+    "created_at": null,
+    "created_by": "unknown",
+    "last_modified": null,
+    "immutable": false,
+    "tags": ["ambiguous", "vulnerable", "test-only"],
+    "dependencies": ["unspecified"],
+    "supersedes": null
+  },
+  "audit_trail": {
+    "creation_transaction": null,
+    "approval_votes": [],
+    "verification_status": "unverified"
+  },
+  "ambiguities": [
+    {
+      "type": "semantic",
+      "description": "Threshold defined as 'majority' without specifying rounding for even numbers",
+      "exploit": "For 5 signers, could be interpreted as 2 (floor) or 3 (ceil)",
+      "severity": "high"
+    },
+    {
+      "type": "temporal",
+      "description": "Time lock defined as 'reasonable' with no concrete bounds",
+      "exploit": "Could range from seconds to days depending on interpreter",
+      "severity": "critical"
+    },
+    {
+      "type": "role",
+      "description": "Admin override capability defined as 'maybe' and 'sometimes'",
+      "exploit": "No clear boundary between normal and exceptional operation",
+      "severity": "high"
+    },
+    {
+      "type": "economic",
+      "description": "Rate limits use vague quantifiers like 'some' and 'enough'",
+      "exploit": "Could allow unlimited transactions under loose interpretation",
+      "severity": "critical"
+    },
+    {
+      "type": "binding",
+      "description": "Actor binding has null requirements",
+      "exploit": "Any actor could claim authorization under this policy",
+      "severity": "critical"
+    },
+    {
+      "type": "resolution",
+      "description": "Conflict resolution strategy is 'depends'",
+      "exploit": "Attacker can argue for weakest interpretation in any conflict",
+      "severity": "high"
+    },
+    {
+      "type": "scope",
+      "description": "Domain binding is 'unspecified' with null domain_tag",
+      "exploit": "Policy could be applied to any domain, including testnet on mainnet",
+      "severity": "high"
+    },
+    {
+      "type": "version",
+      "description": "Protocol version constraints are all null",
+      "exploit": "Policy could be applied to incompatible protocol versions",
+      "severity": "medium"
+    },
+    {
+      "type": "emergency",
+      "description": "Emergency provisions are vague and unconstrained",
+      "exploit": "Emergency could be invoked by anyone, at any time, for any reason",
+      "severity": "critical"
+    },
+    {
+      "type": "inheritance",
+      "description": "Role hierarchy uses undefined inheritance rules",
+      "exploit": "Admin constraints may or may not apply depending on interpretation",
+      "severity": "medium"
+    }
+  ]
+}

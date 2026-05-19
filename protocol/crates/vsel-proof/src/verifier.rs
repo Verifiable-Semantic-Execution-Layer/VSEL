@@ -109,10 +109,15 @@ pub enum RejectionReason {
 ///
 /// Requirement 8.7: produce explicit, auditable, reproducible
 /// verification outcomes (accept/reject).
+///
+/// NOTE: CryptographicallyConsistent indicates cryptographic validity only,
+/// not semantic validity. The proof satisfies constraints and passes
+/// cryptographic checks, but semantic correctness requires additional verification.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum VerificationResult {
-    /// The proof passed all 7 verification steps.
-    Accepted,
+    /// The proof is cryptographically consistent (passes all 7 verification steps).
+    /// NOTE: This does NOT imply semantic validity - only cryptographic correctness.
+    CryptographicallyConsistent,
     /// The proof was rejected at a specific step with a reason.
     Rejected {
         reason: RejectionReason,
@@ -121,14 +126,25 @@ pub enum VerificationResult {
 }
 
 impl VerificationResult {
-    /// Returns true if the result is `Accepted`.
-    pub fn is_accepted(&self) -> bool {
-        matches!(self, VerificationResult::Accepted)
+    /// Returns true if the result is `CryptographicallyConsistent`.
+    /// NOTE: This indicates cryptographic validity only, not semantic validity.
+    pub fn is_cryptographically_consistent(&self) -> bool {
+        matches!(self, VerificationResult::CryptographicallyConsistent)
     }
 
     /// Returns true if the result is `Rejected`.
     pub fn is_rejected(&self) -> bool {
         matches!(self, VerificationResult::Rejected { .. })
+    }
+
+    /// DEPRECATED: Use `is_cryptographically_consistent()` instead.
+    /// This method name is misleading as it suggests complete validity.
+    #[deprecated(
+        since = "0.2.0",
+        note = "Use is_cryptographically_consistent() - this only checks cryptographic consistency, not semantic validity"
+    )]
+    pub fn is_accepted(&self) -> bool {
+        self.is_cryptographically_consistent()
     }
 }
 
@@ -147,9 +163,12 @@ impl VerificationResult {
 pub trait Verifier {
     /// Verify a proof against public inputs.
     ///
-    /// Runs the 7-step verification pipeline. Returns `Accepted` only
+    /// Runs the 7-step verification pipeline. Returns `CryptographicallyConsistent` only
     /// if all steps pass. Returns `Rejected` with the failing step
     /// and reason on any failure.
+    ///
+    /// NOTE: CryptographicallyConsistent indicates cryptographic validity only,
+    /// not semantic validity. Additional semantic verification may be required.
     fn verify(&self, proof: &Proof, public_inputs: &PublicInputs) -> VerificationResult;
 }
 
@@ -298,8 +317,7 @@ impl<B: ZkBackend> GenericVerifier<B> {
         proof: &Proof,
         public_inputs: &PublicInputs,
     ) -> Result<(), RejectionReason> {
-        let expected_proof_data =
-            recompute_proof_data(&proof.commitments, public_inputs);
+        let expected_proof_data = recompute_proof_data(&proof.commitments, public_inputs);
 
         if proof.proof_data != expected_proof_data {
             return Err(RejectionReason::CryptographicFailure);
@@ -395,10 +413,7 @@ impl<B: ZkBackend> GenericVerifier<B> {
         // Evaluate all constraints against the witness.
         // Each constraint expression must evaluate to true.
         for constraint in &constraints.constraints {
-            let satisfied = evaluate_constraint_against_witness(
-                &constraint.expr,
-                witness,
-            );
+            let satisfied = evaluate_constraint_against_witness(&constraint.expr, witness);
             if !satisfied {
                 return Err(RejectionReason::ConstraintViolation);
             }
@@ -505,11 +520,9 @@ impl<B: ZkBackend> GenericVerifier<B> {
         }
 
         // Step 4.5: Constraint satisfaction verification.
-        if let Err(reason) = self.verify_constraint_satisfaction(
-            proof,
-            Some(witness),
-            Some(constraints),
-        ) {
+        if let Err(reason) =
+            self.verify_constraint_satisfaction(proof, Some(witness), Some(constraints))
+        {
             return VerificationResult::Rejected {
                 reason,
                 step: VerificationStep::ConstraintSatisfaction,
@@ -530,7 +543,7 @@ impl<B: ZkBackend> GenericVerifier<B> {
             };
         }
 
-        VerificationResult::Accepted
+        VerificationResult::CryptographicallyConsistent
     }
 
     /// Verify a recursive proof — an outer proof that embeds verification of an inner proof.
@@ -560,7 +573,7 @@ impl<B: ZkBackend> GenericVerifier<B> {
             };
         }
 
-        VerificationResult::Accepted
+        VerificationResult::CryptographicallyConsistent
     }
 
     /// Verify a composed proof against the original individual proofs.
@@ -619,7 +632,7 @@ impl<B: ZkBackend> GenericVerifier<B> {
             };
         }
 
-        VerificationResult::Accepted
+        VerificationResult::CryptographicallyConsistent
     }
 }
 
@@ -684,8 +697,10 @@ impl<B: ZkBackend> Verifier for GenericVerifier<B> {
             };
         }
 
-        // Step 7: Final acceptance
-        VerificationResult::Accepted
+        // Step 7: Final acceptance (cryptographic consistency)
+        // NOTE: This is cryptographic consistency only, not semantic validity.
+        // Semantic correctness requires additional verification against formal specification.
+        VerificationResult::CryptographicallyConsistent
     }
 }
 
@@ -728,10 +743,7 @@ impl StatefulVerifier {
     /// Create a `StatefulVerifier` with a known initial state commitment.
     ///
     /// The first proof's `root_init` must match `commitment`.
-    pub fn with_initial_commitment(
-        expected_version: ProtocolVersion,
-        commitment: Hash,
-    ) -> Self {
+    pub fn with_initial_commitment(expected_version: ProtocolVersion, commitment: Hash) -> Self {
         Self {
             inner: DefaultVerifier::new(expected_version.clone()),
             latest_commitment: Some(commitment),
@@ -777,7 +789,7 @@ impl StatefulVerifier {
         // Accepted — advance the latest commitment.
         self.latest_commitment = Some(public_inputs.root_final.clone());
 
-        VerificationResult::Accepted
+        VerificationResult::CryptographicallyConsistent
     }
 
     /// Check version compatibility for a proof.
@@ -907,9 +919,7 @@ fn eval_witness_expr(
             let l = eval_witness_expr(lhs, witness)?;
             let r = eval_witness_expr(rhs, witness)?;
             match (l, r) {
-                (WitnessValue::Bool(a), WitnessValue::Bool(b)) => {
-                    Some(WitnessValue::Bool(a && b))
-                }
+                (WitnessValue::Bool(a), WitnessValue::Bool(b)) => Some(WitnessValue::Bool(a && b)),
                 _ => None,
             }
         }
@@ -918,9 +928,7 @@ fn eval_witness_expr(
             let l = eval_witness_expr(lhs, witness)?;
             let r = eval_witness_expr(rhs, witness)?;
             match (l, r) {
-                (WitnessValue::Bool(a), WitnessValue::Bool(b)) => {
-                    Some(WitnessValue::Bool(a || b))
-                }
+                (WitnessValue::Bool(a), WitnessValue::Bool(b)) => Some(WitnessValue::Bool(a || b)),
                 _ => None,
             }
         }
@@ -929,9 +937,7 @@ fn eval_witness_expr(
             let l = eval_witness_expr(lhs, witness)?;
             let r = eval_witness_expr(rhs, witness)?;
             match (l, r) {
-                (WitnessValue::Int(a), WitnessValue::Int(b)) => {
-                    Some(WitnessValue::Bool(a < b))
-                }
+                (WitnessValue::Int(a), WitnessValue::Int(b)) => Some(WitnessValue::Bool(a < b)),
                 _ => None,
             }
         }
@@ -940,9 +946,7 @@ fn eval_witness_expr(
             let l = eval_witness_expr(lhs, witness)?;
             let r = eval_witness_expr(rhs, witness)?;
             match (l, r) {
-                (WitnessValue::Int(a), WitnessValue::Int(b)) => {
-                    Some(WitnessValue::Bool(a <= b))
-                }
+                (WitnessValue::Int(a), WitnessValue::Int(b)) => Some(WitnessValue::Bool(a <= b)),
                 _ => None,
             }
         }
@@ -951,9 +955,7 @@ fn eval_witness_expr(
             let l = eval_witness_expr(lhs, witness)?;
             let r = eval_witness_expr(rhs, witness)?;
             match (l, r) {
-                (WitnessValue::Int(a), WitnessValue::Int(b)) => {
-                    Some(WitnessValue::Bool(a > b))
-                }
+                (WitnessValue::Int(a), WitnessValue::Int(b)) => Some(WitnessValue::Bool(a > b)),
                 _ => None,
             }
         }
@@ -962,9 +964,7 @@ fn eval_witness_expr(
             let l = eval_witness_expr(lhs, witness)?;
             let r = eval_witness_expr(rhs, witness)?;
             match (l, r) {
-                (WitnessValue::Int(a), WitnessValue::Int(b)) => {
-                    Some(WitnessValue::Bool(a >= b))
-                }
+                (WitnessValue::Int(a), WitnessValue::Int(b)) => Some(WitnessValue::Bool(a >= b)),
                 _ => None,
             }
         }
@@ -973,9 +973,7 @@ fn eval_witness_expr(
             let l = eval_witness_expr(lhs, witness)?;
             let r = eval_witness_expr(rhs, witness)?;
             match (l, r) {
-                (WitnessValue::Int(a), WitnessValue::Int(b)) => {
-                    Some(WitnessValue::Int(a + b))
-                }
+                (WitnessValue::Int(a), WitnessValue::Int(b)) => Some(WitnessValue::Int(a + b)),
                 _ => None,
             }
         }
@@ -984,9 +982,7 @@ fn eval_witness_expr(
             let l = eval_witness_expr(lhs, witness)?;
             let r = eval_witness_expr(rhs, witness)?;
             match (l, r) {
-                (WitnessValue::Int(a), WitnessValue::Int(b)) => {
-                    Some(WitnessValue::Int(a - b))
-                }
+                (WitnessValue::Int(a), WitnessValue::Int(b)) => Some(WitnessValue::Int(a - b)),
                 _ => None,
             }
         }
@@ -995,9 +991,7 @@ fn eval_witness_expr(
             let l = eval_witness_expr(lhs, witness)?;
             let r = eval_witness_expr(rhs, witness)?;
             match (l, r) {
-                (WitnessValue::Int(a), WitnessValue::Int(b)) => {
-                    Some(WitnessValue::Int(a * b))
-                }
+                (WitnessValue::Int(a), WitnessValue::Int(b)) => Some(WitnessValue::Int(a * b)),
                 _ => None,
             }
         }
@@ -1028,10 +1022,7 @@ fn eval_witness_expr(
 ///
 /// This mirrors `DefaultProver::generate_proof_data` exactly, so the
 /// verifier can confirm the proof was generated correctly.
-fn recompute_proof_data(
-    commitments: &ProofCommitments,
-    public_inputs: &PublicInputs,
-) -> Vec<u8> {
+fn recompute_proof_data(commitments: &ProofCommitments, public_inputs: &PublicInputs) -> Vec<u8> {
     let mut hasher = Sha3_256::new();
 
     // Bind to all commitments.
@@ -1226,15 +1217,15 @@ mod tests {
     // -----------------------------------------------------------------------
 
     #[test]
-    fn test_valid_proof_accepted() {
+    fn test_valid_proof_cryptographically_consistent() {
         let verifier = default_verifier();
         let (proof, pub_inputs) = make_valid_proof();
         let result = verifier.verify(&proof, &pub_inputs);
-        assert_eq!(result, VerificationResult::Accepted);
+        assert_eq!(result, VerificationResult::CryptographicallyConsistent);
     }
 
     #[test]
-    fn test_valid_proof_accepted_single_entry() {
+    fn test_valid_proof_cryptographically_consistent_single_entry() {
         let verifier = default_verifier();
         let prover = DefaultProver::new("0.1.0-test");
         let trace = test_trace(1);
@@ -1242,7 +1233,7 @@ mod tests {
         let proof = prover.prove(&trace, &cs).expect("proof");
         let pub_inputs = proof.public_inputs.clone();
         let result = verifier.verify(&proof, &pub_inputs);
-        assert_eq!(result, VerificationResult::Accepted);
+        assert_eq!(result, VerificationResult::CryptographicallyConsistent);
     }
 
     #[test]
@@ -1517,8 +1508,8 @@ mod tests {
     }
 
     #[test]
-    fn test_minor_version_difference_accepted() {
-        // Same major version, different minor — should be accepted.
+    fn test_minor_version_difference_cryptographically_consistent() {
+        // Same major version, different minor — should be cryptographically consistent.
         let verifier = DefaultVerifier::new(ProtocolVersion {
             major: 1,
             minor: 5,
@@ -1526,7 +1517,7 @@ mod tests {
         });
         let (proof, pub_inputs) = make_valid_proof();
         let result = verifier.verify(&proof, &pub_inputs);
-        assert_eq!(result, VerificationResult::Accepted);
+        assert_eq!(result, VerificationResult::CryptographicallyConsistent);
     }
 
     // -----------------------------------------------------------------------
@@ -1574,9 +1565,13 @@ mod tests {
     // -----------------------------------------------------------------------
 
     #[test]
-    fn test_accepted_is_accepted() {
-        assert!(VerificationResult::Accepted.is_accepted());
-        assert!(!VerificationResult::Accepted.is_rejected());
+    fn test_cryptographically_consistent_is_consistent() {
+        assert!(VerificationResult::CryptographicallyConsistent.is_cryptographically_consistent());
+        assert!(!VerificationResult::CryptographicallyConsistent.is_rejected());
+
+        // Test deprecated method still works
+        #[allow(deprecated)]
+        assert!(VerificationResult::CryptographicallyConsistent.is_accepted());
     }
 
     #[test]
@@ -1627,7 +1622,11 @@ mod tests {
             VerificationStep::InvariantEnforcement,
             VerificationStep::FinalAcceptance,
         ];
-        assert_eq!(steps.len(), 8, "must have exactly 8 verification steps (7 + step 4.5)");
+        assert_eq!(
+            steps.len(),
+            8,
+            "must have exactly 8 verification steps (7 + step 4.5)"
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -1650,7 +1649,6 @@ mod tests {
         assert_eq!(reasons.len(), 9, "must have exactly 9 rejection reasons");
     }
 }
-
 
 // ---------------------------------------------------------------------------
 // Stateful verification tests
@@ -1823,48 +1821,41 @@ mod stateful_tests {
     // -----------------------------------------------------------------------
 
     #[test]
-    fn test_stateful_first_proof_accepted() {
-        // First proof with no prior commitment should be accepted.
+    fn test_stateful_first_proof_cryptographically_consistent() {
+        // First proof with no prior commitment should be cryptographically consistent.
         let mut verifier = StatefulVerifier::new(test_version());
         let (proof, pub_inputs) = make_valid_proof();
 
         let result = verifier.verify_stateful(&proof, &pub_inputs);
-        assert_eq!(result, VerificationResult::Accepted);
+        assert_eq!(result, VerificationResult::CryptographicallyConsistent);
 
         // After acceptance, latest_commitment should be root_final.
-        assert_eq!(
-            verifier.latest_commitment(),
-            Some(&pub_inputs.root_final),
-        );
+        assert_eq!(verifier.latest_commitment(), Some(&pub_inputs.root_final),);
     }
 
     #[test]
-    fn test_stateful_chain_accepted() {
+    fn test_stateful_chain_cryptographically_consistent() {
         // Two proofs where proof2.root_init == proof1.root_final.
         let mut verifier = StatefulVerifier::new(test_version());
         let (proof1, pub_inputs1) = make_valid_proof();
 
-        // Accept first proof.
+        // First proof cryptographically consistent.
         let r1 = verifier.verify_stateful(&proof1, &pub_inputs1);
-        assert_eq!(r1, VerificationResult::Accepted);
+        assert_eq!(r1, VerificationResult::CryptographicallyConsistent);
 
         // Build a second proof whose root_init == proof1.root_final.
         // We create a new proof and patch its public inputs to chain.
         let (mut proof2, _) = make_valid_proof();
         proof2.public_inputs.root_init = pub_inputs1.root_final.clone();
         // Recompute proof_data so cryptographic verification passes.
-        proof2.proof_data =
-            recompute_proof_data(&proof2.commitments, &proof2.public_inputs);
+        proof2.proof_data = recompute_proof_data(&proof2.commitments, &proof2.public_inputs);
         let pub_inputs2 = proof2.public_inputs.clone();
 
         let r2 = verifier.verify_stateful(&proof2, &pub_inputs2);
-        assert_eq!(r2, VerificationResult::Accepted);
+        assert_eq!(r2, VerificationResult::CryptographicallyConsistent);
 
         // Latest commitment should now be proof2.root_final.
-        assert_eq!(
-            verifier.latest_commitment(),
-            Some(&pub_inputs2.root_final),
-        );
+        assert_eq!(verifier.latest_commitment(), Some(&pub_inputs2.root_final),);
     }
 
     #[test]
@@ -1873,9 +1864,9 @@ mod stateful_tests {
         let mut verifier = StatefulVerifier::new(test_version());
         let (proof1, pub_inputs1) = make_valid_proof();
 
-        // Accept first proof.
+        // First proof cryptographically consistent.
         let r1 = verifier.verify_stateful(&proof1, &pub_inputs1);
-        assert_eq!(r1, VerificationResult::Accepted);
+        assert_eq!(r1, VerificationResult::CryptographicallyConsistent);
 
         // Second proof with a different root_init (does NOT chain).
         let (proof2, pub_inputs2) = make_valid_proof();
@@ -1902,19 +1893,15 @@ mod stateful_tests {
         let (proof, pub_inputs) = make_valid_proof();
 
         // Create verifier with the proof's root_init as initial commitment.
-        let mut verifier = StatefulVerifier::with_initial_commitment(
-            test_version(),
-            pub_inputs.root_init.clone(),
-        );
+        let mut verifier =
+            StatefulVerifier::with_initial_commitment(test_version(), pub_inputs.root_init.clone());
 
         let result = verifier.verify_stateful(&proof, &pub_inputs);
-        assert_eq!(result, VerificationResult::Accepted);
+        assert_eq!(result, VerificationResult::CryptographicallyConsistent);
 
         // Now try with a wrong initial commitment.
-        let mut verifier_wrong = StatefulVerifier::with_initial_commitment(
-            test_version(),
-            Hash([0xFF; 32]),
-        );
+        let mut verifier_wrong =
+            StatefulVerifier::with_initial_commitment(test_version(), Hash([0xFF; 32]));
 
         let result_wrong = verifier_wrong.verify_stateful(&proof, &pub_inputs);
         assert_eq!(
@@ -1950,9 +1937,9 @@ mod stateful_tests {
         let mut verifier = StatefulVerifier::new(test_version());
         let (proof, pub_inputs) = make_valid_proof();
 
-        // Accept a proof to set the commitment.
+        // Verify proof to set the commitment.
         let r = verifier.verify_stateful(&proof, &pub_inputs);
-        assert_eq!(r, VerificationResult::Accepted);
+        assert_eq!(r, VerificationResult::CryptographicallyConsistent);
         assert!(verifier.latest_commitment().is_some());
 
         // Reset.
@@ -1962,7 +1949,7 @@ mod stateful_tests {
         // After reset, the same proof should be accepted again
         // (no continuity check since commitment is None).
         let r2 = verifier.verify_stateful(&proof, &pub_inputs);
-        assert_eq!(r2, VerificationResult::Accepted);
+        assert_eq!(r2, VerificationResult::CryptographicallyConsistent);
     }
 
     #[test]
@@ -1990,7 +1977,6 @@ mod stateful_tests {
         assert!(!verifier.verify_version_compatible(&proof));
     }
 }
-
 
 // ---------------------------------------------------------------------------
 // Recursive and composed verification tests — Requirement 8.10

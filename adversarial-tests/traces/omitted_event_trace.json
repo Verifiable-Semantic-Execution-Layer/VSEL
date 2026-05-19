@@ -1,0 +1,225 @@
+VSEL/adversarial-tests/traces/omitted_event_trace.json
+```
+
+```json
+{
+  "description": "VSEL Omitted Event Trace - Authorization Check Missing",
+  "version": "1.0",
+  "trace_format": "VSEL-EXEC-TRACE-v1",
+  "policy_version": "1.0.0",
+  "invariant_version": "1.0.0",
+  "execution_domain": "mainnet",
+  "attack_class": "A-TRACE-OMIT",
+  "attack_vector": "Authorization check entry omitted, making unauthorized transfer appear legitimate",
+  "property_violated": "Completeness - Hidden transition",
+  "initial_state": {
+    "balances": {
+      "0xUSER_A": "1000",
+      "0xUSER_B": "500"
+    },
+    "nonce": 0,
+    "timestamp": "2024-01-15T10:00:00Z",
+    "authorizations": {
+      "0xUSER_A": {
+        "0xUSER_B": {
+          "allowance": "0",
+          "authorized": false
+        }
+      }
+    }
+  },
+  "initial_state_commitment": "0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa5d1c5f9f9c5f9a5f9c5f9a",
+  "trace_entries": [
+    {
+      "index": 0,
+      "transition_type": "balance_check",
+      "actor": "0xSYSTEM",
+      "actor_signature": "0x9a3f7e2d1b5c8a4f6e3d9c2b7a5f1e8d4c6b3a9f7e2d1b5c8a4f6e3d9c2b7a5f1e8d4c6b3a9f7e2d1b5c8a4f6e3d9c2b7a5f1e8d4c6b3a9f7e2",
+      "pre_state_commitment": "0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa5d1c5f9f9c5f9a5f9c5f9a",
+      "input": {
+        "operation": "check_balance",
+        "account": "0xUSER_A"
+      },
+      "input_canonical": "0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2",
+      "post_state": {
+        "balances": {
+          "0xUSER_A": "1000",
+          "0xUSER_B": "500"
+        },
+        "nonce": 0,
+        "timestamp": "2024-01-15T10:00:00Z",
+        "authorizations": {
+          "0xUSER_A": {
+            "0xUSER_B": {
+              "allowance": "0",
+              "authorized": false
+            }
+          }
+        }
+      },
+      "post_state_commitment": "0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa5d1c5f9f9c5f9a5f9c5f9a",
+      "observable": {
+        "event": "BalanceChecked",
+        "account": "0xUSER_A",
+        "balance": "1000"
+      },
+      "environment": {
+        "timestamp": "2024-01-15T10:00:00Z",
+        "block_height": 1000000,
+        "chain_id": 1,
+        "gas_price": "20000000000",
+        "gas_limit": 21000
+      },
+      "metadata": {
+        "execution_context": "mainnet",
+        "policy_version": "1.0.0",
+        "invariant_version": "1.0.0",
+        "trace_nonce": "0x0000000000000001"
+      },
+      "chain_hash": "0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b",
+      "proof_of_execution": "0xb4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5"
+    },
+    {
+      "index": 1,
+      "transition_type": "transfer",
+      "actor": "0xUSER_A",
+      "actor_signature": "0x8a2f6d5e4c3b2a1908f7e6d5c4b3a2918f7e6d5c4b3a2918f7e6d5c4b3a2918f7e6d5c4b3a2918f7e6d5c4b3a29180f",
+      "pre_state_commitment": "0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa5d1c5f9f9c5f9a5f9c5f9a",
+      "input": {
+        "operation": "transfer",
+        "from": "0xUSER_A",
+        "to": "0xUSER_B",
+        "amount": "100",
+        "nonce": 1
+      },
+      "input_canonical": "0x9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "post_state": {
+        "balances": {
+          "0xUSER_A": "900",
+          "0xUSER_B": "600"
+        },
+        "nonce": 1,
+        "timestamp": "2024-01-15T10:00:01Z",
+        "authorizations": {
+          "0xUSER_A": {
+            "0xUSER_B": {
+              "allowance": "0",
+              "authorized": false
+            }
+          }
+        }
+      },
+      "post_state_commitment": "0x8f94b1657ff1fc53b92dc18148a1d65dfc2d4b1fa5d1c5f9f9c5f9a5f9c5f9b",
+      "observable": {
+        "event": "Transfer",
+        "from": "0xUSER_A",
+        "to": "0xUSER_B",
+        "amount": "100",
+        "new_balance_sender": "900",
+        "new_balance_receiver": "600"
+      },
+      "environment": {
+        "timestamp": "2024-01-15T10:00:01Z",
+        "block_height": 1000000,
+        "chain_id": 1,
+        "gas_price": "20000000000",
+        "gas_limit": 21000
+      },
+      "metadata": {
+        "execution_context": "mainnet",
+        "policy_version": "1.0.0",
+        "invariant_version": "1.0.0",
+        "trace_nonce": "0x0000000000000002",
+        "_OMITTED_ENTRY": {
+          "description": "AUTHORIZATION_CHECK entry should exist here between index 0 and 1",
+          "omitted_index": 1,
+          "what_should_be_here": {
+            "transition_type": "authorization_check",
+            "input": {
+              "operation": "check_authorization",
+              "from": "0xUSER_A",
+              "to": "0xUSER_B",
+              "amount": "100"
+            },
+            "expected_result": "FAILED - insufficient authorization",
+            "why_omitted": "To hide the fact that transfer was unauthorized"
+          }
+        }
+      },
+      "chain_hash": "0x3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c",
+      "proof_of_execution": "0xd5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6a7b8c9d0e1f2a3b4c5d6"
+    }
+  ],
+  "omitted_entries": [
+    {
+      "index": 1,
+      "transition_type": "authorization_check",
+      "description": "This entry was omitted from the trace",
+      "actor": "0xSYSTEM",
+      "input": {
+        "operation": "check_authorization",
+        "from": "0xUSER_A",
+        "to": "0xUSER_B",
+        "amount": "100"
+      },
+      "expected_result": {
+        "authorized": false,
+        "reason": "No authorization exists for 0xUSER_A to transfer to 0xUSER_B"
+      },
+      "what_trace_shows": "Direct transfer without authorization check",
+      "attack_impact": "Unauthorized transfer appears legitimate"
+    }
+  ],
+  "final_state": {
+    "balances": {
+      "0xUSER_A": "900",
+      "0xUSER_B": "600"
+    },
+    "nonce": 1,
+    "timestamp": "2024-01-15T10:00:01Z",
+    "authorizations": {
+      "0xUSER_A": {
+        "0xUSER_B": {
+          "allowance": "0",
+          "authorized": false
+        }
+      }
+    }
+  },
+  "final_state_commitment": "0x8f94b1657ff1fc53b92dc18148a1d65dfc2d4b1fa5d1c5f9f9c5f9a5f9c5f9b",
+  "trace_commitment": "0x5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b",
+  "_attack_explanation": {
+    "how_it_works": "The authorization check that should have failed was omitted from the trace. A naive verifier that only checks syntax would see a valid transfer sequence.",
+    "detection_strategy": "Verify state transitions require authorization checks for transfers. Check that authorization state exists in pre-state. Verify no unauthorized transfers occurred.",
+    "what_verifier_should_detect": "Missing authorization_check entry before transfer operation",
+    "expected_verification_result": "REJECT - Incomplete trace"
+  },
+  "expected_verification": {
+    "completeness": false,
+    "_completeness_explanation": "Authorization check transition is missing from trace",
+    "ordering": true,
+    "authenticity": true,
+    "non_equivocation": true,
+    "replay_resistance": true,
+    "semantic_binding": false,
+    "_semantic_binding_explanation": "Transfer appears authorized when it was not",
+    "policy_binding": true,
+    "invariant_binding": false,
+    "_invariant_binding_explanation": "Authorization invariant violated but not captured",
+    "context_binding": true,
+    "actor_binding": true,
+    "temporal_binding": true,
+    "state_binding": true,
+    "external_binding": true,
+    "auditability": false,
+    "_auditability_explanation": "Cannot audit authorization that was never recorded",
+    "verification_sufficiency": false,
+    "verifier_completeness": false
+  },
+  "expected_test_outcome": {
+    "verification": "REJECT",
+    "rejection_reason": "Missing required authorization check entry at expected index 1",
+    "completeness_check": "FAIL",
+    "semantic_validity": "SUSPECT - Transfer without authorization"
+  }
+}

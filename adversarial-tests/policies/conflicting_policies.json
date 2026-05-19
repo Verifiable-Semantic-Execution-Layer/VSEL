@@ -1,0 +1,442 @@
+VSEL/adversarial-tests/policies/conflicting_policies.json
+{
+  "_description": "CONFLICTING POLICIES - Demonstrate policy conflicts and ambiguous resolution",
+  "_attack_scenario": "Multiple policies with contradictory constraints applied simultaneously, exploiting resolution ambiguity",
+  "_conflicts": [
+    {
+      "type": "threshold_conflict",
+      "description": "Global requires 3-of-5, Local requires 1-of-3 - which applies?",
+      "exploit": "Satisfy local (weaker) while claiming compliance with global"
+    },
+    {
+      "type": "temporal_conflict",
+      "description": "Global requires 24h timelock, Local requires 1h",
+      "exploit": "Use shorter local delay for faster exploitation"
+    },
+    {
+      "type": "amount_conflict",
+      "description": "Global allows max 1000 tokens, Local allows 10000",
+      "exploit": "Reference local policy for larger transactions"
+    },
+    {
+      "type": "invariant_conflict",
+      "description": "Global requires total_supply conservation, Local has no invariant",
+      "exploit": "Execute under local to bypass global invariants"
+    },
+    {
+      "type": "emergency_conflict",
+      "description": "Global emergency requires 5 actors, Local requires 1",
+      "exploit": "Declare emergency under local policy"
+    },
+    {
+      "type": "role_conflict",
+      "description": "Global: admin inherits constraints, Local: admin exempt",
+      "exploit": "Use local role definition to bypass global constraints"
+    }
+  ],
+  "policies": {
+    "global_policy": {
+      "policy_id": "pol_global_treasury_security",
+      "scope": "global",
+      "priority": "highest",
+      "constraints": {
+        "authorization": {
+          "type": "multisig",
+          "threshold": 3,
+          "total_signers": 5,
+          "signature_scheme": "hybrid",
+          "_rationale": "Maximum security for global operations"
+        },
+        "temporal": {
+          "time_lock_seconds": 86400,
+          "_rationale": "24 hours for governance review"
+        },
+        "economic": {
+          "max_transaction_amount": "1000000000000000000000",
+          "max_daily_amount": "5000000000000000000000",
+          "_rationale": "Limit exposure from any single compromise"
+        },
+        "invariants": {
+          "total_supply_conservation": "required",
+          "balance_non_negative": "required",
+          "_rationale": "Core economic invariants must hold"
+        },
+        "emergency": {
+          "threshold": 5,
+          "duration_max": 1440,
+          "preserves_invariants": true
+        },
+        "roles": {
+          "admin": {
+            "inherits_constraints": true,
+            "can_override": false
+          }
+        }
+      },
+      "conflict_resolution": {
+        "strategy": "most_restrictive",
+        "on_conflict_with_local": "global_wins"
+      }
+    },
+    "local_policy_domain_a": {
+      "policy_id": "pol_local_domain_a_flexible",
+      "scope": "local",
+      "applies_to": ["domain_a", "testing"],
+      "priority": "high",
+      "constraints": {
+        "authorization": {
+          "type": "multisig",
+          "threshold": 1,
+          "total_signers": 3,
+          "_weakening": "Only 33% consensus vs 60% in global"
+        },
+        "temporal": {
+          "time_lock_seconds": 3600,
+          "_weakening": "1 hour vs 24 hours in global"
+        },
+        "economic": {
+          "max_transaction_amount": "10000000000000000000000",
+          "max_daily_amount": "100000000000000000000000",
+          "_weakening": "10x higher limits than global"
+        },
+        "invariants": {
+          "_note": "No invariant requirements specified",
+          "total_supply_conservation": "optional",
+          "balance_non_negative": "recommended"
+        },
+        "emergency": {
+          "threshold": 1,
+          "duration_max": null,
+          "preserves_invariants": false,
+          "_weakening": "Single actor, indefinite, no invariant preservation"
+        },
+        "roles": {
+          "admin": {
+            "inherits_constraints": false,
+            "can_override": true,
+            "_note": "Complete bypass through admin role"
+          }
+        }
+      },
+      "conflict_resolution": {
+        "strategy": "least_restrictive",
+        "on_conflict_with_global": "local_wins_if_valid"
+      }
+    },
+    "local_policy_domain_b": {
+      "policy_id": "pol_local_domain_b_strict",
+      "scope": "local",
+      "applies_to": ["domain_b", "production"],
+      "priority": "high",
+      "constraints": {
+        "authorization": {
+          "type": "multisig",
+          "threshold": 4,
+          "total_signers": 5,
+          "_note": "Stricter than global (4 vs 3)"
+        },
+        "temporal": {
+          "time_lock_seconds": 172800,
+          "_note": "48 hours, stricter than global"
+        },
+        "economic": {
+          "max_transaction_amount": "500000000000000000000",
+          "_note": "500 tokens, stricter than global"
+        },
+        "invariants": {
+          "total_supply_conservation": "required",
+          "balance_non_negative": "required",
+          "additional_invariant": "reputation_score_minimum",
+          "_note": "Additional invariants beyond global"
+        },
+        "emergency": {
+          "threshold": 3,
+          "duration_max": 720,
+          "preserves_invariants": true,
+          "_note": "Stricter emergency requirements"
+        }
+      },
+      "conflict_resolution": {
+        "strategy": "most_restrictive",
+        "on_conflict_with_global": "most_restrictive_wins"
+      }
+    },
+    "emergency_policy": {
+      "policy_id": "pol_emergency_override",
+      "scope": "emergency",
+      "trigger": "emergency_declared",
+      "priority": "override",
+      "constraints": {
+        "authorization": {
+          "type": "single_sig",
+          "threshold": 1,
+          "_emergency_weakening": "Single signature during emergency"
+        },
+        "temporal": {
+          "time_lock_seconds": 0,
+          "_emergency_weakening": "No delay during emergency"
+        },
+        "economic": {
+          "max_transaction_amount": "unlimited",
+          "_emergency_weakening": "No amount limits during emergency"
+        },
+        "invariants": {
+          "_emergency_override": "Some invariants may be bypassed with governance approval",
+          "preserved": ["total_supply_conservation"],
+          "overrideable": ["balance_non_negative", "rate_limits"]
+        }
+      },
+      "_danger": "Emergency policy conflicts with all other policies"
+    },
+    "legacy_policy_v0": {
+      "policy_id": "pol_legacy_v0_deprecated",
+      "scope": "legacy",
+      "status": "deprecated",
+      "applies_to": ["legacy_contracts"],
+      "priority": "low",
+      "constraints": {
+        "authorization": {
+          "type": "single_sig",
+          "_deprecated": "Pre-multisig era"
+        },
+        "temporal": {
+          "time_lock_seconds": 0,
+          "_deprecated": "No timelock"
+        },
+        "economic": {
+          "max_transaction_amount": "unlimited",
+          "_deprecated": "No limits"
+        },
+        "invariants": {
+          "_deprecated": "No invariant checks"
+        }
+      },
+      "_danger": "Deprecated policy may still be referenced by legacy systems"
+    }
+  },
+  "conflict_scenarios": [
+    {
+      "name": "threshold_conflict_exploit",
+      "description": "Attacker satisfies local threshold (1-of-3) while global requires 3-of-5",
+      "attacker_strategy": "Route transaction through domain_a to use weaker local policy",
+      "resolution_ambiguity": "Does transaction need 3 signatures (global) or 1 (local)?",
+      "exploit_path": [
+        "Attacker compromises 1 key in domain_a",
+        "Submits transaction with single signature",
+        "Claims compliance with local_policy_domain_a",
+        "System may accept despite global policy violation"
+      ],
+      "severity": "critical"
+    },
+    {
+      "name": "temporal_race_exploit",
+      "description": "Conflicting time locks create race condition",
+      "attacker_strategy": "Execute during time window where local expired but global still active",
+      "resolution_ambiguity": "Which policy's temporal constraints apply?",
+      "exploit_path": [
+        "Transaction submitted with 1h delay (satisfies local)",
+        "After 1h, local policy considers timelock satisfied",
+        "But global policy still requires 24h",
+        "Ambiguity allows early execution"
+      ],
+      "severity": "high"
+    },
+    {
+      "name": "forum_shopping",
+      "description": "Attacker selects weakest applicable policy",
+      "attacker_strategy": "Evaluate all applicable policies, choose most permissive",
+      "resolution_ambiguity": "Which policy applies when multiple are valid?",
+      "comparison": {
+        "global": "threshold=3, timelock=24h, max=1000",
+        "domain_a": "threshold=1, timelock=1h, max=10000",
+        "domain_b": "threshold=4, timelock=48h, max=500",
+        "emergency": "threshold=1, timelock=0, max=unlimited"
+      },
+      "exploit_path": [
+        "Attacker checks all applicable policies",
+        "Identifies domain_a as most permissive",
+        "Structures transaction to trigger domain_a policy",
+        "Bypasses global security requirements"
+      ],
+      "severity": "critical"
+    },
+    {
+      "name": "emergency_escalation",
+      "description": "Declare emergency to activate weakest policy",
+      "attacker_strategy": "Trigger emergency to bypass all normal constraints",
+      "resolution_ambiguity": "Emergency policy overrides everything, but who can declare emergency?",
+      "exploit_path": [
+        "Attacker gains single emergency key",
+        "Declares emergency under emergency_policy",
+        "All normal constraints bypassed",
+        "Executes with single signature, no limits"
+      ],
+      "severity": "critical"
+    },
+    {
+      "name": "role_inheritance_conflict",
+      "description": "Admin role has different permissions in different policies",
+      "attacker_strategy": "Claim admin role under local policy with override rights",
+      "resolution_ambiguity": "Which role definition applies?",
+      "role_comparison": {
+        "global_admin": "inherits all constraints, cannot override",
+        "domain_a_admin": "exempt from constraints, can override all"
+      },
+      "exploit_path": [
+        "Attacker obtains admin role",
+        "Claims to be acting under domain_a policy",
+        "Uses override rights to bypass global constraints",
+        "Executes transactions that would violate global policy"
+      ],
+      "severity": "high"
+    },
+    {
+      "name": "invariant_selective_enforcement",
+      "description": "Some policies require invariants, others don't",
+      "attacker_strategy": "Execute under policy without invariant requirements",
+      "resolution_ambiguity": "Are invariants global or policy-specific?",
+      "invariant_comparison": {
+        "global": "total_supply_conservation required, balance_non_negative required",
+        "domain_a": "invariants optional",
+        "emergency": "some invariants overrideable"
+      },
+      "exploit_path": [
+        "Attacker crafts transaction that violates invariants",
+        "Submits under domain_a policy",
+        "No invariant enforcement triggered",
+        "Core economic properties violated"
+      ],
+      "severity": "critical"
+    },
+    {
+      "name": "deprecated_policy_resurrection",
+      "description": "Legacy deprecated policy still accessible",
+      "attacker_strategy": "Reference deprecated policy with no constraints",
+      "resolution_ambiguity": "Does 'deprecated' mean 'invalid' or just 'discouraged'?",
+      "exploit_path": [
+        "Attacker discovers legacy_policy_v0 still in registry",
+        "Submits transaction referencing legacy policy ID",
+        "System accepts because policy hash is valid",
+        "Executes with single sig, no limits, no invariants"
+      ],
+      "severity": "critical"
+    }
+  ],
+  "resolution_strategies_analysis": {
+    "most_restrictive": {
+      "description": "Apply the strictest constraint from all applicable policies",
+      "security": "high",
+      "usability": "low",
+      "failure_mode": "May be too restrictive, causing denial of service",
+      "implementation": "For each constraint type, take max(threshold), max(timelock), min(amount)"
+    },
+    "least_restrictive": {
+      "description": "Apply the most permissive constraint from applicable policies",
+      "security": "low",
+      "usability": "high",
+      "failure_mode": "Vulnerable to forum shopping - attackers pick weakest policy",
+      "implementation": "For each constraint type, take min(threshold), min(timelock), max(amount)"
+    },
+    "priority_ordered": {
+      "description": "Explicit precedence hierarchy",
+      "security": "medium",
+      "usability": "medium",
+      "failure_mode": "Complex precedence rules may have gaps or cycles",
+      "implementation": "Global > Domain > Local > Role-specific"
+    },
+    "first_match": {
+      "description": "Apply first policy that accepts the transaction",
+      "security": "very_low",
+      "usability": "high",
+      "failure_mode": "Order-dependent, attackers structure transactions to hit weak policies first",
+      "implementation": "Evaluate policies in order until one accepts"
+    },
+    "consensus_required": {
+      "description": "All applicable policies must agree",
+      "security": "very_high",
+      "usability": "very_low",
+      "failure_mode": "Any conflict results in rejection - high false positive rate",
+      "implementation": "Reject if any policy would reject"
+    }
+  },
+  "mitigation_requirements": [
+    {
+      "requirement": "conflict_detection",
+      "description": "Static analysis must detect conflicting constraints before deployment",
+      "test": "compare_all_applicable_policies(policy_set)"
+    },
+    {
+      "requirement": "explicit_resolution",
+      "description": "Every policy conflict must have explicit resolution strategy",
+      "test": "verify_resolution_strategy_defined(conflict)"
+    },
+    {
+      "requirement": "policy_hierarchy",
+      "description": "Clear precedence: Global > Domain > Local > Role",
+      "test": "verify_hierarchy_no_cycles(policy_graph)"
+    },
+    {
+      "requirement": "deprecated_policy_isolation",
+      "description": "Deprecated policies must be inaccessible or clearly rejected",
+      "test": "access_policy(deprecated_id) -> Err(PolicyDeprecated)"
+    },
+    {
+      "requirement": "invariant_global_enforcement",
+      "description": "Core invariants must apply regardless of policy selection",
+      "test": "verify_invariants_hold(tx, any_policy)"
+    },
+    {
+      "requirement": "emergency_constraint_preservation",
+      "description": "Emergency cannot bypass absolute invariants",
+      "test": "emergency_mode.enforces_invariants(absolute_set)"
+    },
+    {
+      "requirement": "role_consistency",
+      "description": "Role permissions must be consistent across policies or explicitly layered",
+      "test": "verify_role_semantics_consistent(role, policies)"
+    }
+  ],
+  "adversarial_test_cases": [
+    {
+      "name": "test_forum_shopping_prevention",
+      "description": "Verify system rejects attempts to use weaker local policy",
+      "steps": [
+        "Deploy global_policy with threshold=3",
+        "Deploy local_policy_domain_a with threshold=1",
+        "Submit transaction with 1 signature",
+        "Verify rejection: insufficient signatures for global policy"
+      ],
+      "expected_result": "rejected"
+    },
+    {
+      "name": "test_emergency_invariant_preservation",
+      "description": "Emergency cannot bypass absolute invariants",
+      "steps": [
+        "Deploy policies with total_supply_conservation",
+        "Declare emergency under emergency_policy",
+        "Attempt transaction that violates total_supply",
+        "Verify rejection: invariant violation even in emergency"
+      ],
+      "expected_result": "rejected"
+    },
+    {
+      "name": "test_deprecated_policy_rejection",
+      "description": "Deprecated policies must not be usable",
+      "steps": [
+        "Attempt to submit transaction with legacy_policy_v0",
+        "Verify rejection: policy deprecated"
+      ],
+      "expected_result": "rejected"
+    },
+    {
+      "name": "test_conflict_resolution_most_restrictive",
+      "description": "Conflicting policies resolve to most restrictive",
+      "steps": [
+        "Deploy global (timelock=24h) and local (timelock=1h)",
+        "Submit transaction with 1h delay",
+        "Verify rejection: requires 24h per most restrictive"
+      ],
+      "expected_result": "rejected"
+    }
+  ]
+}

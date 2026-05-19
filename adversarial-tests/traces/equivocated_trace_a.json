@@ -1,0 +1,192 @@
+VSEL/adversarial-tests/traces/equivocated_trace_a.json
+```
+
+```json
+{
+  "_description": "VSEL Equivocated Trace A - Attack: Trace Equivocation (First Variant)",
+  "_purpose": "Demonstrates first of two traces with same commitment but different semantics",
+  "_attack_class": "A-TRACE-EQUIV",
+  "_vulnerability": "Non-equivocation violation - same commitment, different semantics",
+  "_equivocation_partner": "equivocated_trace_b.json",
+  "trace_metadata": {
+    "trace_id": "0xb7f8...d16f",
+    "protocol_version": "1.0.0",
+    "policy_version": "2.1.0",
+    "invariant_version": "3.0.0",
+    "execution_domain": "mainnet",
+    "chain_id": "0x1",
+    "timestamp": 1704067200,
+    "block_height": 12345678,
+    "actor": {
+      "id": "0xattacker...9012",
+      "type": "contract",
+      "pubkey": "0x9012...ijkl"
+    },
+    "initial_state_commitment": "0xf0a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234",
+    "final_state_commitment": "0xe1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef12345",
+    "trace_commitment": "0xd2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456",
+    "signature": "0xc3d4e5f6789012345678901234567890abcdef1234567890abcdef1234567...",
+    "signature_scheme": "ed25519",
+    "_attack_note": "This trace (A) shows legitimate transfer. Equivocated trace B shows theft. Both share commitment due to commitment scheme weakness or collision.",
+    "_equivocation_scenario": "Double-spend: Present trace A to verifier V1 (shows legitimate transfer), trace B to verifier V2 (shows theft)"
+  },
+  "_equivocation_analysis": {
+    "_description": "Two semantically different traces with same commitment",
+    "trace_a_semantics": {
+      "description": "Legitimate transfer from user1 to user2",
+      "from": "0xuser1...",
+      "to": "0xuser2...",
+      "amount": "100",
+      "outcome": "user1: 900, user2: 600"
+    },
+    "trace_b_semantics": {
+      "description": "Theft - transfer from user1 to attacker",
+      "from": "0xuser1...",
+      "to": "0xattacker...",
+      "amount": "1000",
+      "outcome": "user1: 0, attacker: 1000",
+      "_note": "See equivocated_trace_b.json for details"
+    },
+    "_commitment_collision": {
+      "mechanism": "Either hash collision or underconstrained commitment scheme",
+      "exploit": "Same commitment hash for different semantic content",
+      "impact": "Split-brain - different verifiers see different executions"
+    }
+  },
+  "entries": [
+    {
+      "index": 0,
+      "transition_id": "tx0",
+      "operation_type": "transfer",
+      "operation_version": "1.0",
+      "pre_state": {
+        "commitment": "0xf0a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234",
+        "values": {
+          "balances": {
+            "0xuser1...": "1000",
+            "0xuser2...": "500",
+            "0xattacker...": "0"
+          }
+        }
+      },
+      "input": {
+        "from": "0xuser1...",
+        "to": "0xuser2...",
+        "amount": "100",
+        "nonce": 42,
+        "_trace_a_specific": "Legitimate recipient",
+        "authorization": {
+          "signature": "0xa1b2c3...",
+          "scheme": "ed25519",
+          "pubkey": "0xuser1_pubkey"
+        }
+      },
+      "input_canonical": "0x5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6",
+      "post_state": {
+        "commitment": "0xa1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234a",
+        "values": {
+          "balances": {
+            "0xuser1...": "900",
+            "0xuser2...": "600",
+            "0xattacker...": "0"
+          }
+        }
+      },
+      "observable": {
+        "event_type": "Transfer",
+        "from": "0xuser1...",
+        "to": "0xuser2...",
+        "amount": "100",
+        "gas_used": 21000,
+        "_trace_a_specific": "Shows legitimate transfer to user2"
+      },
+      "environment": {
+        "timestamp": 1704067200,
+        "block_height": 12345678,
+        "chain_id": "0x1",
+        "external_root": "0xexternal_state_root_1234"
+      },
+      "metadata": {
+        "gas_price": "20",
+        "execution_order": 0,
+        "causal_dependencies": [],
+        "previous_commitment": "0xf0a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234",
+        "_equivocation_marker": "TRACE_A_VARIANT"
+      },
+      "chain_hash": "0x01a2b3c4d5e6f789012345678901234567890abcdef1234567890abcdef123456",
+      "entry_commitment": "0x12b3c4d5e6f789012345678901234567890abcdef1234567890abcdef1234567",
+      "signatures": [
+        {
+          "signer": "0xuser1...",
+          "signature": "0xb3c4d5e6...",
+          "scheme": "ed25519"
+        }
+      ]
+    }
+  ],
+  "_equivocation_attack_flow": {
+    "step_1": "Attacker generates two traces with same commitment",
+    "step_2": "Presents trace A to auditor showing legitimate transfer",
+    "step_3": "Presents trace B to victim showing theft",
+    "step_4": "Both traces pass commitment verification",
+    "step_5": "Attacker claims discrepancy is victim error",
+    "step_6": "System cannot determine ground truth"
+  },
+  "_detection_challenges": {
+    "commitment_verification": "Both traces pass - same commitment",
+    "semantic_verification": "Requires comparing both traces, but they're presented to different parties",
+    "consensus_failure": "No agreement on what actually happened"
+  },
+  "invariant_checks": [
+    {
+      "invariant_id": "commitment_uniqueness",
+      "check_type": "structural",
+      "at_entry": [0],
+      "satisfied": false,
+      "violation": "Same commitment represents different semantics",
+      "proof": null,
+      "_note": "In equivocated_trace_b.json, entry 0 has same commitment but different to/amount"
+    },
+    {
+      "invariant_id": "semantic_determinism",
+      "check_type": "safety",
+      "at_entry": [0],
+      "satisfied": false,
+      "violation": "Same commitment, different observable outcomes",
+      "proof": null
+    }
+  ],
+  "verification_result": {
+    "complete": true,
+    "ordered": true,
+    "authentic": true,
+    "non_equivocating": false,
+    "_equivocation_failure": "Same commitment as equivocated_trace_b.json with different semantics",
+    "replay_resistant": true,
+    "bound_to_intent": true,
+    "bound_to_policy": true,
+    "bound_to_invariant": false,
+    "_invariant_failure": "Commitment uniqueness invariant violated",
+    "bound_to_context": true,
+    "bound_to_actor": true,
+    "bound_to_time": true,
+    "bound_to_transitions": true,
+    "bound_to_external": true,
+    "auditable": false,
+    "_audit_failure": "Cannot audit - two different executions with same proof",
+    "independently_verifiable": false
+  },
+  "expected_test_outcome": {
+    "_when_presented_alone": {
+      "verification": "ACCEPT",
+      "reason": "Trace is internally consistent and passes all checks"
+    },
+    "_when_compared_to_trace_b": {
+      "verification": "REJECT_BOTH",
+      "reason": "EQUIVOCATION_DETECTED - Same commitment, different semantics",
+      "detection_method": "Compare trace entries with same commitment"
+    },
+    "_detection_requirement": "System must detect when two different traces share commitment",
+    "_mitigation": "Use collision-resistant commitment scheme with full semantic binding"
+  }
+}

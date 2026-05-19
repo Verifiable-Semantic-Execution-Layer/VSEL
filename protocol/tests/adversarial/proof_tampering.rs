@@ -394,8 +394,8 @@ fn test_valid_proof_with_constraints_accepted() {
     let result = verifier.verify_with_constraints(&proof, &pub_inputs, &witness, &cs);
     assert_eq!(
         result,
-        VerificationResult::Accepted,
-        "Valid proof with matching witness and constraints must be accepted"
+        VerificationResult::CryptographicallyConsistent,
+        "Valid proof with matching witness and constraints must be cryptographically consistent"
     );
 }
 
@@ -416,7 +416,7 @@ fn test_standard_verification_backward_compatible() {
     let result = verifier.verify(&proof, &pub_inputs);
     assert_eq!(
         result,
-        VerificationResult::Accepted,
+        VerificationResult::CryptographicallyConsistent,
         "Standard verification must remain backward compatible"
     );
 }

@@ -1,0 +1,131 @@
+{
+  "scenario_name": "Blockchain Reorganization (Reorg) Exploitation Attack",
+  "scenario_id": "REORG-001",
+  "attack_class": "Reorganization Exploitation",
+  "attack_reference": "Attack 17: Reorg Exploitation",
+  "document_reference": "DISTRIBUTED_FAILURE_ATTACKS.md",
+  "description": "Simulates a blockchain reorganization attack where an adversary mines a private chain and releases it to orphan previously-confirmed transactions, enabling double-spending by exploiting probabilistic finality.",
+  "severity": "CRITICAL",
+  "mitigation_target": "Probabilistic Finality Threshold, Checkpointing, Slashing, Committee Finality",
+  "version": "1.0",
+  "created_at": "2025-01-15T00:00:00Z",
+  "last_modified": "2025-01-15T00:00:00Z",
+
+  "test_configuration": {
+    "duration_seconds": 600,
+    "consensus_model": "proof_of_work_simulation",
+    "block_time_target_seconds": 15,
+    "difficulty": 4,
+    "adversary_hash_power_percentage": 35,
+    "honest_hash_power_percentage": 65,
+    "required_confirmations_for_finality": 6,
+    "checkpoint_interval_blocks": 100,
+    "slashing_enabled": false,
+    "committee_finality_enabled": false
+  },
+
+  "execution_phases": [
+    {
+      "phase": 1,
+      "name": "public_chain_advancement",
+      "duration_seconds": 120,
+      "description": "Public chain mines blocks 1-8, establishing baseline"
+    },
+    {
+      "phase": 2,
+      "name": "adversary_private_mining",
+      "duration_seconds": 180,
+      "description": "Adversary mines private chain starting from block 8, withholding from network"
+    },
+    {
+      "phase": 3,
+      "name": "public_chain_continues",
+      "duration_seconds": 105,
+      "description": "Public chain continues mining blocks 9-15, unaware of private chain"
+    },
+    {
+      "phase": 4,
+      "name": "adversary_transaction_on_public",
+      "duration_seconds": 30,
+      "description": "Adversary submits payment transaction to public chain, gets confirmations"
+    },
+    {
+      "phase": 5,
+      "name": "reorg_release",
+      "duration_seconds": 60,
+      "description": "Adversary releases private chain, causing network reorganization"
+    },
+    {
+      "phase": 6,
+      "name": "double_spend_completion",
+      "duration_seconds": 60,
+      "description": "Adversary now has goods and retains original funds, can double-spend"
+    },
+    {
+      "phase": 7,
+      "name": "system_recovery",
+      "duration_seconds": 120,
+      "description": "System recovers from reorg, re-establishes consensus on new chain"
+    }
+  ],
+
+  "attack_vectors": [
+    {
+      "vector_id": "REORG-001",
+      "name": "Private Chain Mining",
+      "description": "Adversary mines private chain with sufficient hash power to eventually overtake public chain"
+    },
+    {
+      "vector_id": "REORG-002",
+      "name": "Confirmation Window Exploitation",
+      "description": "Adversary waits for victim transaction to receive confirmations but not reach finality threshold"
+    },
+    {
+      "vector_id": "REORG-003",
+      "name": "Economic Extraction Timing",
+      "description": "Adversary extracts value from confirmed transactions before reorg invalidates them"
+    }
+  ],
+
+  "invariant_checks": [
+    {
+      "invariant": "conservation_of_value",
+      "description": "Total value in system remains constant across reorg"
+    },
+    {
+      "invariant": "transaction_finality",
+      "description": "Confirmed transactions remain confirmed"
+    },
+    {
+      "invariant": "no_double_spend",
+      "description": "No address spends same funds twice successfully"
+    }
+  ],
+
+  "expected_vulnerabilities": {
+    "critical": [
+      "Reorg invalidates confirmed transactions",
+      "Double-spend succeeds with 3 confirmations",
+      "Off-chain value extraction before reorg detection"
+    ],
+    "high": [
+      "Merchant accepts 3 confirmations as sufficient",
+      "No checkpointing within reorg depth"
+    ],
+    "medium": [
+      "Reorg depth of 7 blocks causes significant disruption"
+    ]
+  },
+
+  "metadata": {
+    "author": "Mayckon Giovani - Principal Systems Engineer",
+    "review_status": "pending",
+    "automated_testable": true,
+    "tags": [
+      "reorganization",
+      "reorg",
+      "double_spend",
+      "probabilistic_finality"
+    ]
+  }
+}

@@ -128,8 +128,12 @@ fn arb_trace_metadata() -> impl Strategy<Value = TraceMetadata> {
 }
 
 fn arb_valid_state() -> impl Strategy<Value = State> {
-    (arb_canonical_state(), arb_environment(), arb_trace_metadata()).prop_map(
-        |(canonical, environment, metadata)| {
+    (
+        arb_canonical_state(),
+        arb_environment(),
+        arb_trace_metadata(),
+    )
+        .prop_map(|(canonical, environment, metadata)| {
             let derived = derive(&canonical);
             let economic = derive_economic(&canonical, &environment);
             State {
@@ -139,8 +143,7 @@ fn arb_valid_state() -> impl Strategy<Value = State> {
                 economic,
                 metadata,
             }
-        },
-    )
+        })
 }
 
 fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
@@ -152,8 +155,8 @@ fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
         any::<u64>(),
         arb_domain_tag(),
     )
-        .prop_map(|(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| {
-            Authorization {
+        .prop_map(
+            |(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| Authorization {
                 classical_sig,
                 pqc_sig,
                 public_key: HybridPublicKey {
@@ -162,8 +165,8 @@ fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
                 },
                 nonce,
                 domain,
-            }
-        })
+            },
+        )
 }
 
 fn arb_valid_input() -> impl Strategy<Value = Input> {
@@ -174,10 +177,7 @@ fn arb_valid_input() -> impl Strategy<Value = Input> {
         prop::collection::vec(any::<u8>(), 0..64),
     )
         .prop_map(|(payload_type, data, auth, aux_data)| Input {
-            payload: Payload {
-                payload_type,
-                data,
-            },
+            payload: Payload { payload_type, data },
             auth,
             aux: AuxiliaryData { data: aux_data },
         })
@@ -301,7 +301,9 @@ fn arb_valid_trace() -> impl Strategy<Value = Trace> {
 fn make_valid_proof_from_trace(trace: &Trace) -> (vsel_proof::prover::Proof, PublicInputs) {
     let prover = DefaultProver::new("0.1.0-test");
     let cs = test_constraint_system();
-    let proof = prover.prove(trace, &cs).expect("proof generation must succeed");
+    let proof = prover
+        .prove(trace, &cs)
+        .expect("proof generation must succeed");
     let public_inputs = proof.public_inputs.clone();
     (proof, public_inputs)
 }
@@ -334,8 +336,8 @@ proptest! {
 
         prop_assert_eq!(
             result,
-            VerificationResult::Accepted,
-            "THM-8: verify(π, pub) must be Accepted for a valid proof from a valid trace"
+            VerificationResult::CryptographicallyConsistent,
+            "THM-8: verify(π, pub) must be CryptographicallyConsistent for a valid proof from a valid trace"
         );
     }
 
@@ -560,15 +562,15 @@ proptest! {
         let r1 = verifier.verify_stateful(&proof1, &pub_inputs1);
         prop_assert_eq!(
             r1,
-            VerificationResult::Accepted,
-            "Req 8.5: first proof in chain must be accepted"
+            VerificationResult::CryptographicallyConsistent,
+            "Req 8.5: first proof in chain must be cryptographically consistent"
         );
 
         let r2 = verifier.verify_stateful(&proof2, &pub_inputs2);
         prop_assert_eq!(
             r2,
-            VerificationResult::Accepted,
-            "Req 8.5: second proof chaining from first must be accepted"
+            VerificationResult::CryptographicallyConsistent,
+            "Req 8.5: second proof chaining from first must be cryptographically consistent"
         );
     }
 
@@ -605,8 +607,8 @@ proptest! {
         let r1 = verifier.verify_stateful(&proof1, &pub_inputs1);
         prop_assert_eq!(
             r1,
-            VerificationResult::Accepted,
-            "Req 8.5: first proof must be accepted"
+            VerificationResult::CryptographicallyConsistent,
+            "Req 8.5: first proof must be cryptographically consistent"
         );
 
         let r2 = verifier.verify_stateful(&proof2, &pub_inputs2);
@@ -686,8 +688,8 @@ proptest! {
 
         prop_assert_eq!(
             result,
-            VerificationResult::Accepted,
-            "Req 8.6: same major version with different minor must be accepted"
+            VerificationResult::CryptographicallyConsistent,
+            "Req 8.6: same major version with different minor must be cryptographically consistent"
         );
     }
 }

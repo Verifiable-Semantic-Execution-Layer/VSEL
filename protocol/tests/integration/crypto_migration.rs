@@ -13,7 +13,9 @@
 
 use std::collections::BTreeMap;
 
-use vsel_constraints::{Constraint, ConstraintCategory, ConstraintExpr, ConstraintId, ConstraintSystem};
+use vsel_constraints::{
+    Constraint, ConstraintCategory, ConstraintExpr, ConstraintId, ConstraintSystem,
+};
 use vsel_core::input::{Authorization, Input};
 use vsel_core::observable::{Observable, TransitionStatus};
 use vsel_core::state::*;
@@ -22,8 +24,8 @@ use vsel_core::types::*;
 use vsel_crypto::domain::create_domain_tag;
 use vsel_crypto::hash::{domain_hash_with_algorithm, HashAlgorithm};
 use vsel_crypto::migration::{
-    migrate_commitment, migrate_proof_commitment, verify_commitment_migration,
-    CryptoAgility, MigrationPolicy, WitnessArchiveStore,
+    migrate_commitment, migrate_proof_commitment, verify_commitment_migration, CryptoAgility,
+    MigrationPolicy, WitnessArchiveStore,
 };
 use vsel_proof::prover::{DefaultProver, Prover};
 use vsel_proof::public_inputs::PublicInputs;
@@ -211,12 +213,13 @@ fn test_e2e_crypto_migration_sha3_to_blake3() {
     let migration_domain = create_domain_tag(b"VSEL::v1::migration::e2e_test");
 
     // Compute SHA3-256 commitment of the canonical state
-    let sha3_commitment = domain_hash_with_algorithm(
-        HashAlgorithm::Sha3_256,
-        &migration_domain,
-        &state_data,
+    let sha3_commitment =
+        domain_hash_with_algorithm(HashAlgorithm::Sha3_256, &migration_domain, &state_data);
+    assert_ne!(
+        sha3_commitment,
+        Hash([0u8; 32]),
+        "SHA3 commitment must be non-zero"
     );
-    assert_ne!(sha3_commitment, Hash([0u8; 32]), "SHA3 commitment must be non-zero");
 
     // -----------------------------------------------------------------------
     // Phase 2: Generate proof binding to SHA3-256 commitments
@@ -237,8 +240,8 @@ fn test_e2e_crypto_migration_sha3_to_blake3() {
     let result = verifier.verify(&original_proof, &pub_inputs);
     assert_eq!(
         result,
-        VerificationResult::Accepted,
-        "original proof under SHA3-256 must be accepted"
+        VerificationResult::CryptographicallyConsistent,
+        "original proof under SHA3-256 must be cryptographically consistent"
     );
 
     // -----------------------------------------------------------------------
@@ -257,17 +260,13 @@ fn test_e2e_crypto_migration_sha3_to_blake3() {
         "migration original must match the SHA3 commitment"
     );
     assert_ne!(
-        commitment_migration.original_commitment,
-        commitment_migration.migrated_commitment,
+        commitment_migration.original_commitment, commitment_migration.migrated_commitment,
         "SHA3 and BLAKE3 commitments must differ"
     );
 
     // Verify the BLAKE3 commitment matches direct computation
-    let blake3_commitment = domain_hash_with_algorithm(
-        HashAlgorithm::Blake3,
-        &migration_domain,
-        &state_data,
-    );
+    let blake3_commitment =
+        domain_hash_with_algorithm(HashAlgorithm::Blake3, &migration_domain, &state_data);
     assert_eq!(
         commitment_migration.migrated_commitment, blake3_commitment,
         "migrated commitment must match direct BLAKE3 computation"
@@ -305,7 +304,7 @@ fn test_e2e_crypto_migration_sha3_to_blake3() {
     let result_after_migration = verifier.verify(&original_proof, &pub_inputs);
     assert_eq!(
         result_after_migration,
-        VerificationResult::Accepted,
+        VerificationResult::CryptographicallyConsistent,
         "original proof must still verify after migration (proof is self-contained)"
     );
 
@@ -349,28 +348,21 @@ fn test_e2e_crypto_migration_sha3_to_blake3() {
 
     // Verify proof commitments differ between algorithms
     assert_ne!(
-        proof_migration.original_proof_commitment,
-        proof_migration.migrated_proof_commitment,
+        proof_migration.original_proof_commitment, proof_migration.migrated_proof_commitment,
         "SHA3 and BLAKE3 proof commitments must differ"
     );
 
     // Verify original proof commitment matches direct SHA3 computation
-    let expected_original = domain_hash_with_algorithm(
-        HashAlgorithm::Sha3_256,
-        &proof_domain,
-        &proof_data,
-    );
+    let expected_original =
+        domain_hash_with_algorithm(HashAlgorithm::Sha3_256, &proof_domain, &proof_data);
     assert_eq!(
         proof_migration.original_proof_commitment, expected_original,
         "original proof commitment must match direct SHA3 computation"
     );
 
     // Verify migrated proof commitment matches direct BLAKE3 computation
-    let expected_migrated = domain_hash_with_algorithm(
-        HashAlgorithm::Blake3,
-        &proof_domain,
-        &proof_data,
-    );
+    let expected_migrated =
+        domain_hash_with_algorithm(HashAlgorithm::Blake3, &proof_domain, &proof_data);
     assert_eq!(
         proof_migration.migrated_proof_commitment, expected_migrated,
         "migrated proof commitment must match direct BLAKE3 computation"
@@ -396,8 +388,8 @@ fn test_e2e_crypto_migration_sha3_to_blake3() {
     let new_result = verifier.verify(&new_proof, &new_pub_inputs);
     assert_eq!(
         new_result,
-        VerificationResult::Accepted,
-        "new proof must be accepted by verifier"
+        VerificationResult::CryptographicallyConsistent,
+        "new proof must be cryptographically consistent by verifier"
     );
 
     // -----------------------------------------------------------------------
@@ -465,18 +457,14 @@ fn test_e2e_batch_commitment_migration() {
     for i in 0..migrations.len() {
         for j in (i + 1)..migrations.len() {
             assert_ne!(
-                migrations[i].original_commitment,
-                migrations[j].original_commitment,
+                migrations[i].original_commitment, migrations[j].original_commitment,
                 "original commitments {} and {} must differ",
-                i,
-                j
+                i, j
             );
             assert_ne!(
-                migrations[i].migrated_commitment,
-                migrations[j].migrated_commitment,
+                migrations[i].migrated_commitment, migrations[j].migrated_commitment,
                 "migrated commitments {} and {} must differ",
-                i,
-                j
+                i, j
             );
         }
     }
@@ -556,11 +544,8 @@ fn test_e2e_attestation_chain_validity() {
     let state_data = vsel_core::state::encode_canonical_state_bytes(&state.canonical);
 
     // Step 1: Compute SHA3-256 commitment (original)
-    let sha3_commit = domain_hash_with_algorithm(
-        HashAlgorithm::Sha3_256,
-        &migration_domain,
-        &state_data,
-    );
+    let sha3_commit =
+        domain_hash_with_algorithm(HashAlgorithm::Sha3_256, &migration_domain, &state_data);
 
     // Step 2: Migrate to BLAKE3
     let migration = migrate_commitment(&state_data, &migration_domain, &policy)
@@ -570,11 +555,8 @@ fn test_e2e_attestation_chain_validity() {
     // The migration record links sha3_commit -> blake3_commit
     assert_eq!(migration.original_commitment, sha3_commit);
 
-    let blake3_commit = domain_hash_with_algorithm(
-        HashAlgorithm::Blake3,
-        &migration_domain,
-        &state_data,
-    );
+    let blake3_commit =
+        domain_hash_with_algorithm(HashAlgorithm::Blake3, &migration_domain, &state_data);
     assert_eq!(migration.migrated_commitment, blake3_commit);
 
     // Step 4: Verify the chain is valid (both directions)
@@ -604,7 +586,7 @@ fn test_e2e_attestation_chain_validity() {
 
     assert_eq!(
         verifier.verify(&proof, &pub_inputs),
-        VerificationResult::Accepted,
+        VerificationResult::CryptographicallyConsistent,
         "proof must verify under original algorithm"
     );
 
@@ -613,7 +595,7 @@ fn test_e2e_attestation_chain_validity() {
     // hash algorithm used for state commitments)
     assert_eq!(
         verifier.verify(&proof, &pub_inputs),
-        VerificationResult::Accepted,
+        VerificationResult::CryptographicallyConsistent,
         "original proof must remain valid after migration"
     );
 }

@@ -1,0 +1,378 @@
+{
+  "_description": "VSEL Stale Invariant Trace - Attack: Invariant-Version Mismatch",
+  "_purpose": "Demonstrates trace executed under old invariant version violating new invariants",
+  "_attack_class": "A-TRACE-INV",
+  "_vulnerability": "Invariant version binding violation - trace not bound to invariant version",
+  "trace_metadata": {
+    "trace_id": "0xe0i1...g49j",
+    "protocol_version": "1.0.0",
+    "policy_version": "1.0.0",
+    "invariant_version": "1.0.0",
+    "_critical": "EXECUTED UNDER INVARIANT v1.0 but v2.0 is active with STRONGER requirements",
+    "execution_domain": "mainnet",
+    "chain_id": "0x1",
+    "timestamp": 1704067200,
+    "block_height": 12345678,
+    "actor": {
+      "id": "0xattacker...2345",
+      "type": "contract",
+      "pubkey": "0x2345...qrst"
+    },
+    "initial_state_commitment": "0xf0a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234",
+    "final_state_commitment": "0xe1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef12345",
+    "trace_commitment": "0xd2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456",
+    "signature": "0xc3d4e5f6789012345678901234567890abcdef1234567890abcdef1234567...",
+    "signature_scheme": "ed25519",
+    "_attack_note": "Trace executed under weak invariant v1.0 (no rate limiting) but system now has v2.0 (strict rate limits)",
+    "_invariant_evolution": {
+      "v1_0": {
+        "conservation_of_value": "Total value conserved",
+        "non_negative_balances": "Balances >= 0",
+        "rate_limiting": "None - no restrictions on operation frequency"
+      },
+      "v2_0": {
+        "conservation_of_value": "Total value conserved",
+        "non_negative_balances": "Balances >= 0",
+        "rate_limiting": "Max 10 operations per block",
+        "_violated": "Trace has 15 operations in single block"
+      }
+    }
+  },
+  "_invariant_version_attack": {
+    "_description": "Exploit invariant upgrade by executing under old weaker invariants",
+    "attack_flow": [
+      "Time T0: Invariant v1.0 active - no rate limits",
+      "Time T1: Invariant v2.0 proposed with rate limiting",
+      "Time T2: Attacker front-runs invariant activation",
+      "Time T3: Attacker executes 15 rapid transfers under v1.0",
+      "Time T4: Invariant v2.0 activates with 10/block limit",
+      "Time T5: Trace shows invariant_version=1.0.0",
+      "Time T6: Verifier must check against execution-time invariants",
+      "Time T7: If invariant_version not bound, trace may be rejected or accepted incorrectly"
+    ],
+    "_vulnerability": "Trace not cryptographically bound to invariant version at execution time"
+  },
+  "_invariant_drift_scenario": {
+    "_description": "Different components enforce different invariant versions",
+    "executor_component": {
+      "invariant_version": "1.0.0",
+      "enforces": "No rate limits"
+    },
+    "verifier_component": {
+      "invariant_version": "2.0.0",
+      "enforces": "Rate limits, rejects old traces",
+      "_problem": "Old traces fail new verification"
+    },
+    "consensus_component": {
+      "invariant_version": "1.5.0",
+      "enforces": "Partial rate limits",
+      "_problem": "Inconsistent validation across system"
+    }
+  },
+  "entries": [
+    {
+      "index": 0,
+      "transition_id": "tx0",
+      "operation_type": "rapid_transfer_1",
+      "operation_version": "1.0",
+      "_invariant_violation_v2": "Operation 1 of 15 in same block - exceeds v2.0 limit of 10",
+      "pre_state": {
+        "commitment": "0xf0a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234",
+        "values": {
+          "balances": {
+            "0xattacker...": "1000",
+            "0xvictim...": "0"
+          },
+          "operation_count": {
+            "current_block": 0
+          }
+        }
+      },
+      "input": {
+        "from": "0xattacker...",
+        "to": "0xrecipient1...",
+        "amount": "10",
+        "nonce": 1
+      },
+      "post_state": {
+        "commitment": "0xa0b1c2d3e4f5a6789012345678901234567890abcdef1234567890abcdef1234a",
+        "values": {
+          "balances": {
+            "0xattacker...": "990",
+            "0xrecipient1...": "10"
+          },
+          "operation_count": {
+            "current_block": 1
+          }
+        }
+      },
+      "observable": {
+        "event_type": "Transfer",
+        "from": "0xattacker...",
+        "to": "0xrecipient1...",
+        "amount": "10",
+        "block_operations": 1
+      },
+      "environment": {
+        "timestamp": 1704067200,
+        "block_height": 12345678,
+        "chain_id": "0x1"
+      },
+      "metadata": {
+        "execution_order": 0,
+        "invariant_version_at_execution": "1.0.0",
+        "_weakness": "Invariant version recorded but not committed"
+      },
+      "chain_hash": "0x01a2b3c4d5e6f789012345678901234567890abcdef1234567890abcdef123456",
+      "entry_commitment": "0x12b3c4d5e6f789012345678901234567890abcdef1234567890abcdef1234567"
+    },
+    {
+      "index": 1,
+      "transition_id": "tx1",
+      "operation_type": "rapid_transfer_2",
+      "_invariant_violation_v2": "Operation 2 of 15",
+      "pre_state": {
+        "commitment": "0xa0b1c2d3e4f5a6789012345678901234567890abcdef1234567890abcdef1234a"
+      },
+      "input": {
+        "from": "0xattacker...",
+        "to": "0xrecipient2...",
+        "amount": "10",
+        "nonce": 2
+      },
+      "post_state": {
+        "commitment": "0xa1b2c3d4e5f6a789012345678901234567890abcdef1234567890abcdef1234b",
+        "values": {
+          "operation_count": {
+            "current_block": 2
+          }
+        }
+      },
+      "observable": {
+        "event_type": "Transfer",
+        "block_operations": 2
+      },
+      "environment": {
+        "timestamp": 1704067200,
+        "block_height": 12345678
+      },
+      "metadata": {
+        "execution_order": 1,
+        "invariant_version_at_execution": "1.0.0"
+      },
+      "chain_hash": "0x02b3c4d5e6f789012345678901234567890abcdef1234567890abcdef1234567"
+    },
+    {
+      "_description": "Entries 2-9 follow same pattern",
+      "_indices": [2, 3, 4, 5, 6, 7, 8, 9],
+      "_pattern": "Rapid transfers incrementing operation count to 10"
+    },
+    {
+      "index": 10,
+      "transition_id": "tx10",
+      "operation_type": "rapid_transfer_11",
+      "_critical_violation": "Operation 11 EXCEEDS v2.0 limit of 10 per block",
+      "pre_state": {
+        "commitment": "0xb9c0d1e2f3a4b56789012345678901234567890abcdef1234567890abcdef1234j"
+      },
+      "input": {
+        "from": "0xattacker...",
+        "to": "0xrecipient11...",
+        "amount": "10",
+        "nonce": 11
+      },
+      "post_state": {
+        "commitment": "0xc0d1e2f3a4b5c6789012345678901234567890abcdef1234567890abcdef1234k",
+        "values": {
+          "operation_count": {
+            "current_block": 11,
+            "_v2_limit": 10,
+            "_violation": "11 > 10"
+          }
+        }
+      },
+      "observable": {
+        "event_type": "Transfer",
+        "block_operations": 11,
+        "_v2_violation": "Exceeds rate limit"
+      },
+      "environment": {
+        "timestamp": 1704067200,
+        "block_height": 12345678
+      },
+      "metadata": {
+        "execution_order": 10,
+        "invariant_version_at_execution": "1.0.0"
+      },
+      "chain_hash": "0x0bc3d4e5f6f789012345678901234567890abcdef1234567890abcdef12345678"
+    },
+    {
+      "_description": "Entries 11-14 continue violating v2.0 rate limit",
+      "_indices": [11, 12, 13, 14],
+      "_pattern": "Operations 12-15, all exceed v2.0 limit"
+    },
+    {
+      "index": 14,
+      "transition_id": "tx14",
+      "operation_type": "rapid_transfer_15",
+      "_critical_violation": "Operation 15 - FIFTH operation exceeding v2.0 limit",
+      "pre_state": {
+        "commitment": "0xd5e6f7a8b9c0d12345678901234567890abcdef1234567890abcdef1234567890n"
+      },
+      "input": {
+        "from": "0xattacker...",
+        "to": "0xrecipient15...",
+        "amount": "10",
+        "nonce": 15
+      },
+      "post_state": {
+        "commitment": "0xe6f7a8b9c0d1e2345678901234567890abcdef1234567890abcdef12345678901o",
+        "values": {
+          "operation_count": {
+            "current_block": 15,
+            "_v2_limit": 10,
+            "_excess": 5,
+            "_violation": "15 > 10"
+          }
+        }
+      },
+      "observable": {
+        "event_type": "Transfer",
+        "block_operations": 15,
+        "_v2_status": "VIOLATION - Rate limit exceeded"
+      },
+      "environment": {
+        "timestamp": 1704067200,
+        "block_height": 12345678
+      },
+      "metadata": {
+        "execution_order": 14,
+        "invariant_version_at_execution": "1.0.0",
+        "_total_violations_under_v2": "Operations 11-15 (5 operations) violate v2.0 rate limit"
+      },
+      "chain_hash": "0x0fc3d4e5f6f789012345678901234567890abcdef1234567890abcdef12345678"
+    }
+  ],
+  "_invariant_analysis": {
+    "_under_v1_0": {
+      "rate_limit_check": "PASS - No rate limiting in v1.0",
+      "operation_count": 15,
+      "allowed": true,
+      "result": "VALID"
+    },
+    "_under_v2_0": {
+      "rate_limit_check": "FAIL - 15 operations > 10 limit",
+      "operation_count": 15,
+      "limit": 10,
+      "excess": 5,
+      "violating_operations": [10, 11, 12, 13, 14],
+      "allowed": false,
+      "result": "INVALID"
+    }
+  },
+  "_invariant_binding_failure": {
+    "_what_should_happen": [
+      "Invariant version at execution time committed in trace",
+      "Verification uses execution-time invariant set",
+      "Invariant version change triggers trace revalidation",
+      "New invariants don't retroactively invalidate old traces"
+    ],
+    "_what_actually_happens": [
+      "Invariant version in metadata but not commitment",
+      "Verifier may apply current invariants to old traces",
+      "Old traces fail new invariant checks",
+      "Or: Old traces accepted under old rules (vulnerable if replayed)"
+    ]
+  },
+  "invariant_checks": [
+    {
+      "invariant_id": "rate_limit_v2",
+      "check_type": "safety",
+      "at_entry": [10, 11, 12, 13, 14],
+      "satisfied": false,
+      "_context": "Under v2.0 invariant",
+      "violation": "Operations exceed 10/block limit: 15 operations detected",
+      "details": {
+        "limit": 10,
+        "actual": 15,
+        "excess": 5
+      }
+    },
+    {
+      "invariant_id": "invariant_version_binding",
+      "check_type": "structural",
+      "at_entry": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
+      "satisfied": false,
+      "violation": "Invariant version not cryptographically bound to trace entries",
+      "proof": null
+    }
+  ],
+  "verification_result": {
+    "complete": true,
+    "ordered": true,
+    "authentic": true,
+    "non_equivocating": true,
+    "replay_resistant": true,
+    "bound_to_intent": true,
+    "bound_to_policy": true,
+    "bound_to_invariant": false,
+    "_invariant_binding_failure": "Trace not bound to invariant version at execution time",
+    "bound_to_context": true,
+    "bound_to_actor": true,
+    "bound_to_time": true,
+    "bound_to_transitions": true,
+    "bound_to_external": true,
+    "auditable": false,
+    "_audit_failure": "Cannot verify which invariant version applied",
+    "independently_verifiable": false
+  },
+  "expected_test_outcome": {
+    "_under_v1_0": {
+      "verification": "ACCEPT",
+      "reason": "Rate limiting not enforced in v1.0",
+      "invariant_checks": "PASS"
+    },
+    "_under_v2_0": {
+      "verification": "REJECT",
+      "reason": "Rate limit invariant violated - 15 operations exceeds 10 limit",
+      "violating_entries": [10, 11, 12, 13, 14],
+      "invariant_checks": "FAIL"
+    },
+    "_correct_behavior": {
+      "verification": "ACCEPT_UNDER_V1_0_ONLY",
+      "reason": "Trace valid under execution-time invariants (v1.0)",
+      "_requires": [
+        "Invariant version committed in trace entries",
+        "Invariant registry with activation times",
+        "Verification uses execution-time invariant set",
+        "No replay of old-invariant traces on new-invariant system"
+      ]
+    },
+    "_detection_vector": "Verifier must check invariant version binding and apply correct invariant set",
+    "_specific_checks": [
+      "Verify invariant_version is in entry commitment",
+      "Check invariant_version against invariant registry",
+      "Apply invariants from execution-time version",
+      "Ensure invariant_version >= minimum_required_version"
+    ]
+  },
+  "_mitigation": {
+    "trace_structure": [
+      "Include invariant_version in entry_canonical",
+      "Include invariant_version in entry_commitment",
+      "Invariant_version = Hash(invariant_spec) at execution time"
+    ],
+    "verification_logic": [
+      "Lookup invariant_version in trace entry",
+      "Retrieve invariants from registry for that version",
+      "Apply execution-time invariant checks",
+      "Reject if invariant_version < minimum_acceptable"
+    ],
+    "invariant_management": [
+      "Immutable invariant registry",
+      "Activation timestamps for each invariant version",
+      "Grace period for invariant transitions",
+      "Explicit migration for pending operations"
+    ]
+  }
+}

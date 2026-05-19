@@ -1,0 +1,94 @@
+{
+  "description": "VSEL Valid Trace Baseline - Simple Token Transfer",
+  "version": "1.0",
+  "trace_format": "VSEL-EXEC-TRACE-v1",
+  "policy_version": "1.0.0",
+  "invariant_version": "1.0.0",
+  "execution_domain": "mainnet",
+  "initial_state": {
+    "balances": {
+      "0xUSER_A": "1000",
+      "0xUSER_B": "500"
+    },
+    "nonce": 0,
+    "timestamp": "2024-01-15T10:00:00Z"
+  },
+  "initial_state_commitment": "0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa5d1c5f9f9c5f9a5f9c5f9a",
+  "trace_entries": [
+    {
+      "index": 0,
+      "transition_type": "transfer",
+      "actor": "0xUSER_A",
+      "actor_signature": "0x8a2f6d5e4c3b2a1908f7e6d5c4b3a2918f7e6d5c4b3a2918f7e6d5c4b3a2918f7e6d5c4b3a2918f7e6d5c4b3a29180f",
+      "pre_state_commitment": "0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa5d1c5f9f9c5f9a5f9c5f9a",
+      "input": {
+        "operation": "transfer",
+        "from": "0xUSER_A",
+        "to": "0xUSER_B",
+        "amount": "100",
+        "nonce": 1
+      },
+      "input_canonical": "0x9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "post_state": {
+        "balances": {
+          "0xUSER_A": "900",
+          "0xUSER_B": "600"
+        },
+        "nonce": 1,
+        "timestamp": "2024-01-15T10:00:01Z"
+      },
+      "post_state_commitment": "0x8f94b1657ff1fc53b92dc18148a1d65dfc2d4b1fa5d1c5f9f9c5f9a5f9c5f9b",
+      "observable": {
+        "event": "Transfer",
+        "from": "0xUSER_A",
+        "to": "0xUSER_B",
+        "amount": "100",
+        "new_balance_sender": "900",
+        "new_balance_receiver": "600"
+      },
+      "environment": {
+        "timestamp": "2024-01-15T10:00:01Z",
+        "block_height": 1000000,
+        "chain_id": 1,
+        "gas_price": "20000000000",
+        "gas_limit": 21000
+      },
+      "metadata": {
+        "execution_context": "mainnet",
+        "policy_version": "1.0.0",
+        "invariant_version": "1.0.0",
+        "trace_nonce": "0x0000000000000001"
+      },
+      "chain_hash": "0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b",
+      "proof_of_execution": "0xb4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5"
+    }
+  ],
+  "final_state": {
+    "balances": {
+      "0xUSER_A": "900",
+      "0xUSER_B": "600"
+    },
+    "nonce": 1,
+    "timestamp": "2024-01-15T10:00:01Z"
+  },
+  "final_state_commitment": "0x8f94b1657ff1fc53b92dc18148a1d65dfc2d4b1fa5d1c5f9f9c5f9a5f9c5f9b",
+  "trace_commitment": "0x2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b",
+  "expected_verification": {
+    "completeness": true,
+    "ordering": true,
+    "authenticity": true,
+    "non_equivocation": true,
+    "replay_resistance": true,
+    "semantic_binding": true,
+    "policy_binding": true,
+    "invariant_binding": true,
+    "context_binding": true,
+    "actor_binding": true,
+    "temporal_binding": true,
+    "state_binding": true,
+    "external_binding": true,
+    "auditability": true,
+    "verification_sufficiency": true,
+    "verifier_completeness": true
+  }
+}

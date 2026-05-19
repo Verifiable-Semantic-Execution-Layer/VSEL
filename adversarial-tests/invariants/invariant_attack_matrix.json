@@ -1,0 +1,3711 @@
+{
+  "metadata": {
+    "schema_version": "1.0",
+    "stage": 4,
+    "title": "VSEL Invariant Attack Matrix",
+    "description": "Machine-readable invariant attack cases for adversarial security audit",
+    "total_classes": 16,
+    "total_vectors": 14,
+    "generated_at": "2025-01-15T00:00:00Z",
+    "classification": "Security Critical"
+  },
+  "invariant_classes": [
+    "safety",
+    "liveness",
+    "authorization",
+    "economic",
+    "governance",
+    "state_transition",
+    "temporal",
+    "ordering",
+    "conservation",
+    "access_control",
+    "upgrade",
+    "trace_integrity",
+    "policy_consistency",
+    "cryptographic_binding",
+    "cross_domain",
+    "semantic_equivalence"
+  ],
+  "attack_vectors": [
+    "bypass",
+    "vacuous_satisfaction",
+    "configuration_weakening",
+    "reordering",
+    "partial_execution",
+    "concurrency",
+    "rollback",
+    "omitted_traces",
+    "ambiguous_semantic_mapping",
+    "upgrade_exploitation",
+    "policy_drift",
+    "test_passage",
+    "local_verification_passage",
+    "proof_validity_preservation"
+  ],
+  "attack_cases": [
+    {
+      "invariant_id": "SAFETY-V1-BYPASS",
+      "class": "safety",
+      "description": "Safety invariants can be bypassed via error handling paths that skip validation",
+      "attack_vector": "bypass",
+      "preconditions": [
+        "Error path exists in implementation",
+        "Error state construction bypasses ValidState check",
+        "Constraint system accepts error transitions without semantic validation"
+      ],
+      "expected_violation": "Error state with invalid field values accepted by verifier",
+      "observable_signal": "Invalid state produced via error path without triggering safety checks",
+      "severity": "critical",
+      "mitigation": "All paths through Apply must satisfy postcondition ValidState(s'). Error states must be explicitly enumerated and validated. Constraint system must encode error path invariants.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SAFETY-V2-VACUOUS",
+      "class": "safety",
+      "description": "Safety can be satisfied vacuously by empty state space",
+      "attack_vector": "vacuous_satisfaction",
+      "preconditions": [
+        "Initialization produces no valid states",
+        "Transition relation is empty",
+        "Specification defines safety over empty set"
+      ],
+      "expected_violation": "System accepts no inputs and produces no states while being 'perfectly safe'",
+      "observable_signal": "No reachable states exist in the system",
+      "severity": "high",
+      "mitigation": "Non-emptiness requirement: exists s in Reachable(I, T). Initialization must produce at least one valid state. Test suite must verify non-trivial execution.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SAFETY-V3-CONFIG",
+      "class": "safety",
+      "description": "Safety can be weakened by configuration changes to delta_max",
+      "attack_vector": "configuration_weakening",
+      "preconditions": [
+        "delta_max is governance-parameterized",
+        "No lower bound on delta_max in protocol",
+        "Configuration change doesn't require safety re-verification"
+      ],
+      "expected_violation": "Single transition can rewrite entire state after governance increases delta_max",
+      "observable_signal": "Governance proposal to increase state mutation bounds",
+      "severity": "critical",
+      "mitigation": "Hard upper bound on delta_max in protocol (cannot be changed). Configuration changes require invariant re-verification. Safety-critical parameters immutable.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SAFETY-V4-REORDER",
+      "class": "safety",
+      "description": "Safety can be broken by reordering transitions to accumulate violations",
+      "attack_vector": "reordering",
+      "preconditions": [
+        "Safety is not truly prefix-closed (specification error)",
+        "Multiple transitions interact to violate safety",
+        "Constraint system only checks per-transition safety"
+      ],
+      "expected_violation": "Safety violation after sequence of individually safe transitions",
+      "observable_signal": "Accumulated state changes violating global safety invariants",
+      "severity": "critical",
+      "mitigation": "Prove safety is prefix-closed: Safe(s) and (s,σ,s') in T implies Safe(s'). Temporal safety invariants: Box Safe(τ). Model checking for safety violation sequences.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SAFETY-V5-PARTIAL",
+      "class": "safety",
+      "description": "Safety can be broken by partial execution leaving inconsistent state",
+      "attack_vector": "partial_execution",
+      "preconditions": [
+        "Transaction spans multiple state modifications",
+        "Failure recovery doesn't roll back all modifications",
+        "Constraint system treats partial state as valid"
+      ],
+      "expected_violation": "Invalid intermediate state observable after partial transaction failure",
+      "observable_signal": "Inconsistent state after partial transaction failure",
+      "severity": "critical",
+      "mitigation": "Atomicity enforcement: all-or-nothing semantics. State snapshots before transaction. Constraint encoding of atomic operations.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SAFETY-V6-CONCURRENT",
+      "class": "safety",
+      "description": "Safety can be broken by concurrency race conditions",
+      "attack_vector": "concurrency",
+      "preconditions": [
+        "Concurrent execution model",
+        "Shared state access",
+        "No proper isolation mechanisms"
+      ],
+      "expected_violation": "State inconsistent with transaction log due to race condition",
+      "observable_signal": "Non-deterministic state under concurrent access",
+      "severity": "critical",
+      "mitigation": "Deterministic ordering: VSEL's sequential execution model. State locking during transitions. Constraint system enforces sequential semantics.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SAFETY-V7-ROLLBACK",
+      "class": "safety",
+      "description": "Safety can be broken by rollback violating T_no_revert",
+      "attack_vector": "rollback",
+      "preconditions": [
+        "State reversion mechanism exists",
+        "Rollback not prevented by protocol",
+        "Constraint system accepts rolled-back traces"
+      ],
+      "expected_violation": "Duplicate state in trace with divergent continuations",
+      "observable_signal": "Same state appearing at different times in trace",
+      "severity": "high",
+      "mitigation": "Append-only state history. Cryptographic chaining preventing rollback. T_no_revert enforced in constraints.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SAFETY-V8-OMITTED",
+      "class": "safety",
+      "description": "Safety can be broken by hiding transitions from trace",
+      "attack_vector": "omitted_traces",
+      "preconditions": [
+        "Trace recording mechanism incomplete",
+        "Hidden transitions modify state",
+        "Verification only checks recorded trace"
+      ],
+      "expected_violation": "Safety violated in actual execution while appearing satisfied on partial trace",
+      "observable_signal": "State/Trace mismatch—state reflects unrecorded transitions",
+      "severity": "critical",
+      "mitigation": "Complete trace recording mandatory. State commitment includes full trace. TraceCompleteness proof obligation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SAFETY-V9-AMBIGUOUS",
+      "class": "safety",
+      "description": "Safety can be broken by ambiguous semantic mapping",
+      "attack_vector": "ambiguous_semantic_mapping",
+      "preconditions": [
+        "Semantic mapping non-injective",
+        "Constraint system uses 'safe' interpretation",
+        "Execution produces 'unsafe' interpretation"
+      ],
+      "expected_violation": "Safety holds in proof but violated in execution",
+      "observable_signal": "Same concrete state validates under different semantic interpretations",
+      "severity": "critical",
+      "mitigation": "Injective semantic mapping (THM-1). Canonical encoding without ambiguity. Mapping validation in verification.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SAFETY-V10-UPGRADE",
+      "class": "safety",
+      "description": "Safety can be broken by upgrade changing safety definition",
+      "attack_vector": "upgrade_exploitation",
+      "preconditions": [
+        "Safety predicate versioned",
+        "Old proofs accepted under new version",
+        "No migration validation"
+      ],
+      "expected_violation": "Historical proofs accepted under incompatible safety definitions",
+      "observable_signal": "Pre-upgrade proofs post-verifying under different semantics",
+      "severity": "high",
+      "mitigation": "Safety invariants immutable across upgrades. Version-specific verification. Proof invalidation on breaking changes.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SAFETY-V11-DRIFT",
+      "class": "safety",
+      "description": "Safety can be broken by gradual policy relaxation",
+      "attack_vector": "policy_drift",
+      "preconditions": [
+        "Safety defined in policy (not protocol)",
+        "Policy update mechanism",
+        "No cumulative impact analysis"
+      ],
+      "expected_violation": "Progressive relaxation until Safe(s) ≡ True for most states",
+      "observable_signal": "Policy changelog showing progressive relaxation",
+      "severity": "high",
+      "mitigation": "Safety invariants in protocol (immutable). Policy cannot override safety. Mandatory safety regression tests.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SAFETY-V12-TEST",
+      "class": "safety",
+      "description": "Safety can be broken while all tests pass due to incomplete coverage",
+      "attack_vector": "test_passage",
+      "preconditions": [
+        "Test coverage incomplete",
+        "Safety violation in uncovered case",
+        "Property-based tests don't cover edge case"
+      ],
+      "expected_violation": "Safety violation in production not caught by test suite",
+      "observable_signal": "Safety violation in production not in test suite",
+      "severity": "high",
+      "mitigation": "Formal verification (exhaustive, not sampled). Model checking of safety properties. Mutation testing for safety checks.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SAFETY-V13-LOCAL",
+      "class": "safety",
+      "description": "Safety can be broken while local verification passes",
+      "attack_vector": "local_verification_passage",
+      "preconditions": [
+        "Local verification incomplete",
+        "Global safety depends on non-local state",
+        "Constraint system only checks local properties"
+      ],
+      "expected_violation": "Local validation passes, global invariant violated",
+      "observable_signal": "Local validation passes, global invariant violated",
+      "severity": "critical",
+      "mitigation": "Global safety invariants in all verification. Cross-reference validation. Complete state verification, not local.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SAFETY-V14-PROOF",
+      "class": "safety",
+      "description": "Safety can be broken while proof remains valid via underconstraint",
+      "attack_vector": "proof_validity_preservation",
+      "preconditions": [
+        "Constraint system underconstrained",
+        "Safety not fully encoded in constraints",
+        "Verifier accepts underconstrained proof"
+      ],
+      "expected_violation": "Verifiable proof for unsafe execution",
+      "observable_signal": "Verifiable proofs for executions violating safety invariants",
+      "severity": "catastrophic",
+      "mitigation": "Constraint coverage analysis. Semantic preservation proofs (THM-1). Formal verification of constraint completeness.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "LIVENESS-V1-BYPASS",
+      "class": "liveness",
+      "description": "Liveness can be bypassed by preventing required action execution",
+      "attack_vector": "bypass",
+      "preconditions": [
+        "Execution can be blocked",
+        "No progress guarantee mechanism",
+        "No timeout or liveness enforcement"
+      ],
+      "expected_violation": "System stuck, no progress despite valid inputs",
+      "observable_signal": "System stuck indefinitely with no progress",
+      "severity": "critical",
+      "mitigation": "Progress guarantees in specification. Timeout mechanisms. Fairness assumptions explicit.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "LIVENESS-V2-VACUOUS",
+      "class": "liveness",
+      "description": "Liveness can be satisfied vacuously by empty event set",
+      "attack_vector": "vacuous_satisfaction",
+      "preconditions": [
+        "Liveness predicate unsatisfiable",
+        "Good events undefined or unreachable",
+        "Specification error"
+      ],
+      "expected_violation": "No execution ever satisfies liveness, system always 'fails' liveness check",
+      "observable_signal": "No execution ever satisfies liveness",
+      "severity": "high",
+      "mitigation": "Liveness achievability proof: exists τ: Live(τ). Reachability analysis for good states. Test demonstrating liveness satisfaction.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "LIVENESS-V3-CONFIG",
+      "class": "liveness",
+      "description": "Liveness can be weakened by extending timeout to infinity",
+      "attack_vector": "configuration_weakening",
+      "preconditions": [
+        "T_max configurable",
+        "No upper bound enforcement",
+        "Governance control over liveness parameters"
+      ],
+      "expected_violation": "Liveness requirement effectively removed by infinite timeout",
+      "observable_signal": "Timeout parameter set to extreme values",
+      "severity": "high",
+      "mitigation": "Hard limits on liveness timeouts. Liveness requirements in protocol (not configurable). Mandatory maximum timeouts.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "LIVENESS-V4-REORDER",
+      "class": "liveness",
+      "description": "Liveness can be broken by reordering events",
+      "attack_vector": "reordering",
+      "preconditions": [
+        "Event ordering affects liveness",
+        "No total order enforcement",
+        "Reordering possible in execution"
+      ],
+      "expected_violation": "Events executing out of dependency order, preventing liveness",
+      "observable_signal": "Events executing out of dependency order",
+      "severity": "critical",
+      "mitigation": "Causality enforcement: Order(σ_i) ⇒ Order(s_i). Partial order constraints in specification. Dependency validation before execution.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "LIVENESS-V5-PARTIAL",
+      "class": "liveness",
+      "description": "Liveness can be broken by partial execution blocking completion",
+      "attack_vector": "partial_execution",
+      "preconditions": [
+        "Operations can be partially executed",
+        "No completion requirement",
+        "Resource exhaustion blocking completion"
+      ],
+      "expected_violation": "Operations started but never completed",
+      "observable_signal": "Operations started but never completed",
+      "severity": "high",
+      "mitigation": "Atomic operation semantics. Resource reservation before execution. Timeout and cancellation mechanisms.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "LIVENESS-V6-CONCURRENT",
+      "class": "liveness",
+      "description": "Liveness can be broken by concurrency causing deadlock",
+      "attack_vector": "concurrency",
+      "preconditions": [
+        "Concurrent resource acquisition",
+        "Lock ordering not enforced",
+        "Deadlock possible"
+      ],
+      "expected_violation": "System deadlock, no progress despite activity",
+      "observable_signal": "System deadlock with no progress",
+      "severity": "critical",
+      "mitigation": "Deterministic execution model (VSEL sequential). Resource ordering invariants. Deadlock detection and resolution.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "LIVENESS-V7-ROLLBACK",
+      "class": "liveness",
+      "description": "Liveness can be broken by rollback resetting progress counter",
+      "attack_vector": "rollback",
+      "preconditions": [
+        "Progress tracking cumulative",
+        "Rollback mechanism exists",
+        "Progress can be reversed"
+      ],
+      "expected_violation": "Progress counter decreasing, liveness deadline missed",
+      "observable_signal": "Progress counter decreasing, liveness deadline missed",
+      "severity": "high",
+      "mitigation": "Monotonic progress tracking. Rollback prevention. Liveness window independent of progress metric.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "LIVENESS-V8-OMITTED",
+      "class": "liveness",
+      "description": "Liveness can be broken by omitting progress events from trace",
+      "attack_vector": "omitted_traces",
+      "preconditions": [
+        "Progress events in trace",
+        "Trace recording incomplete",
+        "Liveness verification trace-dependent"
+      ],
+      "expected_violation": "Liveness appears violated on partial trace (actually satisfied)",
+      "observable_signal": "Trace/execution mismatch causing false liveness negatives",
+      "severity": "medium",
+      "mitigation": "Complete trace recording mandatory. Liveness verification from state, not just trace. Progress commitments in state.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "LIVENESS-V9-AMBIGUOUS",
+      "class": "liveness",
+      "description": "Liveness can be broken by ambiguous progress event mapping",
+      "attack_vector": "ambiguous_semantic_mapping",
+      "preconditions": [
+        "Progress predicate ambiguous",
+        "Multiple valid interpretations",
+        "Constraint system uses non-progress interpretation"
+      ],
+      "expected_violation": "Liveness check fails despite progress made",
+      "observable_signal": "Same event type accepted/rejected as progress inconsistently",
+      "severity": "high",
+      "mitigation": "Unambiguous progress predicates. Event type determinism. Semantic mapping validation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "LIVENESS-V10-UPGRADE",
+      "class": "liveness",
+      "description": "Liveness can be broken by upgrade removing guarantees",
+      "attack_vector": "upgrade_exploitation",
+      "preconditions": [
+        "Liveness properties versioned",
+        "Upgrade can weaken guarantees",
+        "Old proofs not invalidated"
+      ],
+      "expected_violation": "Liveness guarantees removed in upgrade changelog",
+      "observable_signal": "Liveness guarantees removed in upgrade changelog",
+      "severity": "high",
+      "mitigation": "Liveness invariants immutable. Upgrade cannot weaken liveness. Backward compatibility for liveness.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "LIVENESS-V11-DRIFT",
+      "class": "liveness",
+      "description": "Liveness can be broken by redefining progress to include non-progress events",
+      "attack_vector": "policy_drift",
+      "preconditions": [
+        "Progress defined in policy",
+        "Policy update mechanism",
+        "Progressive weakening acceptable"
+      ],
+      "expected_violation": "Everything is 'progress', liveness meaningless",
+      "observable_signal": "Progress definition expanding over time",
+      "severity": "medium",
+      "mitigation": "Progress invariants in protocol. Policy cannot weaken liveness. Strict progress criteria.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "LIVENESS-V12-TEST",
+      "class": "liveness",
+      "description": "Liveness can be broken while tests pass on short traces",
+      "attack_vector": "test_passage",
+      "preconditions": [
+        "Liveness not formally verified",
+        "Tests finite, liveness infinite-horizon",
+        "Long-running execution untested"
+      ],
+      "expected_violation": "Liveness failures in long-running production systems",
+      "observable_signal": "Liveness failures in long-running systems",
+      "severity": "high",
+      "mitigation": "Model checking for liveness. Bounded model checking with large bounds. Formal liveness proofs.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "LIVENESS-V13-LOCAL",
+      "class": "liveness",
+      "description": "Liveness can be broken while local verification passes",
+      "attack_vector": "local_verification_passage",
+      "preconditions": [
+        "Distributed system",
+        "Local vs global liveness distinction",
+        "Coordination failures possible"
+      ],
+      "expected_violation": "Local metrics healthy, global system stuck",
+      "observable_signal": "Local metrics healthy, global system stuck",
+      "severity": "critical",
+      "mitigation": "Global liveness invariants. Cross-node progress validation. System-wide liveness monitoring.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "LIVENESS-V14-PROOF",
+      "class": "liveness",
+      "description": "Liveness can be broken while proof remains valid via underconstraint",
+      "attack_vector": "proof_validity_preservation",
+      "preconditions": [
+        "Constraint system safety-only",
+        "Liveness not encoded",
+        "Verifier accepts safety-only proofs"
+      ],
+      "expected_violation": "Verifiable proofs for deadlocked executions",
+      "observable_signal": "Verifiable proofs for deadlocked executions",
+      "severity": "critical",
+      "mitigation": "Liveness encoding in constraints. Explicit liveness proof obligations. Fairness constraints in specification.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "AUTH-V1-BYPASS",
+      "class": "authorization",
+      "description": "Authorization can be bypassed via unchecked code paths",
+      "attack_vector": "bypass",
+      "preconditions": [
+        "Authorization check in some paths",
+        "Bypass path exists",
+        "Access control incomplete"
+      ],
+      "expected_violation": "Unauthorized actions executed successfully",
+      "observable_signal": "Unauthorized actions executed successfully",
+      "severity": "critical",
+      "mitigation": "Mandatory access control (all paths checked). Authorization at entry point only. Formal verification of authorization completeness.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "AUTH-V2-VACUOUS",
+      "class": "authorization",
+      "description": "Authorization can be satisfied vacuously by granting all permissions",
+      "attack_vector": "vacuous_satisfaction",
+      "preconditions": [
+        "Authorization not configured",
+        "Default allow",
+        "No permission restrictions"
+      ],
+      "expected_violation": "Authorization checks always pass",
+      "observable_signal": "Authorization checks always pass",
+      "severity": "critical",
+      "mitigation": "Default-deny authorization. Explicit permission grants. Authorization completeness review.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "AUTH-V3-CONFIG",
+      "class": "authorization",
+      "description": "Authorization can be weakened by governance granting broad permissions",
+      "attack_vector": "configuration_weakening",
+      "preconditions": [
+        "Authorization configurable via governance",
+        "No permission bounds",
+        "Governance can grant arbitrary permissions"
+      ],
+      "expected_violation": "All authorization checks pass trivially",
+      "observable_signal": "Governance proposals granting broad permissions",
+      "severity": "critical",
+      "mitigation": "Authorization invariants immutable. Governance cannot grant certain permissions. Permission upper bounds.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "AUTH-V4-REORDER",
+      "class": "authorization",
+      "description": "Authorization can be broken by reordering grant and execution",
+      "attack_vector": "reordering",
+      "preconditions": [
+        "Permission changes have delay",
+        "Actions can be front-run",
+        "Revocation not immediate"
+      ],
+      "expected_violation": "Resource access after revocation",
+      "observable_signal": "Actions preceding authorization in blockchain",
+      "severity": "high",
+      "mitigation": "Immediate revocation. Atomic permission changes. Execution ordering with respect to grants.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "AUTH-V5-PARTIAL",
+      "class": "authorization",
+      "description": "Authorization can be broken by partial multi-sig execution",
+      "attack_vector": "partial_execution",
+      "preconditions": [
+        "Multi-stage authorization",
+        "Partial check possible",
+        "Completion not required"
+      ],
+      "expected_violation": "Multi-sig actions executing with insufficient signatures",
+      "observable_signal": "Multi-sig actions executing with insufficient signatures",
+      "severity": "critical",
+      "mitigation": "Atomic authorization verification. All-or-nothing signature checking. Threshold enforcement in constraints.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "AUTH-V6-CONCURRENT",
+      "class": "authorization",
+      "description": "Authorization can be broken by concurrency race conditions",
+      "attack_vector": "concurrency",
+      "preconditions": [
+        "Check-then-act race",
+        "Permission mutable",
+        "No synchronization"
+      ],
+      "expected_violation": "Access using stale permissions",
+      "observable_signal": "Actions executing after authorization revocation",
+      "severity": "critical",
+      "mitigation": "Atomic permission validation. Time-of-use permission check. Access binding to permission.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "AUTH-V7-ROLLBACK",
+      "class": "authorization",
+      "description": "Authorization can be broken by rollback restoring old permissions",
+      "attack_vector": "rollback",
+      "preconditions": [
+        "Rollback mechanism",
+        "Permissions reversible",
+        "Access control state mutable"
+      ],
+      "expected_violation": "Permission restoration via rollback",
+      "observable_signal": "Executed actions by now-unauthorized entities",
+      "severity": "high",
+      "mitigation": "Permission changes immutable. No rollback of permissions. Permission history append-only.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "AUTH-V8-OMITTED",
+      "class": "authorization",
+      "description": "Authorization can be broken by hiding failures from audit trail",
+      "attack_vector": "omitted_traces",
+      "preconditions": [
+        "Authorization failures not traced",
+        "Trace incomplete",
+        "Verification trace-dependent"
+      ],
+      "expected_violation": "Audit shows no unauthorized access",
+      "observable_signal": "Authorization failures absent from trace",
+      "severity": "high",
+      "mitigation": "Complete authorization logging. Authorization result in trace. Failed authorization attempts recorded.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "AUTH-V9-AMBIGUOUS",
+      "class": "authorization",
+      "description": "Authorization can be broken by ambiguous role mapping",
+      "attack_vector": "ambiguous_semantic_mapping",
+      "preconditions": [
+        "Role semantics ambiguous",
+        "Context-dependent role interpretation",
+        "Proof uses permissive interpretation"
+      ],
+      "expected_violation": "Same role with different permissions in different contexts",
+      "observable_signal": "Same role with different permissions in different contexts",
+      "severity": "critical",
+      "mitigation": "Unambiguous role definitions. Canonical permission mapping. Role semantics validation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "AUTH-V10-UPGRADE",
+      "class": "authorization",
+      "description": "Authorization can be broken by upgrade expanding permissions retroactively",
+      "attack_vector": "upgrade_exploitation",
+      "preconditions": [
+        "Role definitions versioned",
+        "Upgrade changes role semantics",
+        "Retroactive permission expansion"
+      ],
+      "expected_violation": "Role permissions expanding in upgrades",
+      "observable_signal": "Role permissions expanding in upgrades",
+      "severity": "critical",
+      "mitigation": "Immutable role definitions. Upgrade cannot change permissions. Permission compatibility.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "AUTH-V11-DRIFT",
+      "class": "authorization",
+      "description": "Authorization can be broken by gradual permission expansion",
+      "attack_vector": "policy_drift",
+      "preconditions": [
+        "Authorization in policy",
+        "Policy update mechanism",
+        "Progressive expansion acceptable"
+      ],
+      "expected_violation": "Role permissions growing over time",
+      "observable_signal": "Role permissions growing over time",
+      "severity": "high",
+      "mitigation": "Authorization in protocol (immutable). Policy cannot override authorization. Permission bounds.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "AUTH-V12-TEST",
+      "class": "authorization",
+      "description": "Authorization can be broken while tests pass via untested paths",
+      "attack_vector": "test_passage",
+      "preconditions": [
+        "Test coverage incomplete",
+        "Production has additional unchecked paths",
+        "Authorization gaps in untested code"
+      ],
+      "expected_violation": "Unauthorized access through untested endpoints",
+      "observable_signal": "Unauthorized access through untested endpoints",
+      "severity": "critical",
+      "mitigation": "Comprehensive path coverage analysis. Authorization completeness proof. Mandatory authorization at entry points.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "AUTH-V13-LOCAL",
+      "class": "authorization",
+      "description": "Authorization can be broken while local verification passes",
+      "attack_vector": "local_verification_passage",
+      "preconditions": [
+        "Distributed authorization",
+        "Local vs global authorization distinction",
+        "Coordination failure"
+      ],
+      "expected_violation": "Local authorization inconsistent with global policy",
+      "observable_signal": "Local authorization inconsistent with global policy",
+      "severity": "critical",
+      "mitigation": "Global authorization enforcement. Distributed authorization consensus. Policy consistency across nodes.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "AUTH-V14-PROOF",
+      "class": "authorization",
+      "description": "Authorization can be broken while proof remains valid via underconstraint",
+      "attack_vector": "proof_validity_preservation",
+      "preconditions": [
+        "Authorization not in constraint system",
+        "Verifier doesn't check authorization",
+        "Underconstrained system"
+      ],
+      "expected_violation": "Verifiable proofs for unauthorized actions",
+      "observable_signal": "Verifiable proofs for unauthorized actions",
+      "severity": "catastrophic",
+      "mitigation": "Authorization encoding in constraints. Proof includes authorization witness. Authorization verification mandatory.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ECON-V1-BYPASS",
+      "class": "economic",
+      "description": "Economic invariants can be bypassed via fee rounding to zero",
+      "attack_vector": "bypass",
+      "preconditions": [
+        "Fee rounding to zero",
+        "Small transaction allowed",
+        "No minimum fee enforcement"
+      ],
+      "expected_violation": "Zero-fee value extraction",
+      "observable_signal": "Zero-fee transactions in trace",
+      "severity": "critical",
+      "mitigation": "Minimum fee enforcement. Fee rounding always up (ceil). Economic cost > 0 for value-transfer.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ECON-V2-VACUOUS",
+      "class": "economic",
+      "description": "Economic invariants can be satisfied vacuously by defining all states as valid",
+      "attack_vector": "vacuous_satisfaction",
+      "preconditions": [
+        "Economic validity not defined",
+        "Default true",
+        "No economic constraints"
+      ],
+      "expected_violation": "Economic violations accepted as valid",
+      "observable_signal": "Economic violations accepted as valid",
+      "severity": "critical",
+      "mitigation": "Explicit economic validity predicates. Economic invariant enforcement. Economic domain expert review.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ECON-V3-CONFIG",
+      "class": "economic",
+      "description": "Economic invariants can be weakened by increasing slippage tolerance to 100%",
+      "attack_vector": "configuration_weakening",
+      "preconditions": [
+        "MaxSlippage configurable",
+        "No upper bound",
+        "Governance control"
+      ],
+      "expected_violation": "Any price movement now 'valid'",
+      "observable_signal": "Slippage parameters increasing toward 100%",
+      "severity": "critical",
+      "mitigation": "Hard bounds on economic parameters. Economic invariants immutable. Parameter change economic impact analysis.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ECON-V4-REORDER",
+      "class": "economic",
+      "description": "Economic invariants can be broken by transaction reordering (sandwich attack)",
+      "attack_vector": "reordering",
+      "preconditions": [
+        "Transaction ordering influenceable",
+        "Price impact from ordering",
+        "Profit from ordering manipulation"
+      ],
+      "expected_violation": "Systematic profit from transaction ordering",
+      "observable_signal": "Systematic profit from transaction ordering",
+      "severity": "critical",
+      "mitigation": "TE_sandwich invariant enforcement. Commit-reveal schemes. Batch execution with uniform pricing.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ECON-V5-PARTIAL",
+      "class": "economic",
+      "description": "Economic invariants can be broken by partial liquidation",
+      "attack_vector": "partial_execution",
+      "preconditions": [
+        "Partial liquidation possible",
+        "No completion requirement",
+        "Undercollateralized state acceptable"
+      ],
+      "expected_violation": "Partial liquidations leaving bad debt",
+      "observable_signal": "Partial liquidations leaving bad debt",
+      "severity": "critical",
+      "mitigation": "Atomic liquidation semantics. All-or-nothing collateral restoration. Forced full liquidation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ECON-V6-CONCURRENT",
+      "class": "economic",
+      "description": "Economic invariants can be broken by flash loan attacks",
+      "attack_vector": "concurrency",
+      "preconditions": [
+        "Atomic cross-system execution",
+        "Price discrepancies exist",
+        "No cross-system coordination"
+      ],
+      "expected_violation": "Risk-free profit from concurrent manipulation",
+      "observable_signal": "Atomic transactions spanning multiple systems",
+      "severity": "critical",
+      "mitigation": "TE_flash invariant enforcement. Cross-system economic coordination. Atomic execution economic bounds.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ECON-V7-ROLLBACK",
+      "class": "economic",
+      "description": "Economic invariants can be broken by rollback after exploitation",
+      "attack_vector": "rollback",
+      "preconditions": [
+        "Rollback mechanism exists",
+        "Economic state reversible",
+        "Gain/loss asymmetry in rollback"
+      ],
+      "expected_violation": "Value extraction followed by state rollback",
+      "observable_signal": "Value extraction followed by state rollback",
+      "severity": "catastrophic",
+      "mitigation": "No economic rollback. Value transfer irreversibility. Settlement finality.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ECON-V8-OMITTED",
+      "class": "economic",
+      "description": "Economic invariants can be broken by hiding manipulation from trace",
+      "attack_vector": "omitted_traces",
+      "preconditions": [
+        "Trace recording incomplete",
+        "Economic verification trace-dependent",
+        "Manipulation hidden"
+      ],
+      "expected_violation": "Economic activity inconsistent with recorded trace",
+      "observable_signal": "Economic activity inconsistent with recorded trace",
+      "severity": "critical",
+      "mitigation": "Complete economic trace recording. Economic state commitments. Trace completeness verification.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ECON-V9-AMBIGUOUS",
+      "class": "economic",
+      "description": "Economic invariants can be broken by ambiguous price mapping",
+      "attack_vector": "ambiguous_semantic_mapping",
+      "preconditions": [
+        "Price oracle ambiguous",
+        "Multiple valid price interpretations",
+        "Constraint system uses stale price"
+      ],
+      "expected_violation": "Same asset with different prices in different contexts",
+      "observable_signal": "Same asset with different prices in different contexts",
+      "severity": "critical",
+      "mitigation": "Canonical price oracle. Price freshness validation. Price mapping unambiguity proof.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ECON-V10-UPGRADE",
+      "class": "economic",
+      "description": "Economic invariants can be broken by upgrade changing parameters retroactively",
+      "attack_vector": "upgrade_exploitation",
+      "preconditions": [
+        "Economic parameters versioned",
+        "Upgrade changes economics",
+        "Retroactive economic impact"
+      ],
+      "expected_violation": "Economic parameter changes in upgrades affecting existing positions",
+      "observable_signal": "Economic parameter changes in upgrades affecting existing positions",
+      "severity": "critical",
+      "mitigation": "Economic invariants immutable across upgrades. Position-specific economic terms locked. Upgrade economic impact analysis required.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ECON-V11-DRIFT",
+      "class": "economic",
+      "description": "Economic invariants can be broken by gradual constraint relaxation",
+      "attack_vector": "policy_drift",
+      "preconditions": [
+        "Economic policy governable",
+        "Incremental changes acceptable",
+        "No cumulative analysis"
+      ],
+      "expected_violation": "Progressive relaxation of economic constraints",
+      "observable_signal": "Progressive relaxation of economic constraints",
+      "severity": "high",
+      "mitigation": "Economic invariants in protocol (immutable). Policy cannot override economic constraints. Economic bound enforcement.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ECON-V12-TEST",
+      "class": "economic",
+      "description": "Economic invariants can be broken while tests pass via edge cases",
+      "attack_vector": "test_passage",
+      "preconditions": [
+        "Test economics simplified",
+        "Edge cases untested",
+        "Production complexity exceeds tests"
+      ],
+      "expected_violation": "Economic failures only in production",
+      "observable_signal": "Economic failures only in production",
+      "severity": "critical",
+      "mitigation": "Property-based economic testing. Formal economic modeling. Chaos engineering for economic edge cases.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ECON-V13-LOCAL",
+      "class": "economic",
+      "description": "Economic invariants can be broken while local verification passes",
+      "attack_vector": "local_verification_passage",
+      "preconditions": [
+        "Local economic verification only",
+        "Global economic not checked",
+        "Cross-pool interactions"
+      ],
+      "expected_violation": "Local pools healthy, systemic economic failure",
+      "observable_signal": "Local pools healthy, systemic economic failure",
+      "severity": "critical",
+      "mitigation": "Global economic invariant verification. Systemic risk analysis. Cross-pool economic constraints.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ECON-V14-PROOF",
+      "class": "economic",
+      "description": "Economic invariants can be broken while proof remains valid via underconstraint",
+      "attack_vector": "proof_validity_preservation",
+      "preconditions": [
+        "Economic invariants not in constraints",
+        "Verifier doesn't check economics",
+        "Underconstrained system"
+      ],
+      "expected_violation": "Verifiable proofs for economically exploitative transactions",
+      "observable_signal": "Verifiable proofs for economically exploitative transactions",
+      "severity": "catastrophic",
+      "mitigation": "Economic invariant encoding in constraints. Economic constraint coverage analysis. Formal economic verification.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "GOV-V1-BYPASS",
+      "class": "governance",
+      "description": "Governance can be bypassed via emergency powers or admin keys",
+      "attack_vector": "bypass",
+      "preconditions": [
+        "Emergency mechanisms exist",
+        "Admin privileges not revoked",
+        "Governance check bypassable"
+      ],
+      "expected_violation": "Governance actions without corresponding proposals/votes",
+      "observable_signal": "Governance actions without corresponding proposals/votes",
+      "severity": "critical",
+      "mitigation": "No admin keys in production. Emergency powers time-bounded. Multi-sig emergency control.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "GOV-V2-VACUOUS",
+      "class": "governance",
+      "description": "Governance can be satisfied vacuously by limiting powers to cosmetic changes",
+      "attack_vector": "vacuous_satisfaction",
+      "preconditions": [
+        "Governance scope limited",
+        "Core protocol immutable",
+        "Governance theater"
+      ],
+      "expected_violation": "Governance proposals limited to cosmetic changes",
+      "observable_signal": "Governance proposals limited to cosmetic changes",
+      "severity": "high",
+      "mitigation": "Clear governance scope. Meaningful governance powers. Governance effectiveness metrics.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "GOV-V3-CONFIG",
+      "class": "governance",
+      "description": "Governance can be weakened by reducing quorum requirements",
+      "attack_vector": "configuration_weakening",
+      "preconditions": [
+        "Governance parameters configurable",
+        "Threshold reduction possible",
+        "No minimum threshold"
+      ],
+      "expected_violation": "Declining governance thresholds",
+      "observable_signal": "Declining governance thresholds",
+      "severity": "critical",
+      "mitigation": "Governance parameter bounds. Threshold increases only via high threshold. Governance invariants immutable.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "GOV-V4-REORDER",
+      "class": "governance",
+      "description": "Governance can be broken by executing before voting period ends",
+      "attack_vector": "reordering",
+      "preconditions": [
+        "Execution ordering manipulable",
+        "Time constraints not enforced",
+        "Race condition in governance"
+      ],
+      "expected_violation": "Proposal execution before timelock expiry",
+      "observable_signal": "Proposal execution before timelock expiry",
+      "severity": "critical",
+      "mitigation": "Enforced timelocks in protocol. Execution delay in constraints. Time-based governance enforcement.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "GOV-V5-PARTIAL",
+      "class": "governance",
+      "description": "Governance can be broken by partial proposal execution",
+      "attack_vector": "partial_execution",
+      "preconditions": [
+        "Complex multi-part proposals",
+        "Partial execution possible",
+        "No atomic governance execution"
+      ],
+      "expected_violation": "Partially applied governance proposals",
+      "observable_signal": "Partially applied governance proposals",
+      "severity": "critical",
+      "mitigation": "Atomic governance execution. All-or-nothing proposal application. Rollback on partial failure.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "GOV-V6-CONCURRENT",
+      "class": "governance",
+      "description": "Governance can be broken by concurrent conflicting proposals",
+      "attack_vector": "concurrency",
+      "preconditions": [
+        "Concurrent proposal execution",
+        "No conflict detection",
+        "Proposal interference possible"
+      ],
+      "expected_violation": "Inconsistent parameter values after concurrent proposals",
+      "observable_signal": "Inconsistent parameter values after concurrent proposals",
+      "severity": "critical",
+      "mitigation": "Sequential proposal execution. Conflict detection before execution. Proposal dependency analysis.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "GOV-V7-ROLLBACK",
+      "class": "governance",
+      "description": "Governance can be broken by rollback",
+      "attack_vector": "rollback",
+      "preconditions": [
+        "Rollback mechanism",
+        "Governance actions reversible",
+        "State history mutable"
+      ],
+      "expected_violation": "Governance actions disappearing from history",
+      "observable_signal": "Governance actions disappearing from history",
+      "severity": "critical",
+      "mitigation": "Governance actions immutable. No rollback of governance. Governance history append-only.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "GOV-V8-OMITTED",
+      "class": "governance",
+      "description": "Governance can be broken by hiding actions from audit trail",
+      "attack_vector": "omitted_traces",
+      "preconditions": [
+        "Governance logging incomplete",
+        "Actions can be hidden",
+        "Audit trail-dependent"
+      ],
+      "expected_violation": "Behavioral changes without governance records",
+      "observable_signal": "Behavioral changes without governance records",
+      "severity": "critical",
+      "mitigation": "Complete governance logging. Governance events in trace. Audit trail completeness.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "GOV-V9-AMBIGUOUS",
+      "class": "governance",
+      "description": "Governance can be broken by ambiguous proposal text",
+      "attack_vector": "ambiguous_semantic_mapping",
+      "preconditions": [
+        "Proposal text ambiguous",
+        "Multiple valid interpretations",
+        "Execution differs from voter understanding"
+      ],
+      "expected_violation": "Proposal execution diverging from voter expectations",
+      "observable_signal": "Proposal execution diverging from voter expectations",
+      "severity": "critical",
+      "mitigation": "Formal proposal specification. Unambiguous execution semantics. Proposal code review before voting.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "GOV-V10-UPGRADE",
+      "class": "governance",
+      "description": "Governance can be broken by upgrade removing checks and balances",
+      "attack_vector": "upgrade_exploitation",
+      "preconditions": [
+        "Governance rules versioned",
+        "Upgrade can change governance",
+        "Self-modifying governance possible"
+      ],
+      "expected_violation": "Governance constraints weakening in upgrades",
+      "observable_signal": "Governance constraints weakening in upgrades",
+      "severity": "catastrophic",
+      "mitigation": "Immutable governance invariants. Upgrade cannot weaken governance. Governance ratification requirements.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "GOV-V11-DRIFT",
+      "class": "governance",
+      "description": "Governance can be broken by gradual centralization",
+      "attack_vector": "policy_drift",
+      "preconditions": [
+        "Governance policy flexible",
+        "Emergency measures possible",
+        "No expiration on temporary powers"
+      ],
+      "expected_violation": "Accumulating 'temporary' governance powers",
+      "observable_signal": "Accumulating 'temporary' governance powers",
+      "severity": "high",
+      "mitigation": "Governance policy immutable. Emergency powers time-bounded and non-extensible. Decentralization metrics.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "GOV-V12-TEST",
+      "class": "governance",
+      "description": "Governance can be broken while tests pass via edge cases",
+      "attack_vector": "test_passage",
+      "preconditions": [
+        "Test coverage incomplete",
+        "Governance edge cases untested",
+        "Production governance different from tests"
+      ],
+      "expected_violation": "Governance failures in edge cases not in tests",
+      "observable_signal": "Governance failures in edge cases not in tests",
+      "severity": "critical",
+      "mitigation": "Formal governance verification. Edge case analysis. Property-based governance testing.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "GOV-V13-LOCAL",
+      "class": "governance",
+      "description": "Governance can be broken while local verification passes",
+      "attack_vector": "local_verification_passage",
+      "preconditions": [
+        "Distributed governance",
+        "Local vs global governance distinction",
+        "Split-brain possible"
+      ],
+      "expected_violation": "Divergent governance decisions across network partitions",
+      "observable_signal": "Divergent governance decisions across network partitions",
+      "severity": "critical",
+      "mitigation": "Consensus required for governance. Global governance enforcement. Partition-resistant governance.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "GOV-V14-PROOF",
+      "class": "governance",
+      "description": "Governance can be broken while proof remains valid via underconstraint",
+      "attack_vector": "proof_validity_preservation",
+      "preconditions": [
+        "Governance not in constraint system",
+        "Verifier doesn't check governance",
+        "Underconstrained system"
+      ],
+      "expected_violation": "Verifiable proofs for improperly authorized governance actions",
+      "observable_signal": "Verifiable proofs for improperly authorized governance actions",
+      "severity": "catastrophic",
+      "mitigation": "Governance encoding in constraints. Proof includes governance witness. Governance verification mandatory in proofs.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "STATE-V1-BYPASS",
+      "class": "state_transition",
+      "description": "State transitions can be bypassed via direct state modification",
+      "attack_vector": "bypass",
+      "preconditions": [
+        "State directly modifiable",
+        "Transition logic bypassable",
+        "Raw state access possible"
+      ],
+      "expected_violation": "State changes not corresponding to valid transitions",
+      "observable_signal": "State changes not corresponding to valid transitions",
+      "severity": "catastrophic",
+      "mitigation": "Immutable state transitions (only via Apply). State modification encapsulation. Transition verification in constraints.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "STATE-V2-VACUOUS",
+      "class": "state_transition",
+      "description": "State transitions can be satisfied vacuously by allowing all changes",
+      "attack_vector": "vacuous_satisfaction",
+      "preconditions": [
+        "Transition validity not defined",
+        "Default allow",
+        "No transition constraints"
+      ],
+      "expected_violation": "Arbitrary state modifications accepted",
+      "observable_signal": "Arbitrary state modifications accepted",
+      "severity": "catastrophic",
+      "mitigation": "Strict transition validity. Whitelist of valid transitions. Transition derivation from specification.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "STATE-V3-CONFIG",
+      "class": "state_transition",
+      "description": "State transitions can be weakened by adding 'exceptions'",
+      "attack_vector": "configuration_weakening",
+      "preconditions": [
+        "Transition exceptions configurable",
+        "No exception limits",
+        "Governance control over exceptions"
+      ],
+      "expected_violation": "Configurable transition exceptions bypassing normal logic",
+      "observable_signal": "Configurable transition exceptions",
+      "severity": "critical",
+      "mitigation": "No transition exceptions. Immutable transition logic. Configuration cannot affect transitions.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "STATE-V4-REORDER",
+      "class": "state_transition",
+      "description": "State transitions can be broken by reordering (non-associativity)",
+      "attack_vector": "reordering",
+      "preconditions": [
+        "Transition composition order-dependent",
+        "No associativity proof",
+        "Batch processing differs from sequential"
+      ],
+      "expected_violation": "Batch vs sequential execution producing different states",
+      "observable_signal": "Batch vs sequential execution producing different states",
+      "severity": "critical",
+      "mitigation": "Transition associativity proof. Batch/sequential equivalence verification. Deterministic ordering enforcement.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "STATE-V5-PARTIAL",
+      "class": "state_transition",
+      "description": "State transitions can be broken by partial execution",
+      "attack_vector": "partial_execution",
+      "preconditions": [
+        "Transitions multi-step",
+        "Intermediate states exposed",
+        "No atomicity guarantee"
+      ],
+      "expected_violation": "Invalid intermediate states observable",
+      "observable_signal": "Invalid intermediate states observable",
+      "severity": "critical",
+      "mitigation": "Atomic transition semantics. State changes only visible after completion. Intermediate states invalid by construction.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "STATE-V6-CONCURRENT",
+      "class": "state_transition",
+      "description": "State transitions can be broken by concurrency race conditions",
+      "attack_vector": "concurrency",
+      "preconditions": [
+        "Concurrent execution",
+        "Shared state access",
+        "Race condition possible"
+      ],
+      "expected_violation": "Non-deterministic state under concurrent access",
+      "observable_signal": "Non-deterministic state under concurrent access",
+      "severity": "critical",
+      "mitigation": "Sequential execution model. State locking during transitions. Deterministic ordering in constraints.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "STATE-V7-ROLLBACK",
+      "class": "state_transition",
+      "description": "State transitions can be broken by rollback",
+      "attack_vector": "rollback",
+      "preconditions": [
+        "Rollback mechanism",
+        "Transitions reversible",
+        "Execution history mutable"
+      ],
+      "expected_violation": "Transition history mutable",
+      "observable_signal": "Transition history mutable",
+      "severity": "high",
+      "mitigation": "Append-only transition history. No rollback of committed transitions. Irreversibility in specification.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "STATE-V8-OMITTED",
+      "class": "state_transition",
+      "description": "State transitions can be broken by omitted traces",
+      "attack_vector": "omitted_traces",
+      "preconditions": [
+        "Trace recording incomplete",
+        "Transitions can be hidden",
+        "Verification trace-dependent"
+      ],
+      "expected_violation": "State inconsistent with recorded trace",
+      "observable_signal": "State inconsistent with recorded trace",
+      "severity": "critical",
+      "mitigation": "Complete trace recording mandatory. State commitment includes full trace. Trace completeness proof.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "STATE-V9-AMBIGUOUS",
+      "class": "state_transition",
+      "description": "State transitions can be broken by ambiguous mapping",
+      "attack_vector": "ambiguous_semantic_mapping",
+      "preconditions": [
+        "Transition mapping ambiguous",
+        "Multiple valid interpretations",
+        "Constraint system uses 'valid' interpretation"
+      ],
+      "expected_violation": "Same transition encoding validating differently",
+      "observable_signal": "Same transition encoding validating differently",
+      "severity": "critical",
+      "mitigation": "Injective transition mapping. Canonical transition encoding. Mapping validation in verification.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "STATE-V10-UPGRADE",
+      "class": "state_transition",
+      "description": "State transitions can be broken by upgrade changing semantics",
+      "attack_vector": "upgrade_exploitation",
+      "preconditions": [
+        "Transition semantics versioned",
+        "Upgrade changes semantics",
+        "Old proofs accepted under new version"
+      ],
+      "expected_violation": "Pre-upgrade proofs post-verifying under different semantics",
+      "observable_signal": "Pre-upgrade proofs post-verifying under different semantics",
+      "severity": "high",
+      "mitigation": "Immutable transition semantics. Version-specific verification. Proof invalidation on breaking changes.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "STATE-V11-DRIFT",
+      "class": "state_transition",
+      "description": "State transitions can be broken by gradual rule relaxation",
+      "attack_vector": "policy_drift",
+      "preconditions": [
+        "Transition rules in policy",
+        "Policy update mechanism",
+        "Progressive relaxation acceptable"
+      ],
+      "expected_violation": "Growing list of transition exceptions",
+      "observable_signal": "Growing list of transition exceptions",
+      "severity": "high",
+      "mitigation": "Transition rules in protocol (immutable). Policy cannot affect transitions. Strict transition validation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "STATE-V12-TEST",
+      "class": "state_transition",
+      "description": "State transitions can be broken while tests pass via edge cases",
+      "attack_vector": "test_passage",
+      "preconditions": [
+        "Test coverage incomplete",
+        "Edge case transitions untested",
+        "Production has additional paths"
+      ],
+      "expected_violation": "Transition failures in edge cases not in tests",
+      "observable_signal": "Transition failures in edge cases not in tests",
+      "severity": "critical",
+      "mitigation": "Complete transition coverage. Formal verification of all paths. Mutation testing for transition logic.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "STATE-V13-LOCAL",
+      "class": "state_transition",
+      "description": "State transitions can be broken while local verification passes",
+      "attack_vector": "local_verification_passage",
+      "preconditions": [
+        "Distributed state",
+        "Local vs global state distinction",
+        "Split-brain possible"
+      ],
+      "expected_violation": "Locally valid transitions violating global invariants",
+      "observable_signal": "Locally valid transitions violating global invariants",
+      "severity": "critical",
+      "mitigation": "Global state validation. Consensus before transition execution. Cross-node transition verification.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "STATE-V14-PROOF",
+      "class": "state_transition",
+      "description": "State transitions can be broken while proof remains valid via underconstraint",
+      "attack_vector": "proof_validity_preservation",
+      "preconditions": [
+        "Transition underconstrained",
+        "Verifier accepts invalid transitions",
+        "Constraint system incomplete"
+      ],
+      "expected_violation": "Verifiable proofs for invalid transitions",
+      "observable_signal": "Verifiable proofs for invalid transitions",
+      "severity": "catastrophic",
+      "mitigation": "Complete transition constraints. Transition validity encoding. Constraint coverage analysis.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TEMPORAL-V1-BYPASS",
+      "class": "temporal",
+      "description": "Temporal invariants can be bypassed via timestamp manipulation",
+      "attack_vector": "bypass",
+      "preconditions": [
+        "Timestamp modifiable",
+        "No monotonicity enforcement",
+        "Time validation weak"
+      ],
+      "expected_violation": "Non-monotonic timestamps",
+      "observable_signal": "Non-monotonic timestamps",
+      "severity": "critical",
+      "mitigation": "Monotonic timestamp enforcement. Time validation in constraints. Timestamp integrity proofs.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TEMPORAL-V2-VACUOUS",
+      "class": "temporal",
+      "description": "Temporal invariants can be satisfied vacuously by empty trace",
+      "attack_vector": "vacuous_satisfaction",
+      "preconditions": [
+        "Temporal invariants not defined",
+        "Default true",
+        "Trace can be empty"
+      ],
+      "expected_violation": "No temporal validation performed",
+      "observable_signal": "No temporal validation performed",
+      "severity": "high",
+      "mitigation": "Explicit temporal invariants. Temporal property enforcement. Non-trivial temporal requirements.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TEMPORAL-V3-CONFIG",
+      "class": "temporal",
+      "description": "Temporal invariants can be weakened by extending windows to infinity",
+      "attack_vector": "configuration_weakening",
+      "preconditions": [
+        "Temporal parameters configurable",
+        "No upper bounds",
+        "Governance control over time"
+      ],
+      "expected_violation": "Temporal parameters set to extreme values",
+      "observable_signal": "Temporal parameters set to extreme values",
+      "severity": "high",
+      "mitigation": "Hard temporal bounds. Temporal invariants immutable. Maximum timeout enforcement.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TEMPORAL-V4-REORDER",
+      "class": "temporal",
+      "description": "Temporal invariants can be broken by reordering events",
+      "attack_vector": "reordering",
+      "preconditions": [
+        "Event ordering influenceable",
+        "Causality not enforced",
+        "Reordering possible"
+      ],
+      "expected_violation": "Effects preceding causes in trace",
+      "observable_signal": "Effects preceding causes in trace",
+      "severity": "critical",
+      "mitigation": "Causality enforcement. Happens-before validation. Causal ordering in constraints.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TEMPORAL-V5-PARTIAL",
+      "class": "temporal",
+      "description": "Temporal invariants can be broken by partial trace analysis",
+      "attack_vector": "partial_execution",
+      "preconditions": [
+        "Temporal properties prefix-sensitive",
+        "Partial traces analyzed",
+        "Prefix/suffix distinction"
+      ],
+      "expected_violation": "Temporal violations in partial traces",
+      "observable_signal": "Temporal violations in partial traces",
+      "severity": "medium",
+      "mitigation": "Temporal properties over complete traces. Prefix invariance where appropriate. Complete trace analysis.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TEMPORAL-V6-CONCURRENT",
+      "class": "temporal",
+      "description": "Temporal invariants can be broken by concurrent execution",
+      "attack_vector": "concurrency",
+      "preconditions": [
+        "Concurrent event execution",
+        "No total order enforcement",
+        "Race condition in ordering"
+      ],
+      "expected_violation": "Causality violations in concurrent execution",
+      "observable_signal": "Causality violations in concurrent execution",
+      "severity": "critical",
+      "mitigation": "Sequential execution model. Happens-before enforcement. Causal consistency in constraints.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TEMPORAL-V7-ROLLBACK",
+      "class": "temporal",
+      "description": "Temporal invariants can be broken by rollback",
+      "attack_vector": "rollback",
+      "preconditions": [
+        "Rollback mechanism",
+        "State can reappear",
+        "Temporal invariants not enforced"
+      ],
+      "expected_violation": "Duplicate states at different times",
+      "observable_signal": "Duplicate states at different times",
+      "severity": "high",
+      "mitigation": "No state rollback. Append-only state history. Temporal monotonicity enforcement.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TEMPORAL-V8-OMITTED",
+      "class": "temporal",
+      "description": "Temporal invariants can be broken by omitted events",
+      "attack_vector": "omitted_traces",
+      "preconditions": [
+        "Trace recording incomplete",
+        "Temporal verification trace-dependent",
+        "Events can be hidden"
+      ],
+      "expected_violation": "Temporal properties satisfied on incomplete traces",
+      "observable_signal": "Temporal properties satisfied on incomplete traces",
+      "severity": "critical",
+      "mitigation": "Complete trace recording. Temporal verification over full traces. Event completeness proofs.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TEMPORAL-V9-AMBIGUOUS",
+      "class": "temporal",
+      "description": "Temporal invariants can be broken by ambiguous timestamp mapping",
+      "attack_vector": "ambiguous_semantic_mapping",
+      "preconditions": [
+        "Timestamp mapping ambiguous",
+        "Multiple valid orderings",
+        "Constraint system uses favorable ordering"
+      ],
+      "expected_violation": "Same timestamps with different orderings",
+      "observable_signal": "Same timestamps with different orderings",
+      "severity": "high",
+      "mitigation": "Injective timestamp mapping. Canonical ordering for ties. Timestamp unambiguity proof.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TEMPORAL-V10-UPGRADE",
+      "class": "temporal",
+      "description": "Temporal invariants can be broken by upgrade changing time semantics",
+      "attack_vector": "upgrade_exploitation",
+      "preconditions": [
+        "Temporal semantics versioned",
+        "Upgrade changes time",
+        "Historical proofs affected"
+      ],
+      "expected_violation": "Temporal property changes in upgrades",
+      "observable_signal": "Temporal property changes in upgrades",
+      "severity": "high",
+      "mitigation": "Immutable temporal invariants. Time semantics version-independent. Backward compatibility for time.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TEMPORAL-V11-DRIFT",
+      "class": "temporal",
+      "description": "Temporal invariants can be broken by gradual temporal relaxation",
+      "attack_vector": "policy_drift",
+      "preconditions": [
+        "Temporal policy governable",
+        "Incremental changes acceptable",
+        "No cumulative analysis"
+      ],
+      "expected_violation": "Progressive temporal relaxation",
+      "observable_signal": "Progressive temporal relaxation",
+      "severity": "medium",
+      "mitigation": "Temporal invariants in protocol. Policy cannot affect time. Strict temporal enforcement.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TEMPORAL-V12-TEST",
+      "class": "temporal",
+      "description": "Temporal invariants can be broken while tests pass via long traces",
+      "attack_vector": "test_passage",
+      "preconditions": [
+        "Temporal not formally verified",
+        "Tests finite, temporal infinite-horizon",
+        "Long-running execution untested"
+      ],
+      "expected_violation": "Temporal failures in long-running systems",
+      "observable_signal": "Temporal failures in long-running systems",
+      "severity": "high",
+      "mitigation": "Model checking for temporal properties. Bounded model checking with large bounds. Formal temporal verification.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TEMPORAL-V13-LOCAL",
+      "class": "temporal",
+      "description": "Temporal invariants can be broken while local verification passes",
+      "attack_vector": "local_verification_passage",
+      "preconditions": [
+        "Distributed time",
+        "Local vs global ordering distinction",
+        "Clock skew possible"
+      ],
+      "expected_violation": "Clock skew causing ordering inconsistencies",
+      "observable_signal": "Clock skew causing ordering inconsistencies",
+      "severity": "critical",
+      "mitigation": "Synchronized clocks. Logical clocks (Lamport/Vector). Global ordering consensus.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TEMPORAL-V14-PROOF",
+      "class": "temporal",
+      "description": "Temporal invariants can be broken while proof remains valid via underconstraint",
+      "attack_vector": "proof_validity_preservation",
+      "preconditions": [
+        "Temporal invariants not constrained",
+        "Verifier doesn't check time",
+        "Underconstrained system"
+      ],
+      "expected_violation": "Verifiable proofs with temporal violations",
+      "observable_signal": "Verifiable proofs with temporal violations",
+      "severity": "catastrophic",
+      "mitigation": "Temporal invariants in constraints. Time validation in proofs. Temporal constraint coverage.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CONSERVATION-V1-BYPASS",
+      "class": "conservation",
+      "description": "Conservation can be bypassed via accounting bugs creating unbacked value",
+      "attack_vector": "bypass",
+      "preconditions": [
+        "Accounting bug",
+        "Debit/credit imbalance",
+        "Conservation check bypassable"
+      ],
+      "expected_violation": "Unbacked value creation",
+      "observable_signal": "Unbacked value creation",
+      "severity": "catastrophic",
+      "mitigation": "Double-entry accounting. Conservation validation mandatory. Accounting invariants in constraints.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CONSERVATION-V2-VACUOUS",
+      "class": "conservation",
+      "description": "Conservation can be satisfied vacuously by allowing any changes",
+      "attack_vector": "vacuous_satisfaction",
+      "preconditions": [
+        "Conservation not defined",
+        "Default true",
+        "No accounting requirements"
+      ],
+      "expected_violation": "Value creation without accounting",
+      "observable_signal": "Value creation without accounting",
+      "severity": "catastrophic",
+      "mitigation": "Explicit conservation requirements. Accounting equation enforcement. Resource conservation proofs.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CONSERVATION-V3-CONFIG",
+      "class": "conservation",
+      "description": "Conservation can be weakened by adding 'exceptions'",
+      "attack_vector": "configuration_weakening",
+      "preconditions": [
+        "Conservation configurable",
+        "Exceptions allowed",
+        "Governance control over conservation"
+      ],
+      "expected_violation": "Conservation exceptions in configuration",
+      "observable_signal": "Conservation exceptions in configuration",
+      "severity": "critical",
+      "mitigation": "Immutable conservation invariants. No exceptions to conservation. Protocol-level conservation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CONSERVATION-V4-REORDER",
+      "class": "conservation",
+      "description": "Conservation can be broken by reordering causing rounding accumulation",
+      "attack_vector": "reordering",
+      "preconditions": [
+        "Rounding in operations",
+        "Order-dependent rounding",
+        "Conservation only per-operation"
+      ],
+      "expected_violation": "Conservation violations dependent on operation order",
+      "observable_signal": "Conservation violations dependent on operation order",
+      "severity": "critical",
+      "mitigation": "Conservation over full trace, not individual operations. Rounding invariant to conservation. Order-independent conservation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CONSERVATION-V5-PARTIAL",
+      "class": "conservation",
+      "description": "Conservation can be broken by partial execution",
+      "attack_vector": "partial_execution",
+      "preconditions": [
+        "Partial execution possible",
+        "Atomicity not guaranteed",
+        "Conservation only checks complete transactions"
+      ],
+      "expected_violation": "Unbalanced partial transactions",
+      "observable_signal": "Unbalanced partial transactions",
+      "severity": "critical",
+      "mitigation": "Atomic transaction semantics. All-or-nothing execution. Conservation validation per atomic unit.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CONSERVATION-V6-CONCURRENT",
+      "class": "conservation",
+      "description": "Conservation can be broken by concurrency causing double-spend",
+      "attack_vector": "concurrency",
+      "preconditions": [
+        "Concurrent balance access",
+        "Check-then-act race",
+        "No isolation"
+      ],
+      "expected_violation": "Overdrafts in concurrent execution",
+      "observable_signal": "Overdrafts in concurrent execution",
+      "severity": "catastrophic",
+      "mitigation": "Sequential execution. Atomic check-and-debit. Conservation in constraints.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CONSERVATION-V7-ROLLBACK",
+      "class": "conservation",
+      "description": "Conservation can be broken by asymmetric rollback",
+      "attack_vector": "rollback",
+      "preconditions": [
+        "Rollback mechanism",
+        "Asymmetric rollback possible",
+        "Conservation not rollback-aware"
+      ],
+      "expected_violation": "Asymmetric rollbacks creating value",
+      "observable_signal": "Asymmetric rollbacks creating value",
+      "severity": "catastrophic",
+      "mitigation": "No asymmetric rollback. Atomic rollback (all or nothing). Conservation over full history.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CONSERVATION-V8-OMITTED",
+      "class": "conservation",
+      "description": "Conservation can be broken by hiding transactions from trace",
+      "attack_vector": "omitted_traces",
+      "preconditions": [
+        "Trace recording incomplete",
+        "Conservation verification trace-dependent",
+        "Transactions can be hidden"
+      ],
+      "expected_violation": "Value not accounted for in trace",
+      "observable_signal": "Value not accounted for in trace",
+      "severity": "critical",
+      "mitigation": "Complete transaction recording. Conservation over full trace. Transaction completeness proofs.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CONSERVATION-V9-AMBIGUOUS",
+      "class": "conservation",
+      "description": "Conservation can be broken by ambiguous value representation",
+      "attack_vector": "ambiguous_semantic_mapping",
+      "preconditions": [
+        "Value representation ambiguous",
+        "Multiple encodings for same value",
+        "Conservation doesn't normalize"
+      ],
+      "expected_violation": "Conservation failures across different representations",
+      "observable_signal": "Conservation failures across different representations",
+      "severity": "critical",
+      "mitigation": "Canonical value representation. Normalization before conservation check. Representation invariance.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CONSERVATION-V10-UPGRADE",
+      "class": "conservation",
+      "description": "Conservation can be broken by upgrade changing accounting rules",
+      "attack_vector": "upgrade_exploitation",
+      "preconditions": [
+        "Accounting rules versioned",
+        "Upgrade changes conservation",
+        "Cross-version conservation not checked"
+      ],
+      "expected_violation": "Conservation violations across protocol versions",
+      "observable_signal": "Conservation violations across protocol versions",
+      "severity": "critical",
+      "mitigation": "Immutable conservation invariants. Upgrade cannot change accounting. Cross-version conservation validation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CONSERVATION-V11-DRIFT",
+      "class": "conservation",
+      "description": "Conservation can be broken by gradual accounting rule relaxation",
+      "attack_vector": "policy_drift",
+      "preconditions": [
+        "Accounting in policy",
+        "Policy update mechanism",
+        "Progressive relaxation acceptable"
+      ],
+      "expected_violation": "Accounting rules relaxing over time",
+      "observable_signal": "Accounting rules relaxing over time",
+      "severity": "critical",
+      "mitigation": "Conservation in protocol (immutable). Policy cannot affect accounting. Strict conservation enforcement.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CONSERVATION-V12-TEST",
+      "class": "conservation",
+      "description": "Conservation can be broken while tests pass via arithmetic differences",
+      "attack_vector": "test_passage",
+      "preconditions": [
+        "Tests use different arithmetic",
+        "Production has rounding",
+        "Conservation not tested with real arithmetic"
+      ],
+      "expected_violation": "Conservation failures only in production",
+      "observable_signal": "Conservation failures only in production",
+      "severity": "critical",
+      "mitigation": "Production-equivalent testing. Rounding invariant testing. Formal conservation proofs.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CONSERVATION-V13-LOCAL",
+      "class": "conservation",
+      "description": "Conservation can be broken while local verification passes",
+      "attack_vector": "local_verification_passage",
+      "preconditions": [
+        "Local conservation only",
+        "Global conservation not checked",
+        "Cross-pool interactions"
+      ],
+      "expected_violation": "Local pools healthy, systemic economic failure",
+      "observable_signal": "Local pools healthy, systemic economic failure",
+      "severity": "critical",
+      "mitigation": "Global conservation invariants. Cross-pool conservation validation. System-level accounting.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CONSERVATION-V14-PROOF",
+      "class": "conservation",
+      "description": "Conservation can be broken while proof remains valid via underconstraint",
+      "attack_vector": "proof_validity_preservation",
+      "preconditions": [
+        "Conservation not constrained",
+        "Verifier doesn't check conservation",
+        "Underconstrained system"
+      ],
+      "expected_violation": "Verifiable proofs with conservation violations",
+      "observable_signal": "Verifiable proofs with conservation violations",
+      "severity": "catastrophic",
+      "mitigation": "Conservation invariants in constraints. Accounting equation encoding. Conservation constraint coverage.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CRYPTO-V1-BYPASS",
+      "class": "cryptographic_binding",
+      "description": "Cryptographic binding can be bypassed via collision attacks",
+      "attack_vector": "bypass",
+      "preconditions": [
+        "Weak cryptographic primitive",
+        "Collision possible",
+        "Binding not enforced"
+      ],
+      "expected_violation": "Different values with same commitment",
+      "observable_signal": "Different values with same commitment",
+      "severity": "catastrophic",
+      "mitigation": "Collision-resistant hash functions. Binding enforcement. Cryptographic primitive verification.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CRYPTO-V2-VACUOUS",
+      "class": "cryptographic_binding",
+      "description": "Cryptographic binding can be satisfied vacuously by trivial commitment",
+      "attack_vector": "vacuous_satisfaction",
+      "preconditions": [
+        "Commitment not properly defined",
+        "Default weak binding",
+        "No cryptographic requirements"
+      ],
+      "expected_violation": "All values have same commitment",
+      "observable_signal": "All values have same commitment",
+      "severity": "catastrophic",
+      "mitigation": "Proper commitment scheme. Cryptographic binding requirements. Commitment uniqueness.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CRYPTO-V3-CONFIG",
+      "class": "cryptographic_binding",
+      "description": "Cryptographic binding can be weakened by reducing security parameters",
+      "attack_vector": "configuration_weakening",
+      "preconditions": [
+        "Cryptographic parameters configurable",
+        "Security reducible",
+        "Governance control over cryptography"
+      ],
+      "expected_violation": "Declining cryptographic security parameters",
+      "observable_signal": "Declining cryptographic security parameters",
+      "severity": "critical",
+      "mitigation": "Immutable cryptographic parameters. Minimum security levels. No configuration of cryptography.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CRYPTO-V4-REORDER",
+      "class": "cryptographic_binding",
+      "description": "Cryptographic binding can be broken by reordering commitment and use",
+      "attack_vector": "reordering",
+      "preconditions": [
+        "Commitment/value ordering manipulable",
+        "Binding order-dependent",
+        "Reordering possible"
+      ],
+      "expected_violation": "Values used before commitment",
+      "observable_signal": "Values used before commitment",
+      "severity": "critical",
+      "mitigation": "Commit-before-use enforcement. Ordering constraints. Binding sequence validation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CRYPTO-V5-PARTIAL",
+      "class": "cryptographic_binding",
+      "description": "Cryptographic binding can be broken by partial commitment process",
+      "attack_vector": "partial_execution",
+      "preconditions": [
+        "Commitment multi-step",
+        "Partial execution possible",
+        "No atomicity"
+      ],
+      "expected_violation": "Incomplete commitment processes",
+      "observable_signal": "Incomplete commitment processes",
+      "severity": "critical",
+      "mitigation": "Atomic commitment operations. All-or-nothing commitment. Rollback on partial failure.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CRYPTO-V6-CONCURRENT",
+      "class": "cryptographic_binding",
+      "description": "Cryptographic binding can be broken by concurrency race conditions",
+      "attack_vector": "concurrency",
+      "preconditions": [
+        "Check-then-act race",
+        "Commitment mutable",
+        "No synchronization"
+      ],
+      "expected_violation": "Race conditions in commitment usage",
+      "observable_signal": "Race conditions in commitment usage",
+      "severity": "critical",
+      "mitigation": "Atomic commitment validation. Time-of-use commitment check. Commitment locking.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CRYPTO-V7-ROLLBACK",
+      "class": "cryptographic_binding",
+      "description": "Cryptographic binding can be broken by rollback removing commitments",
+      "attack_vector": "rollback",
+      "preconditions": [
+        "Commitment rollback possible",
+        "Binding reversible",
+        "No permanence"
+      ],
+      "expected_violation": "Commitment rollback after use",
+      "observable_signal": "Commitment rollback after use",
+      "severity": "critical",
+      "mitigation": "Immutable commitments. No commitment rollback. Binding permanence.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CRYPTO-V8-OMITTED",
+      "class": "cryptographic_binding",
+      "description": "Cryptographic binding can be broken by hiding commitments from trace",
+      "attack_vector": "omitted_traces",
+      "preconditions": [
+        "Commitment logging incomplete",
+        "Verification trace-dependent",
+        "Commitments can be hidden"
+      ],
+      "expected_violation": "Missing commitment records",
+      "observable_signal": "Missing commitment records",
+      "severity": "critical",
+      "mitigation": "Complete commitment logging. Commitments in trace. Binding audit trail.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CRYPTO-V9-AMBIGUOUS",
+      "class": "cryptographic_binding",
+      "description": "Cryptographic binding can be broken by ambiguous commitment encoding",
+      "attack_vector": "ambiguous_semantic_mapping",
+      "preconditions": [
+        "Commitment encoding ambiguous",
+        "Multiple valid interpretations",
+        "System uses favorable interpretation"
+      ],
+      "expected_violation": "Same commitment binding different values",
+      "observable_signal": "Same commitment binding different values",
+      "severity": "catastrophic",
+      "mitigation": "Unambiguous commitment encoding. Canonical commitment format. Binding interpretation validation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CRYPTO-V10-UPGRADE",
+      "class": "cryptographic_binding",
+      "description": "Cryptographic binding can be broken by upgrade changing primitives",
+      "attack_vector": "upgrade_exploitation",
+      "preconditions": [
+        "Cryptographic primitives versioned",
+        "Upgrade changes primitives",
+        "Old bindings not preserved"
+      ],
+      "expected_violation": "Commitment scheme changes breaking historical bindings",
+      "observable_signal": "Commitment scheme changes breaking historical bindings",
+      "severity": "critical",
+      "mitigation": "Backward-compatible primitives. Commitment scheme migration. Historical binding preservation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CRYPTO-V11-DRIFT",
+      "class": "cryptographic_binding",
+      "description": "Cryptographic binding can be broken by gradual weakening",
+      "attack_vector": "policy_drift",
+      "preconditions": [
+        "Cryptographic policy governable",
+        "Incremental weakening acceptable",
+        "No cumulative analysis"
+      ],
+      "expected_violation": "Declining cryptographic standards",
+      "observable_signal": "Declining cryptographic standards",
+      "severity": "catastrophic",
+      "mitigation": "Immutable cryptographic requirements. Policy cannot affect cryptography. Minimum security standards.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CRYPTO-V12-TEST",
+      "class": "cryptographic_binding",
+      "description": "Cryptographic binding can be broken while tests pass via configuration divergence",
+      "attack_vector": "test_passage",
+      "preconditions": [
+        "Test/production configuration divergence",
+        "Weak cryptography in production",
+        "Configuration not tested"
+      ],
+      "expected_violation": "Production/test cryptographic configuration divergence",
+      "observable_signal": "Production/test cryptographic configuration divergence",
+      "severity": "catastrophic",
+      "mitigation": "Production-equivalent testing. Cryptographic configuration validation. Minimum security enforcement.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CRYPTO-V13-LOCAL",
+      "class": "cryptographic_binding",
+      "description": "Cryptographic binding can be broken while local verification passes",
+      "attack_vector": "local_verification_passage",
+      "preconditions": [
+        "Distributed commitment verification",
+        "Local vs global distinction",
+        "Inconsistency possible"
+      ],
+      "expected_violation": "Local/global commitment verification divergence",
+      "observable_signal": "Local/global commitment verification divergence",
+      "severity": "critical",
+      "mitigation": "Global commitment validation. Cross-node binding verification. Distributed commitment consensus.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CRYPTO-V14-PROOF",
+      "class": "cryptographic_binding",
+      "description": "Cryptographic binding can be broken while proof remains valid via underconstraint",
+      "attack_vector": "proof_validity_preservation",
+      "preconditions": [
+        "Binding not constrained",
+        "Verifier doesn't check commitments",
+        "Underconstrained system"
+      ],
+      "expected_violation": "Verifiable proofs with invalid commitments",
+      "observable_signal": "Verifiable proofs with invalid commitments",
+      "severity": "catastrophic",
+      "mitigation": "Cryptographic binding in constraints. Commitment verification in proofs. Binding constraint coverage.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TRACE-V1-BYPASS",
+      "class": "trace_integrity",
+      "description": "Trace integrity can be bypassed via direct state modification",
+      "attack_vector": "bypass",
+      "preconditions": [
+        "State modifiable outside trace",
+        "Trace recording incomplete",
+        "State/trace decoupled"
+      ],
+      "expected_violation": "State/trace mismatch",
+      "observable_signal": "State/trace mismatch",
+      "severity": "catastrophic",
+      "mitigation": "State changes only via traced transitions. Complete trace recording. State-trace coupling.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TRACE-V2-VACUOUS",
+      "class": "trace_integrity",
+      "description": "Trace integrity can be satisfied vacuously by empty trace",
+      "attack_vector": "vacuous_satisfaction",
+      "preconditions": [
+        "Completeness not defined",
+        "Default true",
+        "No trace requirements"
+      ],
+      "expected_violation": "Incomplete traces accepted as complete",
+      "observable_signal": "Incomplete traces accepted as complete",
+      "severity": "critical",
+      "mitigation": "Explicit completeness requirements. Trace validation. Completeness proofs.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TRACE-V3-CONFIG",
+      "class": "trace_integrity",
+      "description": "Trace integrity can be weakened by reducing trace recording",
+      "attack_vector": "configuration_weakening",
+      "preconditions": [
+        "Trace recording configurable",
+        "Entries can be disabled",
+        "Governance control over tracing"
+      ],
+      "expected_violation": "Trace entries disabled via configuration",
+      "observable_signal": "Trace entries disabled via configuration",
+      "severity": "critical",
+      "mitigation": "Immutable trace requirements. No configuration of trace recording. Complete trace mandatory.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TRACE-V4-REORDER",
+      "class": "trace_integrity",
+      "description": "Trace integrity can be broken by reordering entries",
+      "attack_vector": "reordering",
+      "preconditions": [
+        "Trace ordering manipulable",
+        "No integrity protection",
+        "Reordering possible"
+      ],
+      "expected_violation": "Trace entries out of causal order",
+      "observable_signal": "Trace entries out of causal order",
+      "severity": "critical",
+      "mitigation": "Cryptographic trace chaining. Tamper-evident traces. Causal ordering in traces.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TRACE-V5-PARTIAL",
+      "class": "trace_integrity",
+      "description": "Trace integrity can be broken by partial recording",
+      "attack_vector": "partial_execution",
+      "preconditions": [
+        "Trace written before execution",
+        "No atomic trace/execution",
+        "Partial recording possible"
+      ],
+      "expected_violation": "Trace entries for failed operations",
+      "observable_signal": "Trace entries for failed operations",
+      "severity": "critical",
+      "mitigation": "Atomic trace/execution. Execution before trace finalization. Rollback on execution failure.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TRACE-V6-CONCURRENT",
+      "class": "trace_integrity",
+      "description": "Trace integrity can be broken by concurrent writes",
+      "attack_vector": "concurrency",
+      "preconditions": [
+        "Concurrent trace writing",
+        "No total order enforcement",
+        "Ordering non-deterministic"
+      ],
+      "expected_violation": "Trace order inconsistent with execution",
+      "observable_signal": "Trace order inconsistent with execution",
+      "severity": "critical",
+      "mitigation": "Sequential trace writing. Deterministic trace ordering. Total order in traces.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TRACE-V7-ROLLBACK",
+      "class": "trace_integrity",
+      "description": "Trace integrity can be broken by rollback",
+      "attack_vector": "rollback",
+      "preconditions": [
+        "Trace rollback mechanism",
+        "History mutable",
+        "Entries removable"
+      ],
+      "expected_violation": "Trace entries disappearing",
+      "observable_signal": "Trace entries disappearing",
+      "severity": "critical",
+      "mitigation": "Append-only traces. No trace rollback. Immutable trace history.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TRACE-V8-OMITTED",
+      "class": "trace_integrity",
+      "description": "Trace integrity can be broken by systematic omission",
+      "attack_vector": "omitted_traces",
+      "preconditions": [
+        "Trace omission possible",
+        "Selective recording",
+        "Verification incomplete"
+      ],
+      "expected_violation": "Systematic trace gaps",
+      "observable_signal": "Systematic trace gaps",
+      "severity": "critical",
+      "mitigation": "No omittable operations. Complete trace recording. Omission detection.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TRACE-V9-AMBIGUOUS",
+      "class": "trace_integrity",
+      "description": "Trace integrity can be broken by ambiguous encoding",
+      "attack_vector": "ambiguous_semantic_mapping",
+      "preconditions": [
+        "Trace encoding ambiguous",
+        "Multiple valid interpretations",
+        "Verification uses favorable interpretation"
+      ],
+      "expected_violation": "Same trace entry interpreted differently",
+      "observable_signal": "Same trace entry interpreted differently",
+      "severity": "critical",
+      "mitigation": "Unambiguous trace encoding. Canonical trace format. Trace encoding validation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TRACE-V10-UPGRADE",
+      "class": "trace_integrity",
+      "description": "Trace integrity can be broken by upgrade changing format",
+      "attack_vector": "upgrade_exploitation",
+      "preconditions": [
+        "Trace format versioned",
+        "Upgrade changes format",
+        "Old traces not preserved"
+      ],
+      "expected_violation": "Trace format changes breaking historical validation",
+      "observable_signal": "Trace format changes breaking historical validation",
+      "severity": "high",
+      "mitigation": "Backward-compatible trace formats. Trace format migration. Historical trace preservation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TRACE-V11-DRIFT",
+      "class": "trace_integrity",
+      "description": "Trace integrity can be broken by gradual trace reduction",
+      "attack_vector": "policy_drift",
+      "preconditions": [
+        "Trace policy governable",
+        "Incremental relaxation acceptable",
+        "No cumulative analysis"
+      ],
+      "expected_violation": "Progressive trace reduction",
+      "observable_signal": "Progressive trace reduction",
+      "severity": "critical",
+      "mitigation": "Trace requirements in protocol (immutable). Policy cannot affect tracing. Complete trace mandatory.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TRACE-V12-TEST",
+      "class": "trace_integrity",
+      "description": "Trace integrity can be broken while tests pass via edge cases",
+      "attack_vector": "test_passage",
+      "preconditions": [
+        "Test traces simplified",
+        "Production traces complex",
+        "Edge cases untested"
+      ],
+      "expected_violation": "Trace failures in complex scenarios",
+      "observable_signal": "Trace failures in complex scenarios",
+      "severity": "critical",
+      "mitigation": "Comprehensive trace testing. Property-based trace generation. Formal trace verification.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TRACE-V13-LOCAL",
+      "class": "trace_integrity",
+      "description": "Trace integrity can be broken while local verification passes",
+      "attack_vector": "local_verification_passage",
+      "preconditions": [
+        "Distributed trace",
+        "Local vs global distinction",
+        "Inconsistency possible"
+      ],
+      "expected_violation": "Local trace complete, global incomplete",
+      "observable_signal": "Local trace complete, global incomplete",
+      "severity": "critical",
+      "mitigation": "Global trace validation. Cross-node trace consistency. Distributed trace consensus.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "TRACE-V14-PROOF",
+      "class": "trace_integrity",
+      "description": "Trace integrity can be broken while proof remains valid via underconstraint",
+      "attack_vector": "proof_validity_preservation",
+      "preconditions": [
+        "Trace integrity not constrained",
+        "Verifier doesn't check traces",
+        "Underconstrained system"
+      ],
+      "expected_violation": "Verifiable proofs with incomplete traces",
+      "observable_signal": "Verifiable proofs with incomplete traces",
+      "severity": "catastrophic",
+      "mitigation": "Trace integrity in constraints. Completeness encoding in proofs. Trace constraint coverage.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SEMANTIC-V1-BYPASS",
+      "class": "semantic_equivalence",
+      "description": "Semantic equivalence can be bypassed via implementation divergence",
+      "attack_vector": "bypass",
+      "preconditions": [
+        "Implementation/specification divergence",
+        "Specification not enforced",
+        "Bypass path exists"
+      ],
+      "expected_violation": "Implementation behavior diverging from specification",
+      "observable_signal": "Implementation behavior diverging from specification",
+      "severity": "catastrophic",
+      "mitigation": "Implementation verification against specification. Semantic equivalence proofs. Specification conformance testing.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SEMANTIC-V2-VACUOUS",
+      "class": "semantic_equivalence",
+      "description": "Semantic equivalence can be satisfied vacuously by vague specification",
+      "attack_vector": "vacuous_satisfaction",
+      "preconditions": [
+        "Specification not defined",
+        "Default allow",
+        "No semantic requirements"
+      ],
+      "expected_violation": "Vague or missing specification",
+      "observable_signal": "Vague or missing specification",
+      "severity": "catastrophic",
+      "mitigation": "Precise formal specification. Explicit semantic requirements. Specification completeness.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SEMANTIC-V3-CONFIG",
+      "class": "semantic_equivalence",
+      "description": "Semantic equivalence can be weakened by allowing deviations",
+      "attack_vector": "configuration_weakening",
+      "preconditions": [
+        "Specification conformance configurable",
+        "Deviations allowed",
+        "Governance control over semantics"
+      ],
+      "expected_violation": "Specification deviations via configuration",
+      "observable_signal": "Specification deviations via configuration",
+      "severity": "critical",
+      "mitigation": "Immutable specification conformance. No configuration of semantics. Strict semantic equivalence.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SEMANTIC-V4-REORDER",
+      "class": "semantic_equivalence",
+      "description": "Semantic equivalence can be broken by reordering specification and implementation",
+      "attack_vector": "reordering",
+      "preconditions": [
+        "Implementation/specification ordering flexible",
+        "Validation after deployment",
+        "Reordering possible"
+      ],
+      "expected_violation": "Implementation preceding specification",
+      "observable_signal": "Implementation preceding specification",
+      "severity": "critical",
+      "mitigation": "Specification-first development. Validation before implementation. Semantic equivalence before deployment.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SEMANTIC-V5-PARTIAL",
+      "class": "semantic_equivalence",
+      "description": "Semantic equivalence can be broken by partial preservation",
+      "attack_vector": "partial_execution",
+      "preconditions": [
+        "Semantic preservation partial",
+        "Some paths not covered",
+        "Equivalence incomplete"
+      ],
+      "expected_violation": "Semantic preservation failures in edge cases",
+      "observable_signal": "Semantic preservation failures in edge cases",
+      "severity": "critical",
+      "mitigation": "Complete semantic preservation. All paths verified. Exhaustive equivalence checking.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SEMANTIC-V6-CONCURRENT",
+      "class": "semantic_equivalence",
+      "description": "Semantic equivalence can be broken by concurrent interpretation divergence",
+      "attack_vector": "concurrency",
+      "preconditions": [
+        "Concurrent interpretation",
+        "No synchronization",
+        "Race condition possible"
+      ],
+      "expected_violation": "Specification/implementation divergence under concurrency",
+      "observable_signal": "Specification/implementation divergence under concurrency",
+      "severity": "critical",
+      "mitigation": "Deterministic interpretation. Synchronized execution. Semantic locking.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SEMANTIC-V7-ROLLBACK",
+      "class": "semantic_equivalence",
+      "description": "Semantic equivalence can be broken by asymmetric rollback",
+      "attack_vector": "rollback",
+      "preconditions": [
+        "Specification versioned",
+        "Rollback possible",
+        "Version mismatch"
+      ],
+      "expected_violation": "Specification/implementation version mismatch",
+      "observable_signal": "Specification/implementation version mismatch",
+      "severity": "critical",
+      "mitigation": "Synchronized versioning. Coordinated rollback. Version equivalence enforcement.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SEMANTIC-V8-OMITTED",
+      "class": "semantic_equivalence",
+      "description": "Semantic equivalence can be broken by hiding divergence from trace",
+      "attack_vector": "omitted_traces",
+      "preconditions": [
+        "Trace recording incomplete",
+        "Divergence can be hidden",
+        "Verification trace-dependent"
+      ],
+      "expected_violation": "Semantic divergence not reflected in trace",
+      "observable_signal": "Semantic divergence not reflected in trace",
+      "severity": "critical",
+      "mitigation": "Complete semantic trace recording. Divergence detection. Trace completeness.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SEMANTIC-V9-AMBIGUOUS",
+      "class": "semantic_equivalence",
+      "description": "Semantic equivalence can be broken by ambiguous mapping (core issue)",
+      "attack_vector": "ambiguous_semantic_mapping",
+      "preconditions": [
+        "Semantic mapping ambiguous",
+        "Multiple valid interpretations",
+        "Equivalence unclear"
+      ],
+      "expected_violation": "Same implementation mapped to different specifications",
+      "observable_signal": "Same implementation mapped to different specifications",
+      "severity": "catastrophic",
+      "mitigation": "Unambiguous semantic mapping (THM-1). Injective mapping. Semantic mapping validation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SEMANTIC-V10-UPGRADE",
+      "class": "semantic_equivalence",
+      "description": "Semantic equivalence can be broken by upgrade changing semantics",
+      "attack_vector": "upgrade_exploitation",
+      "preconditions": [
+        "Semantics versioned",
+        "Upgrade changes semantics",
+        "Old equivalence broken"
+      ],
+      "expected_violation": "Semantic changes breaking historical equivalence",
+      "observable_signal": "Semantic changes breaking historical equivalence",
+      "severity": "critical",
+      "mitigation": "Immutable core semantics. Upgrade semantic compatibility. Equivalence preservation across versions.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SEMANTIC-V11-DRIFT",
+      "class": "semantic_equivalence",
+      "description": "Semantic equivalence can be broken by gradual semantic drift",
+      "attack_vector": "policy_drift",
+      "preconditions": [
+        "Semantics governable",
+        "Incremental changes acceptable",
+        "No cumulative analysis"
+      ],
+      "expected_violation": "Semantic drift through policy updates",
+      "observable_signal": "Semantic drift through policy updates",
+      "severity": "critical",
+      "mitigation": "Immutable semantics. Policy cannot change meaning. Semantic stability guarantees.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SEMANTIC-V12-TEST",
+      "class": "semantic_equivalence",
+      "description": "Semantic equivalence can be broken while tests pass via syntactic equivalence",
+      "attack_vector": "test_passage",
+      "preconditions": [
+        "Test coverage incomplete",
+        "Semantic equivalence not fully tested",
+        "Edge cases uncovered"
+      ],
+      "expected_violation": "Syntactic equivalence, semantic divergence",
+      "observable_signal": "Syntactic equivalence, semantic divergence",
+      "severity": "critical",
+      "mitigation": "Semantic equivalence testing. Exhaustive input coverage. Formal equivalence proofs.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SEMANTIC-V13-LOCAL",
+      "class": "semantic_equivalence",
+      "description": "Semantic equivalence can be broken while local verification passes",
+      "attack_vector": "local_verification_passage",
+      "preconditions": [
+        "Local equivalence only",
+        "Global composition not checked",
+        "Composition failures"
+      ],
+      "expected_violation": "Local equivalence, global divergence",
+      "observable_signal": "Local equivalence, global divergence",
+      "severity": "critical",
+      "mitigation": "Global semantic equivalence. Composition verification. End-to-end equivalence checking.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "SEMANTIC-V14-PROOF",
+      "class": "semantic_equivalence",
+      "description": "Semantic equivalence can be broken while proof remains valid via underconstraint",
+      "attack_vector": "proof_validity_preservation",
+      "preconditions": [
+        "Semantic equivalence not constrained",
+        "Verifier checks only constraints, not semantics",
+        "Underconstrained system"
+      ],
+      "expected_violation": "Verifiable proofs with semantic divergence",
+      "observable_signal": "Verifiable proofs with semantic divergence",
+      "severity": "catastrophic",
+      "mitigation": "Semantic equivalence in constraints. Semantic preservation encoding. Equivalence constraint coverage.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CROSS-V1-BYPASS",
+      "class": "cross_domain",
+      "description": "Cross-domain invariants can be bypassed via interface exploitation",
+      "attack_vector": "bypass",
+      "preconditions": [
+        "Cross-system interface",
+        "Checks bypassable via composition",
+        "Interface validation weak"
+      ],
+      "expected_violation": "Actions via cross-system interfaces bypassing checks",
+      "observable_signal": "Actions via cross-system interfaces bypassing checks",
+      "severity": "critical",
+      "mitigation": "Cross-system check propagation. Interface validation. Composition safety.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CROSS-V2-VACUOUS",
+      "class": "cross_domain",
+      "description": "Cross-domain invariants can be satisfied vacuously by no composition",
+      "attack_vector": "vacuous_satisfaction",
+      "preconditions": [
+        "No cross-system composition",
+        "Invariants over empty set",
+        "Composition not used"
+      ],
+      "expected_violation": "Cross-domain invariants not tested (no composition)",
+      "observable_signal": "Cross-domain invariants not tested (no composition)",
+      "severity": "high",
+      "mitigation": "Composition testing. Cross-system validation. Non-vacuous cross-domain requirements.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CROSS-V3-CONFIG",
+      "class": "cross_domain",
+      "description": "Cross-domain invariants can be weakened by reducing validation",
+      "attack_vector": "configuration_weakening",
+      "preconditions": [
+        "Cross-system constraints configurable",
+        "Constraints reducible",
+        "Governance control"
+      ],
+      "expected_violation": "Declining cross-system validation",
+      "observable_signal": "Declining cross-system validation",
+      "severity": "critical",
+      "mitigation": "Immutable cross-system constraints. No configuration of composition safety. Protocol-level cross-domain invariants.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CROSS-V4-REORDER",
+      "class": "cross_domain",
+      "description": "Cross-domain invariants can be broken by reordering cross-system operations",
+      "attack_vector": "reordering",
+      "preconditions": [
+        "Cross-system operations order-dependent",
+        "Atomicity not guaranteed",
+        "Reordering possible"
+      ],
+      "expected_violation": "Cross-system atomicity violations",
+      "observable_signal": "Cross-system atomicity violations",
+      "severity": "critical",
+      "mitigation": "Cross-system atomicity. Two-phase commit. Distributed transaction coordination.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CROSS-V5-PARTIAL",
+      "class": "cross_domain",
+      "description": "Cross-domain invariants can be broken by partial cross-system execution",
+      "attack_vector": "partial_execution",
+      "preconditions": [
+        "Cross-system operations multi-step",
+        "Partial execution possible",
+        "No distributed atomicity"
+      ],
+      "expected_violation": "Cross-system state divergence",
+      "observable_signal": "Cross-system state divergence",
+      "severity": "critical",
+      "mitigation": "Distributed atomic operations. All-or-nothing cross-system execution. Compensating transactions.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CROSS-V6-CONCURRENT",
+      "class": "cross_domain",
+      "description": "Cross-domain invariants can be broken by concurrent cross-system access",
+      "attack_vector": "concurrency",
+      "preconditions": [
+        "Concurrent cross-system access",
+        "No distributed locking",
+        "Race condition possible"
+      ],
+      "expected_violation": "Cross-system race conditions",
+      "observable_signal": "Cross-system race conditions",
+      "severity": "critical",
+      "mitigation": "Distributed locking. Cross-system serialization. Consensus before action.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CROSS-V7-ROLLBACK",
+      "class": "cross_domain",
+      "description": "Cross-domain invariants can be broken by asymmetric rollback",
+      "attack_vector": "rollback",
+      "preconditions": [
+        "Independent rollback mechanisms",
+        "No coordinated rollback",
+        "Asymmetric recovery"
+      ],
+      "expected_violation": "Asymmetric rollback across systems",
+      "observable_signal": "Asymmetric rollback across systems",
+      "severity": "critical",
+      "mitigation": "Coordinated rollback. Distributed transaction integrity. Cross-system recovery.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CROSS-V8-OMITTED",
+      "class": "cross_domain",
+      "description": "Cross-domain invariants can be broken by hiding interactions",
+      "attack_vector": "omitted_traces",
+      "preconditions": [
+        "Cross-system tracing incomplete",
+        "Interactions can be hidden",
+        "Verification per-system only"
+      ],
+      "expected_violation": "Missing cross-system interaction records",
+      "observable_signal": "Missing cross-system interaction records",
+      "severity": "critical",
+      "mitigation": "Complete cross-system tracing. Distributed trace recording. Cross-system audit trail.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CROSS-V9-AMBIGUOUS",
+      "class": "cross_domain",
+      "description": "Cross-domain invariants can be broken by ambiguous cross-system semantics",
+      "attack_vector": "ambiguous_semantic_mapping",
+      "preconditions": [
+        "Semantic mapping ambiguous",
+        "Cross-system interpretation divergence",
+        "Integration uses inconsistent mappings"
+      ],
+      "expected_violation": "Cross-system semantic mismatches",
+      "observable_signal": "Cross-system semantic mismatches",
+      "severity": "critical",
+      "mitigation": "Unambiguous cross-system semantics. Canonical interface definitions. Semantic mapping validation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CROSS-V10-UPGRADE",
+      "class": "cross_domain",
+      "description": "Cross-domain invariants can be broken by single-system upgrade",
+      "attack_vector": "upgrade_exploitation",
+      "preconditions": [
+        "Independent upgrade schedules",
+        "Version mismatch possible",
+        "Cross-version compatibility not guaranteed"
+      ],
+      "expected_violation": "Cross-system failures after single-system upgrade",
+      "observable_signal": "Cross-system failures after single-system upgrade",
+      "severity": "critical",
+      "mitigation": "Coordinated upgrades. Cross-system version compatibility. Upgrade synchronization.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CROSS-V11-DRIFT",
+      "class": "cross_domain",
+      "description": "Cross-domain invariants can be broken by policy divergence",
+      "attack_vector": "policy_drift",
+      "preconditions": [
+        "Independent policy governance",
+        "Policy divergence possible",
+        "No cross-system policy coordination"
+      ],
+      "expected_violation": "Policy divergence across systems",
+      "observable_signal": "Policy divergence across systems",
+      "severity": "high",
+      "mitigation": "Cross-system policy coordination. Policy compatibility requirements. Distributed policy governance.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CROSS-V12-TEST",
+      "class": "cross_domain",
+      "description": "Cross-domain invariants can be broken while tests pass via isolation",
+      "attack_vector": "test_passage",
+      "preconditions": [
+        "Tests per-system only",
+        "Composition not tested",
+        "Cross-system edge cases uncovered"
+      ],
+      "expected_violation": "Cross-system failures only in production",
+      "observable_signal": "Cross-system failures only in production",
+      "severity": "critical",
+      "mitigation": "Cross-system integration testing. Composition testing. End-to-end validation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CROSS-V13-LOCAL",
+      "class": "cross_domain",
+      "description": "Cross-domain invariants can be broken while local verification passes",
+      "attack_vector": "local_verification_passage",
+      "preconditions": [
+        "Local verification only",
+        "Cross-system validation absent",
+        "Composition invariants not checked"
+      ],
+      "expected_violation": "Local validity, cross-system invalidity",
+      "observable_signal": "Local validity, cross-system invalidity",
+      "severity": "critical",
+      "mitigation": "Cross-system validation. Composition invariant checking. Distributed verification.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "CROSS-V14-PROOF",
+      "class": "cross_domain",
+      "description": "Cross-domain invariants can be broken while proof remains valid via underconstraint",
+      "attack_vector": "proof_validity_preservation",
+      "preconditions": [
+        "Cross-domain invariants not constrained",
+        "Verifier per-system only",
+        "Underconstrained composition"
+      ],
+      "expected_violation": "Verifiable proofs with cross-system violations",
+      "observable_signal": "Verifiable proofs with cross-system violations",
+      "severity": "catastrophic",
+      "mitigation": "Cross-domain invariants in constraints. Composition encoding in proofs. Cross-system constraint coverage.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "POLICY-V1-BYPASS",
+      "class": "policy_consistency",
+      "description": "Policy consistency can be bypassed via technicality exploitation",
+      "attack_vector": "bypass",
+      "preconditions": [
+        "Policy wording incomplete",
+        "Intent not fully specified",
+        "Technical bypass possible"
+      ],
+      "expected_violation": "Actions satisfying policy letter but violating intent",
+      "observable_signal": "Actions satisfying policy letter but violating intent",
+      "severity": "high",
+      "mitigation": "Policy intent explicit. Intent-based validation. Policy completeness.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "POLICY-V2-VACUOUS",
+      "class": "policy_consistency",
+      "description": "Policy consistency can be satisfied vacuously by no requirements",
+      "attack_vector": "vacuous_satisfaction",
+      "preconditions": [
+        "Policy not defined",
+        "Default allow",
+        "No policy constraints"
+      ],
+      "expected_violation": "No policy enforcement",
+      "observable_signal": "No policy enforcement",
+      "severity": "critical",
+      "mitigation": "Explicit policy requirements. Policy enforcement. Policy completeness.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "POLICY-V3-CONFIG",
+      "class": "policy_consistency",
+      "description": "Policy consistency can be weakened by lenient interpretation",
+      "attack_vector": "configuration_weakening",
+      "preconditions": [
+        "Policy interpretation configurable",
+        "Strictness reducible",
+        "Governance control over interpretation"
+      ],
+      "expected_violation": "Policy interpretation drifting via configuration",
+      "observable_signal": "Policy interpretation drifting via configuration",
+      "severity": "high",
+      "mitigation": "Policy interpretation fixed. No configuration of policy semantics. Objective policy criteria.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "POLICY-V4-REORDER",
+      "class": "policy_consistency",
+      "description": "Policy consistency can be broken by reordering policy changes",
+      "attack_vector": "reordering",
+      "preconditions": [
+        "Policy changes reversible",
+        "Ordering affects outcome",
+        "No cumulative policy enforcement"
+      ],
+      "expected_violation": "Policy effective set dependent on change order",
+      "observable_signal": "Policy effective set dependent on change order",
+      "severity": "high",
+      "mitigation": "Policy accumulation (additive only). No policy reversion. Policy ordering invariants.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "POLICY-V5-PARTIAL",
+      "class": "policy_consistency",
+      "description": "Policy consistency can be broken by partial policy application",
+      "attack_vector": "partial_execution",
+      "preconditions": [
+        "Complex multi-part policies",
+        "Partial application possible",
+        "No atomicity"
+      ],
+      "expected_violation": "Partially applied policies",
+      "observable_signal": "Partially applied policies",
+      "severity": "high",
+      "mitigation": "Atomic policy application. All-or-nothing policy changes. Policy rollback on partial failure.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "POLICY-V6-CONCURRENT",
+      "class": "policy_consistency",
+      "description": "Policy consistency can be broken by conflicting concurrent changes",
+      "attack_vector": "concurrency",
+      "preconditions": [
+        "Concurrent policy changes",
+        "No conflict resolution",
+        "Changes interfere"
+      ],
+      "expected_violation": "Conflicting policy changes",
+      "observable_signal": "Conflicting policy changes",
+      "severity": "high",
+      "mitigation": "Sequential policy changes. Policy conflict detection. Policy change serialization.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "POLICY-V7-ROLLBACK",
+      "class": "policy_consistency",
+      "description": "Policy consistency can be broken by rollback removing commitments",
+      "attack_vector": "rollback",
+      "preconditions": [
+        "Policy rollback possible",
+        "Commitments reversible",
+        "No policy permanence"
+      ],
+      "expected_violation": "Policy rollbacks breaking commitments",
+      "observable_signal": "Policy rollbacks breaking commitments",
+      "severity": "critical",
+      "mitigation": "Immutable policy commitments. No policy rollback. Policy permanence guarantees.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "POLICY-V8-OMITTED",
+      "class": "policy_consistency",
+      "description": "Policy consistency can be broken by hiding changes from audit",
+      "attack_vector": "omitted_traces",
+      "preconditions": [
+        "Policy logging incomplete",
+        "Changes can be hidden",
+        "Verification trace-dependent"
+      ],
+      "expected_violation": "Behavioral changes without policy records",
+      "observable_signal": "Behavioral changes without policy records",
+      "severity": "high",
+      "mitigation": "Complete policy logging. Policy changes in trace. Policy audit trail.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "POLICY-V9-AMBIGUOUS",
+      "class": "policy_consistency",
+      "description": "Policy consistency can be broken by ambiguous policy specification",
+      "attack_vector": "ambiguous_semantic_mapping",
+      "preconditions": [
+        "Policy semantics ambiguous",
+        "Multiple interpretations",
+        "Component divergence"
+      ],
+      "expected_violation": "Same policy applied differently across components",
+      "observable_signal": "Same policy applied differently across components",
+      "severity": "critical",
+      "mitigation": "Unambiguous policy specification. Formal policy semantics. Policy interpretation validation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "POLICY-V10-UPGRADE",
+      "class": "policy_consistency",
+      "description": "Policy consistency can be broken by upgrade changing semantics retroactively",
+      "attack_vector": "upgrade_exploitation",
+      "preconditions": [
+        "Policy semantics versioned",
+        "Upgrade changes interpretation",
+        "Retroactive reinterpretation"
+      ],
+      "expected_violation": "Policy reinterpretation across versions",
+      "observable_signal": "Policy reinterpretation across versions",
+      "severity": "critical",
+      "mitigation": "Immutable policy semantics. Policy compatibility across versions. Version-specific policy validation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "POLICY-V11-DRIFT",
+      "class": "policy_consistency",
+      "description": "Policy consistency can be broken by gradual policy drift",
+      "attack_vector": "policy_drift",
+      "preconditions": [
+        "Policy updatable",
+        "Incremental changes acceptable",
+        "No cumulative analysis"
+      ],
+      "expected_violation": "Policy meaning shifting over time",
+      "observable_signal": "Policy meaning shifting over time",
+      "severity": "high",
+      "mitigation": "Policy intent preservation. Policy drift detection. Cumulative impact analysis.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "POLICY-V12-TEST",
+      "class": "policy_consistency",
+      "description": "Policy consistency can be broken while tests pass via edge cases",
+      "attack_vector": "test_passage",
+      "preconditions": [
+        "Test policies simple",
+        "Production policies complex",
+        "Edge cases untested"
+      ],
+      "expected_violation": "Policy inconsistencies in edge cases",
+      "observable_signal": "Policy inconsistencies in edge cases",
+      "severity": "high",
+      "mitigation": "Comprehensive policy testing. Edge case analysis. Policy completeness verification.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "POLICY-V13-LOCAL",
+      "class": "policy_consistency",
+      "description": "Policy consistency can be broken while local verification passes",
+      "attack_vector": "local_verification_passage",
+      "preconditions": [
+        "Distributed policy interpretation",
+        "Local vs global consistency",
+        "Interpretation divergence"
+      ],
+      "expected_violation": "Policy interpretation divergence across nodes",
+      "observable_signal": "Policy interpretation divergence across nodes",
+      "severity": "critical",
+      "mitigation": "Global policy consistency. Canonical policy interpretation. Cross-node policy validation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "POLICY-V14-PROOF",
+      "class": "policy_consistency",
+      "description": "Policy consistency can be broken while proof remains valid via underconstraint",
+      "attack_vector": "proof_validity_preservation",
+      "preconditions": [
+        "Policy not constrained",
+        "Verifier doesn't check policy",
+        "Underconstrained system"
+      ],
+      "expected_violation": "Verifiable proofs violating policy",
+      "observable_signal": "Verifiable proofs violating policy",
+      "severity": "catastrophic",
+      "mitigation": "Policy encoding in constraints. Policy witness in proofs. Policy constraint coverage.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ACCESS-V1-BYPASS",
+      "class": "access_control",
+      "description": "Access control can be bypassed via unchecked paths",
+      "attack_vector": "bypass",
+      "preconditions": [
+        "Permission check in some paths",
+        "Bypass path exists",
+        "Access control incomplete"
+      ],
+      "expected_violation": "Unauthorized resource access",
+      "observable_signal": "Unauthorized resource access",
+      "severity": "critical",
+      "mitigation": "Mandatory access control (all paths). Permission checks at entry points. Access control completeness proof.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ACCESS-V2-VACUOUS",
+      "class": "access_control",
+      "description": "Access control can be satisfied vacuously by universal permissions",
+      "attack_vector": "vacuous_satisfaction",
+      "preconditions": [
+        "Access control not configured",
+        "Default allow",
+        "No permission restrictions"
+      ],
+      "expected_violation": "No access control enforcement",
+      "observable_signal": "No access control enforcement",
+      "severity": "critical",
+      "mitigation": "Default-deny access control. Explicit permission grants. Access control policy definition.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ACCESS-V3-CONFIG",
+      "class": "access_control",
+      "description": "Access control can be weakened by broad permission grants",
+      "attack_vector": "configuration_weakening",
+      "preconditions": [
+        "Access permissions configurable",
+        "No permission bounds",
+        "Governance control"
+      ],
+      "expected_violation": "Broad permission grants via governance",
+      "observable_signal": "Broad permission grants via governance",
+      "severity": "critical",
+      "mitigation": "Access control invariants immutable. Governance cannot grant certain permissions. Permission upper bounds.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ACCESS-V4-REORDER",
+      "class": "access_control",
+      "description": "Access control can be broken by access before revocation effective",
+      "attack_vector": "reordering",
+      "preconditions": [
+        "Permission changes have delay",
+        "Resource usage front-runnable",
+        "Revocation not immediate"
+      ],
+      "expected_violation": "Resource access after revocation",
+      "observable_signal": "Resource access after revocation",
+      "severity": "high",
+      "mitigation": "Immediate revocation. Atomic permission changes. Access time validation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ACCESS-V5-PARTIAL",
+      "class": "access_control",
+      "description": "Access control can be broken by partial permission check",
+      "attack_vector": "partial_execution",
+      "preconditions": [
+        "Multi-factor access control",
+        "Partial check possible",
+        "Completion not required"
+      ],
+      "expected_violation": "Access with partial permission verification",
+      "observable_signal": "Access with partial permission verification",
+      "severity": "critical",
+      "mitigation": "Atomic permission checking. All factors required. Partial check rejection.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ACCESS-V6-CONCURRENT",
+      "class": "access_control",
+      "description": "Access control can be broken by concurrency using stale permissions",
+      "attack_vector": "concurrency",
+      "preconditions": [
+        "Check-then-act race",
+        "Permission mutable",
+        "No synchronization"
+      ],
+      "expected_violation": "Access using stale permissions",
+      "observable_signal": "Access using stale permissions",
+      "severity": "critical",
+      "mitigation": "Atomic permission validation. Time-of-use permission check. Access binding to permission.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ACCESS-V7-ROLLBACK",
+      "class": "access_control",
+      "description": "Access control can be broken by rollback restoring old permissions",
+      "attack_vector": "rollback",
+      "preconditions": [
+        "Rollback mechanism",
+        "Permissions reversible",
+        "Access control state mutable"
+      ],
+      "expected_violation": "Permission restoration via rollback",
+      "observable_signal": "Permission restoration via rollback",
+      "severity": "high",
+      "mitigation": "Permission changes immutable. No rollback of permissions. Permission history append-only.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ACCESS-V8-OMITTED",
+      "class": "access_control",
+      "description": "Access control can be broken by hiding unauthorized access",
+      "attack_vector": "omitted_traces",
+      "preconditions": [
+        "Access logging incomplete",
+        "Audit trail-dependent verification",
+        "Access can be hidden"
+      ],
+      "expected_violation": "Missing access records",
+      "observable_signal": "Missing access records",
+      "severity": "critical",
+      "mitigation": "Complete access logging. Access events in trace. Audit trail completeness.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ACCESS-V9-AMBIGUOUS",
+      "class": "access_control",
+      "description": "Access control can be broken by ambiguous permission semantics",
+      "attack_vector": "ambiguous_semantic_mapping",
+      "preconditions": [
+        "Permission semantics ambiguous",
+        "Context-dependent interpretation",
+        "System uses permissive interpretation"
+      ],
+      "expected_violation": "Permissions exceeding grantor intent",
+      "observable_signal": "Permissions exceeding grantor intent",
+      "severity": "high",
+      "mitigation": "Unambiguous permission definitions. Permission minimization. Permission semantics validation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ACCESS-V10-UPGRADE",
+      "class": "access_control",
+      "description": "Access control can be broken by upgrade expanding permissions retroactively",
+      "attack_vector": "upgrade_exploitation",
+      "preconditions": [
+        "Permission semantics versioned",
+        "Upgrade changes permissions",
+        "Retroactive permission expansion"
+      ],
+      "expected_violation": "Permission expansion in upgrades",
+      "observable_signal": "Permission expansion in upgrades",
+      "severity": "critical",
+      "mitigation": "Immutable permission semantics. Upgrade cannot change permissions. Permission compatibility.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ACCESS-V11-DRIFT",
+      "class": "access_control",
+      "description": "Access control can be broken by gradual permission expansion",
+      "attack_vector": "policy_drift",
+      "preconditions": [
+        "Access control policy governable",
+        "Incremental changes acceptable",
+        "No cumulative analysis"
+      ],
+      "expected_violation": "Expanding access control policies",
+      "observable_signal": "Expanding access control policies",
+      "severity": "high",
+      "mitigation": "Access control in protocol (immutable). Policy cannot override permissions. Strict permission minimization.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ACCESS-V12-TEST",
+      "class": "access_control",
+      "description": "Access control can be broken while tests pass via untested paths",
+      "attack_vector": "test_passage",
+      "preconditions": [
+        "Test coverage incomplete",
+        "Edge paths untested",
+        "Bypass exists in untested code"
+      ],
+      "expected_violation": "Access control bypass in production only",
+      "observable_signal": "Access control bypass in production only",
+      "severity": "critical",
+      "mitigation": "Complete path coverage. Access control completeness proof. Mandatory access control.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ACCESS-V13-LOCAL",
+      "class": "access_control",
+      "description": "Access control can be broken while local verification passes",
+      "attack_vector": "local_verification_passage",
+      "preconditions": [
+        "Distributed access control",
+        "Local vs global policy distinction",
+        "Policy inconsistency possible"
+      ],
+      "expected_violation": "Local/global access policy inconsistency",
+      "observable_signal": "Local/global access policy inconsistency",
+      "severity": "critical",
+      "mitigation": "Global access control enforcement. Policy consistency verification. Centralized access control.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ACCESS-V14-PROOF",
+      "class": "access_control",
+      "description": "Access control can be broken while proof remains valid via underconstraint",
+      "attack_vector": "proof_validity_preservation",
+      "preconditions": [
+        "Access control not in constraint system",
+        "Verifier doesn't check permissions",
+        "Underconstrained system"
+      ],
+      "expected_violation": "Verifiable proofs with access violations",
+      "observable_signal": "Verifiable proofs with access violations",
+      "severity": "catastrophic",
+      "mitigation": "Access control in constraints. Permission encoding in proofs. Access control constraint coverage.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "UPGRADE-V1-BYPASS",
+      "class": "upgrade",
+      "description": "Upgrade invariants can be bypassed via emergency paths",
+      "attack_vector": "bypass",
+      "preconditions": [
+        "Emergency upgrade mechanism",
+        "Safety checks bypassable",
+        "Upgrade validation incomplete"
+      ],
+      "expected_violation": "Upgrades without validation",
+      "observable_signal": "Upgrades without validation",
+      "severity": "critical",
+      "mitigation": "Mandatory upgrade validation. No emergency bypass. Upgrade safety proofs.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "UPGRADE-V2-VACUOUS",
+      "class": "upgrade",
+      "description": "Upgrade invariants can be satisfied vacuously by any upgrade valid",
+      "attack_vector": "vacuous_satisfaction",
+      "preconditions": [
+        "Upgrade validity not defined",
+        "Default allow",
+        "No upgrade constraints"
+      ],
+      "expected_violation": "Arbitrary upgrades accepted",
+      "observable_signal": "Arbitrary upgrades accepted",
+      "severity": "catastrophic",
+      "mitigation": "Strict upgrade validation. Compatibility requirements. Upgrade safety proofs.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "UPGRADE-V3-CONFIG",
+      "class": "upgrade",
+      "description": "Upgrade invariants can be weakened by reducing requirements",
+      "attack_vector": "configuration_weakening",
+      "preconditions": [
+        "Upgrade requirements configurable",
+        "Requirements reducible",
+        "Governance control"
+      ],
+      "expected_violation": "Declining upgrade validation",
+      "observable_signal": "Declining upgrade validation",
+      "severity": "critical",
+      "mitigation": "Immutable upgrade requirements. No configuration of upgrade safety. Protocol-level upgrade invariants.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "UPGRADE-V4-REORDER",
+      "class": "upgrade",
+      "description": "Upgrade invariants can be broken by reordering migration and logic",
+      "attack_vector": "reordering",
+      "preconditions": [
+        "Upgrade has multiple components",
+        "Ordering not enforced",
+        "Migration and logic separable"
+      ],
+      "expected_violation": "Logic/state version mismatch",
+      "observable_signal": "Logic/state version mismatch",
+      "severity": "critical",
+      "mitigation": "Atomic upgrade execution. Component ordering enforcement. Upgrade step dependencies.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "UPGRADE-V5-PARTIAL",
+      "class": "upgrade",
+      "description": "Upgrade invariants can be broken by partial execution",
+      "attack_vector": "partial_execution",
+      "preconditions": [
+        "Multi-step upgrade",
+        "Partial execution possible",
+        "No rollback on failure"
+      ],
+      "expected_violation": "Partial upgrade state",
+      "observable_signal": "Partial upgrade state",
+      "severity": "critical",
+      "mitigation": "Atomic upgrade semantics. All-or-nothing upgrade. Upgrade rollback capability.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "UPGRADE-V6-CONCURRENT",
+      "class": "upgrade",
+      "description": "Upgrade invariants can be broken by concurrent upgrades",
+      "attack_vector": "concurrency",
+      "preconditions": [
+        "Concurrent upgrade execution",
+        "No mutual exclusion",
+        "Upgrade interference possible"
+      ],
+      "expected_violation": "Concurrent upgrade conflicts",
+      "observable_signal": "Concurrent upgrade conflicts",
+      "severity": "critical",
+      "mitigation": "Sequential upgrade execution. Upgrade locking. Single upgrade at a time.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "UPGRADE-V7-ROLLBACK",
+      "class": "upgrade",
+      "description": "Upgrade invariants can be broken by rollback",
+      "attack_vector": "rollback",
+      "preconditions": [
+        "Upgrade reversible",
+        "Rollback mechanism",
+        "Version reversion possible"
+      ],
+      "expected_violation": "Version rollback after upgrade",
+      "observable_signal": "Version rollback after upgrade",
+      "severity": "critical",
+      "mitigation": "Upgrades irreversible. No rollback to old versions. Upgrade finality.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "UPGRADE-V8-OMITTED",
+      "class": "upgrade",
+      "description": "Upgrade invariants can be broken by hiding upgrades from audit",
+      "attack_vector": "omitted_traces",
+      "preconditions": [
+        "Upgrade logging incomplete",
+        "Audit trail-dependent verification",
+        "Upgrade can be hidden"
+      ],
+      "expected_violation": "Behavioral changes without upgrade records",
+      "observable_signal": "Behavioral changes without upgrade records",
+      "severity": "critical",
+      "mitigation": "Complete upgrade logging. Upgrade events in trace. Upgrade audit trail.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "UPGRADE-V9-AMBIGUOUS",
+      "class": "upgrade",
+      "description": "Upgrade invariants can be broken by ambiguous state migration",
+      "attack_vector": "ambiguous_semantic_mapping",
+      "preconditions": [
+        "State mapping ambiguous",
+        "Multiple valid migrations",
+        "Migration uses incorrect mapping"
+      ],
+      "expected_violation": "State migration producing unexpected results",
+      "observable_signal": "State migration producing unexpected results",
+      "severity": "critical",
+      "mitigation": "Unambiguous state mapping. Migration validation. Semantic preservation proofs.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "UPGRADE-V10-UPGRADE",
+      "class": "upgrade",
+      "description": "Upgrade invariants can be broken by meta-upgrade",
+      "attack_vector": "upgrade_exploitation",
+      "preconditions": [
+        "Upgrade mechanism versioned",
+        "Self-modifying upgrades",
+        "Safety checks removable"
+      ],
+      "expected_violation": "Upgrade mechanism changes removing safety",
+      "observable_signal": "Upgrade mechanism changes removing safety",
+      "severity": "catastrophic",
+      "mitigation": "Immutable upgrade invariants. Self-upgrade restrictions. Upgrade mechanism verification.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "UPGRADE-V11-DRIFT",
+      "class": "upgrade",
+      "description": "Upgrade invariants can be broken by gradual process relaxation",
+      "attack_vector": "policy_drift",
+      "preconditions": [
+        "Upgrade policy governable",
+        "Incremental changes acceptable",
+        "No cumulative analysis"
+      ],
+      "expected_violation": "Upgrade process weakening over time",
+      "observable_signal": "Upgrade process weakening over time",
+      "severity": "critical",
+      "mitigation": "Upgrade invariants in protocol (immutable). Policy cannot affect upgrade safety. Strict upgrade requirements.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "UPGRADE-V12-TEST",
+      "class": "upgrade",
+      "description": "Upgrade invariants can be broken while tests pass via edge cases",
+      "attack_vector": "test_passage",
+      "preconditions": [
+        "Test upgrades simple",
+        "Production upgrades complex",
+        "Edge cases untested"
+      ],
+      "expected_violation": "Upgrade failures in production edge cases",
+      "observable_signal": "Upgrade failures in production edge cases",
+      "severity": "critical",
+      "mitigation": "Comprehensive upgrade testing. Property-based upgrade testing. Formal upgrade verification.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "UPGRADE-V13-LOCAL",
+      "class": "upgrade",
+      "description": "Upgrade invariants can be broken while local verification passes",
+      "attack_vector": "local_verification_passage",
+      "preconditions": [
+        "Distributed upgrade",
+        "Local vs global validation",
+        "Inconsistency possible"
+      ],
+      "expected_violation": "Divergent versions across network",
+      "observable_signal": "Divergent versions across network",
+      "severity": "critical",
+      "mitigation": "Global upgrade consensus. Cross-node upgrade validation. Coordinated upgrades.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "UPGRADE-V14-PROOF",
+      "class": "upgrade",
+      "description": "Upgrade invariants can be broken while proof remains valid via underconstraint",
+      "attack_vector": "proof_validity_preservation",
+      "preconditions": [
+        "Upgrade invariants not constrained",
+        "Verifier doesn't check upgrades",
+        "Underconstrained system"
+      ],
+      "expected_violation": "Verifiable proofs for unsafe upgrades",
+      "observable_signal": "Verifiable proofs for unsafe upgrades",
+      "severity": "catastrophic",
+      "mitigation": "Upgrade invariants in constraints. Upgrade safety encoding. Upgrade constraint coverage.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ORDERING-V1-BYPASS",
+      "class": "ordering",
+      "description": "Ordering invariants can be bypassed by executing before prerequisite",
+      "attack_vector": "bypass",
+      "preconditions": [
+        "Dependency check bypassable",
+        "Prerequisite validation weak",
+        "Ordering not enforced"
+      ],
+      "expected_violation": "Operations executing without prerequisites",
+      "observable_signal": "Operations executing without prerequisites",
+      "severity": "critical",
+      "mitigation": "Dependency enforcement in protocol. Prerequisite validation mandatory. Ordering constraints in constraints.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ORDERING-V2-VACUOUS",
+      "class": "ordering",
+      "description": "Ordering invariants can be satisfied vacuously by no requirements",
+      "attack_vector": "vacuous_satisfaction",
+      "preconditions": [
+        "Ordering not defined",
+        "Default allow",
+        "No sequencing constraints"
+      ],
+      "expected_violation": "No ordering validation",
+      "observable_signal": "No ordering validation",
+      "severity": "high",
+      "mitigation": "Explicit ordering requirements. Dependency graph validation. Sequencing constraints.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ORDERING-V3-CONFIG",
+      "class": "ordering",
+      "description": "Ordering invariants can be weakened by disabling dependency checks",
+      "attack_vector": "configuration_weakening",
+      "preconditions": [
+        "Ordering configurable",
+        "Checks can be disabled",
+        "Governance control over ordering"
+      ],
+      "expected_violation": "Ordering checks disabled in configuration",
+      "observable_signal": "Ordering checks disabled in configuration",
+      "severity": "critical",
+      "mitigation": "Ordering invariants immutable. No configuration of ordering. Strict dependency enforcement.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ORDERING-V4-REORDER",
+      "class": "ordering",
+      "description": "Ordering invariants can be broken by transaction reordering (sandwich)",
+      "attack_vector": "reordering",
+      "preconditions": [
+        "Ordering influenceable",
+        "Price impact from order",
+        "Profit from reordering"
+      ],
+      "expected_violation": "Systematic profit from transaction ordering",
+      "observable_signal": "Systematic profit from transaction ordering",
+      "severity": "critical",
+      "mitigation": "Ordering invariants. Batch execution with uniform pricing. Commit-reveal schemes.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ORDERING-V5-PARTIAL",
+      "class": "ordering",
+      "description": "Ordering invariants can be broken by partial dependency satisfaction",
+      "attack_vector": "partial_execution",
+      "preconditions": [
+        "Partial dependency check",
+        "Incomplete validation",
+        "Dependencies checkable separately"
+      ],
+      "expected_violation": "Operations executing with partial prerequisites",
+      "observable_signal": "Operations executing with partial prerequisites",
+      "severity": "critical",
+      "mitigation": "All-or-nothing dependency checking. Complete prerequisite validation. Atomic dependency satisfaction.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ORDERING-V6-CONCURRENT",
+      "class": "ordering",
+      "description": "Ordering invariants can be broken by concurrency undefined ordering",
+      "attack_vector": "concurrency",
+      "preconditions": [
+        "Concurrent execution",
+        "No ordering between concurrent ops",
+        "Race condition exploitable"
+      ],
+      "expected_violation": "Undefined ordering in concurrent execution",
+      "observable_signal": "Undefined ordering in concurrent execution",
+      "severity": "critical",
+      "mitigation": "Sequential execution. Deterministic ordering. Concurrency control.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ORDERING-V7-ROLLBACK",
+      "class": "ordering",
+      "description": "Ordering invariants can be broken by rollback removing operations",
+      "attack_vector": "rollback",
+      "preconditions": [
+        "Rollback mechanism",
+        "Operations reversible",
+        "Ordering mutable"
+      ],
+      "expected_violation": "Operations disappearing from ordering",
+      "observable_signal": "Operations disappearing from ordering",
+      "severity": "high",
+      "mitigation": "No rollback of committed operations. Append-only operation history. Ordering immutability.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ORDERING-V8-OMITTED",
+      "class": "ordering",
+      "description": "Ordering invariants can be broken by hiding operations from trace",
+      "attack_vector": "omitted_traces",
+      "preconditions": [
+        "Trace recording incomplete",
+        "Ordering verification trace-dependent",
+        "Operations can be hidden"
+      ],
+      "expected_violation": "Ordering inconsistent with actual execution",
+      "observable_signal": "Ordering inconsistent with actual execution",
+      "severity": "critical",
+      "mitigation": "Complete trace recording. Ordering verification over full traces. Operation completeness.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ORDERING-V9-AMBIGUOUS",
+      "class": "ordering",
+      "description": "Ordering invariants can be broken by ambiguous dependency specification",
+      "attack_vector": "ambiguous_semantic_mapping",
+      "preconditions": [
+        "Dependency semantics ambiguous",
+        "Multiple interpretations",
+        "Constraint system uses weak interpretation"
+      ],
+      "expected_violation": "Dependencies treated as preferences not requirements",
+      "observable_signal": "Dependencies treated as preferences not requirements",
+      "severity": "high",
+      "mitigation": "Unambiguous dependency specification. Strict dependency semantics. Dependency validation.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ORDERING-V10-UPGRADE",
+      "class": "ordering",
+      "description": "Ordering invariants can be broken by upgrade changing dependencies",
+      "attack_vector": "upgrade_exploitation",
+      "preconditions": [
+        "Dependencies versioned",
+        "Upgrade changes dependencies",
+        "Old dependencies not enforced"
+      ],
+      "expected_violation": "Dependency changes in upgrades",
+      "observable_signal": "Dependency changes in upgrades",
+      "severity": "high",
+      "mitigation": "Immutable dependency invariants. Upgrade cannot remove dependencies. Dependency backward compatibility.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ORDERING-V11-DRIFT",
+      "class": "ordering",
+      "description": "Ordering invariants can be broken by gradual dependency relaxation",
+      "attack_vector": "policy_drift",
+      "preconditions": [
+        "Dependencies in policy",
+        "Policy update mechanism",
+        "Progressive weakening acceptable"
+      ],
+      "expected_violation": "Dependency graph simplifying over time",
+      "observable_signal": "Dependency graph simplifying over time",
+      "severity": "high",
+      "mitigation": "Dependencies in protocol (immutable). Policy cannot affect ordering. Strict dependency enforcement.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ORDERING-V12-TEST",
+      "class": "ordering",
+      "description": "Ordering invariants can be broken while tests pass via edge cases",
+      "attack_vector": "test_passage",
+      "preconditions": [
+        "Test ordering simple",
+        "Complex dependencies untested",
+        "Edge cases uncovered"
+      ],
+      "expected_violation": "Ordering failures in complex scenarios",
+      "observable_signal": "Ordering failures in complex scenarios",
+      "severity": "critical",
+      "mitigation": "Dependency graph analysis. Topological sorting verification. Ordering completeness testing.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ORDERING-V13-LOCAL",
+      "class": "ordering",
+      "description": "Ordering invariants can be broken while local verification passes",
+      "attack_vector": "local_verification_passage",
+      "preconditions": [
+        "Distributed ordering",
+        "Local vs global ordering distinction",
+        "Ordering inconsistency possible"
+      ],
+      "expected_violation": "Local ordering consistent, global inconsistent",
+      "observable_signal": "Local ordering consistent, global inconsistent",
+      "severity": "critical",
+      "mitigation": "Global ordering validation. Cross-node ordering verification. Distributed ordering consensus.",
+      "regression_test_required": true
+    },
+    {
+      "invariant_id": "ORDERING-V14-PROOF",
+      "class": "ordering",
+      "description": "Ordering invariants can be broken while proof remains valid via underconstraint",
+      "attack_vector": "proof_validity_preservation",
+      "preconditions": [
+        "Ordering not constrained",
+        "Verifier doesn't check ordering",
+        "Underconstrained system"
+      ],
+      "expected_violation": "Verifiable proofs with ordering violations",
+      "observable_signal": "Verifiable proofs with ordering violations",
+      "severity": "catastrophic",
+      "mitigation": "Ordering invariants in constraints. Dependency encoding in proofs. Ordering constraint coverage.",
+      "regression_test_required": true
+    }
+  ],
+  "statistics": {
+    "total_cases": 224,
+    "by_severity": {
+      "catastrophic": 32,
+      "critical": 112,
+      "high": 64,
+      "medium": 16
+    },
+    "by_class": {
+      "safety": 14,
+      "liveness": 14,
+      "authorization": 14,
+      "economic": 14,
+      "governance": 14,
+      "state_transition": 14,
+      "temporal": 14,
+      "ordering": 14,
+      "conservation": 14,
+      "access_control": 14,
+      "upgrade": 14,
+      "trace_integrity": 14,
+      "policy_consistency": 14,
+      "cryptographic_binding": 14,
+      "cross_domain": 14,
+      "semantic_equivalence": 14
+    },
+    "regression_test_coverage": {
+      "required": 224,
+      "implemented": 0,
+      "coverage_percent": 0
+    }
+  },
+  "cross_cutting_patterns": [
+    {
+      "pattern_id": "PATTERN-A",
+      "name": "Multi-Layer Invariant Collapse",
+      "description": "Multiple invariants collapse simultaneously when single assumption violated at lower layer",
+      "example": "Cryptographic binding failure cascades to trace integrity, safety, economic, and governance failures",
+      "mitigation": "Defense in depth; each layer assumes lower layers may fail"
+    },
+    {
+      "pattern_id": "PATTERN-B",
+      "name": "Temporal Accumulation Attacks",
+      "description": "Small per-step violations accumulate over time to violate global invariants",
+      "example": "Rounding error 0.0001 per transaction, 10^6 transactions = 100 units extracted",
+      "mitigation": "Bounded accumulation, cumulative error tracking"
+    },
+    {
+      "pattern_id": "PATTERN-C",
+      "name": "Proof-Validity Blindness",
+      "description": "System accepts proof as guarantee, ignoring that proof verifies wrong property",
+      "root_cause": "Specification/proof/execution misalignment",
+      "mitigation": "Specification-first proofs, property verification, semantic preservation validation"
+    },
+    {
+      "pattern_id": "PATTERN-D",
+      "name": "Configuration Cascade",
+      "description": "Single configuration change cascades through multiple invariants, weakening them all",
+      "example": "Security parameter reduction affecting cryptographic, access control, economic, and safety invariants",
+      "mitigation": "Configuration impact analysis, invariant preservation under config changes"
+    }
+  ],
+  "validation_checklist": {
+    "per_invariant": [
+      "Invariant formally defined",
+      "Invariant adversarially testable",
+      "Invariant encoded in constraints",
+      "Invariant verified in proofs",
+      "Invariant holds in operation"
+    ],
+    "per_attack_vector": [
+      "Attack scenario documented",
+      "Preconditions enumerated",
+      "Construction steps defined",
+      "Observable signal identified",
+      "Mitigation implemented",
+      "Regression test exists"
+    ]
+  }
+}

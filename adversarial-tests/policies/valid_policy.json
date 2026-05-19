@@ -1,0 +1,208 @@
+{
+  "schema_version": "1.0.0",
+  "policy_id": "pol_vsel_treasury_v1_mainnet",
+  "semantic_hash": "0x7a3f8e2d9c1b4a5e6f7d8c9b0a1e2f3d4c5b6a7e8f9d0c1b2a3e4f5d6c7b8a9",
+  "governance": {
+    "approved_at_block": 1500000,
+    "approved_by": "governance_vsel_main",
+    "approval_transaction": "0xabc123def456789abc123def456789abc123def456789abc123def456789abc1",
+    "approval_quorum": 7,
+    "approval_threshold": 10,
+    "semantic_manifest": {
+      "description": "VSEL Treasury Operations Policy - Mainnet",
+      "purpose": "Govern high-value treasury transactions with multi-layered security",
+      "reviewed_by": [
+        "security_audit_firm_a",
+        "community_reviewer_group",
+        "formal_verification_team"
+      ],
+      "disclosure_url": "ipfs://QmXyz123ABC456DEF/policy-manifest-vsel-treasury-v1.json"
+    }
+  },
+  "protocol_version": {
+    "min_version": 1,
+    "max_version": 2,
+    "expiry_block": 2500000
+  },
+  "domain_binding": {
+    "domain": "mainnet",
+    "domain_tag": "0x5643454c5f4d41494e4e4554",
+    "subdomain": "treasury.operations",
+    "environment": "production"
+  },
+  "constraints": {
+    "authorization": {
+      "type": "multisig",
+      "threshold": 3,
+      "total_signers": 5,
+      "signer_requirements": {
+        "min_hybrid_signatures": 3,
+        "signature_schemes": ["Ed25519", "ML-DSA-65"],
+        "key_refresh_interval": 2592000
+      },
+      "role_hierarchy": {
+        "admin": {
+          "can_override": false,
+          "inherits_constraints": true,
+          "additional_requirements": ["time_lock_additional_24h"]
+        },
+        "operator": {
+          "can_override": false,
+          "inherits_constraints": true,
+          "additional_requirements": []
+        },
+        "viewer": {
+          "can_override": false,
+          "inherits_constraints": true,
+          "additional_requirements": ["no_execution_rights"]
+        }
+      }
+    },
+    "temporal": {
+      "time_lock": {
+        "duration_seconds": 86400,
+        "min_delay_blocks": 7200,
+        "max_execution_window": 604800
+      },
+      "validity_window": {
+        "not_before": 1672531200,
+        "not_after": 1735689600
+      },
+      "rate_limit": {
+        "max_transactions_per_hour": 10,
+        "max_amount_per_day": 1000000000000000000000000
+      }
+    },
+    "economic": {
+      "amount_limits": {
+        "min_transaction_amount": 1000000000000000000,
+        "max_transaction_amount": 100000000000000000000000,
+        "daily_aggregate_limit": 500000000000000000000000
+      },
+      "balance_invariants": {
+        "require_positive_balance": true,
+        "conservation_of_value": true,
+        "no_dilution_without_minting_rights": true
+      }
+    },
+    "execution": {
+      "max_gas_limit": 10000000,
+      "required_confirmations": 12,
+      "revert_on_failure": true,
+      "atomic_execution": true
+    }
+  },
+  "actor_binding": {
+    "authorized_actors": [
+      {
+        "actor_id": "0x1234567890abcdef1234567890abcdef12345678",
+        "role": "treasury_manager",
+        "kyc_status": "verified",
+        "reputation_score": 95,
+        "public_key": {
+          "classical": "0xabcdef...",
+          "pqc": "0x123456..."
+        }
+      },
+      {
+        "actor_id": "0xabcdef1234567890abcdef1234567890abcdef12",
+        "role": "security_guardian",
+        "kyc_status": "verified",
+        "reputation_score": 98,
+        "public_key": {
+          "classical": "0xfedcba...",
+          "pqc": "0x654321..."
+        }
+      }
+    ],
+    "actor_verification": {
+      "require_on_chain_identity": true,
+      "require_reputation_threshold": 90,
+      "revoke_on_kyc_expiry": true
+    }
+  },
+  "context_requirements": {
+    "oracle_dependencies": [
+      {
+        "oracle_id": "price_feed_eth_usd",
+        "required_confidence": 0.95,
+        "max_staleness_seconds": 300,
+        "price_conditions": {
+          "min_price": 100000000000,
+          "max_price": 10000000000000
+        }
+      }
+    ],
+    "state_conditions": {
+      "require_contract_not_paused": true,
+      "require_no_emergency_active": true,
+      "require_upgrade_not_pending": true
+    },
+    "external_calls": {
+      "allowed_external_contracts": [
+        "0x treasury_vault",
+        "0x fee_manager"
+      ],
+      "forbidden_operations": ["selfdestruct", "delegatecall_to_unknown"]
+    }
+  },
+  "emergency_provisions": {
+    "emergency_override": {
+      "enabled": true,
+      "requires_multisig": true,
+      "emergency_threshold": 5,
+      "absolute_invariants": [
+        "total_supply_conservation",
+        "no_negative_balances"
+      ],
+      "max_duration_blocks": 1440,
+      "automatic_recovery": true,
+      "emergency_actions_log": "0x emergency_logger"
+    }
+  },
+  "conflict_resolution": {
+    "precedence": "most_restrictive",
+    "hierarchy": [
+      "absolute_invariants",
+      "global_constraints",
+      "domain_constraints",
+      "policy_constraints",
+      "role_exceptions"
+    ],
+    "on_conflict": "reject_and_log"
+  },
+  "compilation": {
+    "target_constraint_system": "plonkish",
+    "optimization_level": "security_first",
+    "formal_verification": {
+      "equivalence_proof": "0x proof_hash_abc123...",
+      "verified_by": "formal_verification_system_v2",
+      "verification_timestamp": 1672531200
+    }
+  },
+  "metadata": {
+    "created_at": 1672531200,
+    "created_by": "vsel_governance",
+    "last_modified": 1672531200,
+    "immutable": true,
+    "tags": ["treasury", "high-value", "production", "v1.0"],
+    "dependencies": [],
+    "supersedes": null
+  },
+  "audit_trail": {
+    "creation_transaction": "0x def789abc...",
+    "approval_votes": [
+      {
+        "voter": "0x voter1...",
+        "vote": "approve",
+        "signature": "0x sig1..."
+      },
+      {
+        "voter": "0x voter2...",
+        "vote": "approve",
+        "signature": "0x sig2..."
+      }
+    ],
+    "verification_status": "formally_verified"
+  }
+}

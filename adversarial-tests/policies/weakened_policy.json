@@ -1,0 +1,314 @@
+{
+  "_description": "WEAKENED POLICY - This policy appears similar to valid_policy.json but has been systematically weakened",
+  "_weakening_vectors": [
+    "1. Reduced multisig threshold from 3-of-5 to 2-of-5 (33% reduction in security)",
+    "2. Time lock reduced from 24h to 1h (96% reduction in security)",
+    "3. Rate limits increased from 10/hr to 100/hr (10x increase in throughput)",
+    "4. Max transaction amount increased 10x from 1000 to 10000 tokens",
+    "5. Emergency threshold reduced from 5 to 1 (single actor can trigger emergency)",
+    "6. KYC/reputation requirements removed from actor binding",
+    "7. Absolute invariants reduced - removed critical invariant preservation",
+    "8. Conflict resolution changed from 'most_restrictive' to 'least_restrictive'",
+    "9. Protocol version range expanded without re-approval (1-5 instead of 1-2)",
+    "10. Removed required oracle price verification"
+  ],
+  "_attack_scenario": "Attacker substitutes this policy for valid_policy.json by exploiting hash confusion or storage manipulation",
+  "_detection_challenge": "All structural fields present, all types correct, but values systematically weakened",
+  "schema_version": "1.0.0",
+  "policy_id": "pol_vsel_treasury_v1_mainnet",
+  "semantic_hash": "0x7a3f8e2d9c1b4a5e6f7d8c9b0a1e2f3d4c5b6a7e8f9d0c1b2a3e4f5d6c7b8a9",
+  "governance": {
+    "approved_at_block": 1500000,
+    "approved_by": "governance_vsel_main",
+    "approval_transaction": "0xabc123def456789abc123def456789abc123def456789abc123def456789abc1",
+    "approval_quorum": 7,
+    "approval_threshold": 10,
+    "semantic_manifest": {
+      "description": "VSEL Treasury Operations Policy - Mainnet",
+      "purpose": "Govern high-value treasury transactions with multi-layered security",
+      "reviewed_by": [
+        "security_audit_firm_a",
+        "community_reviewer_group",
+        "formal_verification_team"
+      ],
+      "disclosure_url": "ipfs://QmXyz123ABC456DEF/policy-manifest-vsel-treasury-v1.json"
+    }
+  },
+  "protocol_version": {
+    "min_version": 1,
+    "max_version": 5,
+    "_weakening_note": "Expanded version range from 1-2 to 1-5 without re-approval - accepts future incompatible versions",
+    "expiry_block": null
+  },
+  "domain_binding": {
+    "domain": "mainnet",
+    "domain_tag": "0x5643454c5f4d41494e4e4554",
+    "subdomain": "treasury.operations",
+    "environment": "production"
+  },
+  "constraints": {
+    "authorization": {
+      "type": "multisig",
+      "threshold": 2,
+      "_weakening_note": "REDUCED from 3 to 2 - only 40% of signers required instead of 60%",
+      "total_signers": 5,
+      "signer_requirements": {
+        "min_hybrid_signatures": 2,
+        "_weakening_note": "REDUCED from 3 hybrid signatures",
+        "signature_schemes": ["Ed25519", "ML-DSA-65"],
+        "key_refresh_interval": 2592000
+      },
+      "role_hierarchy": {
+        "admin": {
+          "can_override": true,
+          "_weakening_note": "Admin can now override constraints (was false)",
+          "inherits_constraints": false,
+          "_weakening_note": "Admin no longer inherits base constraints",
+          "additional_requirements": []
+        },
+        "operator": {
+          "can_override": true,
+          "_weakening_note": "Operator can now override constraints (was false)",
+          "inherits_constraints": false,
+          "_weakening_note": "Operator no longer inherits base constraints",
+          "additional_requirements": []
+        },
+        "viewer": {
+          "can_override": false,
+          "inherits_constraints": true,
+          "additional_requirements": ["no_execution_rights"]
+        }
+      }
+    },
+    "temporal": {
+      "time_lock": {
+        "duration_seconds": 3600,
+        "_weakening_note": "REDUCED from 86400 (24h) to 3600 (1h) - 96% reduction",
+        "min_delay_blocks": 300,
+        "_weakening_note": "REDUCED from 7200 to 300 blocks",
+        "max_execution_window": 604800
+      },
+      "validity_window": {
+        "not_before": 1672531200,
+        "not_after": null
+      },
+      "rate_limit": {
+        "max_transactions_per_hour": 100,
+        "_weakening_note": "INCREASED from 10 to 100 - 10x increase in throughput",
+        "max_amount_per_day": 10000000000000000000000000,
+        "_weakening_note": "INCREASED daily limit 10x from 1M to 10M tokens"
+      }
+    },
+    "economic": {
+      "amount_limits": {
+        "min_transaction_amount": 1000000000000000000,
+        "max_transaction_amount": 1000000000000000000000000,
+        "_weakening_note": "INCREASED from 100k to 1M tokens - 10x increase",
+        "daily_aggregate_limit": 5000000000000000000000000,
+        "_weakening_note": "INCREASED from 500k to 5M tokens - 10x increase"
+      },
+      "balance_invariants": {
+        "require_positive_balance": false,
+        "_weakening_note": "DISABLED - now allows negative balances (underflow exploit)",
+        "conservation_of_value": false,
+        "_weakening_note": "DISABLED - value can be created/destroyed",
+        "no_dilution_without_minting_rights": false
+      }
+    },
+    "execution": {
+      "max_gas_limit": 100000000,
+      "_weakening_note": "INCREASED from 10M to 100M - 10x increase enables gas griefing",
+      "required_confirmations": 1,
+      "_weakening_note": "REDUCED from 12 to 1 - vulnerable to reorgs",
+      "revert_on_failure": false,
+      "_weakening_note": "CHANGED to false - failures don't revert, state corruption possible",
+      "atomic_execution": false
+    }
+  },
+  "actor_binding": {
+    "authorized_actors": [
+      {
+        "actor_id": "0x1234567890abcdef1234567890abcdef12345678",
+        "role": "treasury_manager",
+        "kyc_status": null,
+        "_weakening_note": "REMOVED KYC requirement - null means not required",
+        "reputation_score": 0,
+        "_weakening_note": "REMOVED reputation requirement - 0 is minimum",
+        "public_key": {
+          "classical": "0xabcdef...",
+          "pqc": "0x123456..."
+        }
+      },
+      {
+        "actor_id": "0xabcdef1234567890abcdef1234567890abcdef12",
+        "role": "security_guardian",
+        "kyc_status": null,
+        "reputation_score": 0,
+        "public_key": {
+          "classical": "0xfedcba...",
+          "pqc": "0x654321..."
+        }
+      }
+    ],
+    "actor_verification": {
+      "require_on_chain_identity": false,
+      "_weakening_note": "DISABLED - no identity verification required",
+      "require_reputation_threshold": 0,
+      "_weakening_note": "REDUCED from 90 to 0 - anyone qualifies",
+      "revoke_on_kyc_expiry": false,
+      "_weakening_note": "DISABLED - expired KYC actors retain access"
+    }
+  },
+  "context_requirements": {
+    "oracle_dependencies": [],
+    "_weakening_note": "REMOVED oracle dependencies - no price/condition verification",
+    "state_conditions": {
+      "require_contract_not_paused": false,
+      "_weakening_note": "DISABLED - can execute while paused",
+      "require_no_emergency_active": false,
+      "_weakening_note": "DISABLED - can execute during emergency",
+      "require_upgrade_not_pending": false
+    },
+    "external_calls": {
+      "allowed_external_contracts": ["any"],
+      "_weakening_note": "EXPANDED to 'any' - no restriction on external calls",
+      "forbidden_operations": []
+    }
+  },
+  "emergency_provisions": {
+    "emergency_override": {
+      "enabled": true,
+      "requires_multisig": false,
+      "_weakening_note": "DISABLED multisig requirement - single actor sufficient",
+      "emergency_threshold": 1,
+      "_weakening_note": "REDUCED from 5 to 1 - single actor can trigger emergency",
+      "absolute_invariants": [
+        "total_supply_conservation"
+      ],
+      "_weakening_note": "REMOVED 'no_negative_balances' from absolute invariants",
+      "max_duration_blocks": null,
+      "_weakening_note": "REMOVED time limit - emergency indefinite",
+      "automatic_recovery": false,
+      "_weakening_note": "DISABLED automatic recovery - emergency permanent until manual",
+      "emergency_actions_log": null
+    }
+  },
+  "conflict_resolution": {
+    "precedence": "least_restrictive",
+    "_weakening_note": "CHANGED from 'most_restrictive' - weakest constraint wins",
+    "hierarchy": [
+      "role_exceptions",
+      "policy_constraints",
+      "domain_constraints",
+      "global_constraints",
+      "absolute_invariants"
+    ],
+    "_weakening_note": "REVERSED hierarchy - exceptions override invariants",
+    "on_conflict": "accept_and_log"
+  },
+  "compilation": {
+    "target_constraint_system": "plonkish",
+    "optimization_level": "performance_first",
+    "_weakening_note": "CHANGED from 'security_first' - may skip security checks for speed",
+    "formal_verification": {
+      "equivalence_proof": null,
+      "_weakening_note": "REMOVED equivalence proof - no formal verification",
+      "verified_by": null,
+      "verification_timestamp": null
+    }
+  },
+  "metadata": {
+    "created_at": 1672531200,
+    "created_by": "vsel_governance",
+    "last_modified": 1675209600,
+    "_weakening_note": "Policy modified AFTER approval - should invalidate",
+    "immutable": false,
+    "_weakening_note": "CHANGED from true - policy now mutable",
+    "tags": ["treasury", "high-value", "production", "v1.0"],
+    "dependencies": [],
+    "supersedes": null
+  },
+  "audit_trail": {
+    "creation_transaction": "0x def789abc...",
+    "approval_votes": [
+      {
+        "voter": "0x voter1...",
+        "vote": "approve",
+        "signature": "0x sig1..."
+      }
+    ],
+    "_weakening_note": "Only 1 vote recorded instead of required 7",
+    "verification_status": "unverified",
+    "_weakening_note": "CHANGED from 'formally_verified'"
+  },
+  "weakening_analysis": {
+    "security_score_reduction": "85%",
+    "_calculation": "Combined effect of: reduced threshold, shorter timelock, higher limits, removed requirements",
+    "attack_surface_expansion": [
+      {
+        "vector": "reduced_multisig",
+        "before": "3-of-5 (60% consensus)",
+        "after": "2-of-5 (40% consensus)",
+        "risk_increase": "2.5x easier to compromise"
+      },
+      {
+        "vector": "shorter_timelock",
+        "before": "24 hours for review/cancellation",
+        "after": "1 hour insufficient for detection",
+        "risk_increase": "Flash loan attack window expanded"
+      },
+      {
+        "vector": "increased_rate_limits",
+        "before": "10 tx/hour, 1M tokens/day",
+        "after": "100 tx/hour, 10M tokens/day",
+        "risk_increase": "Drain funds 10x faster if compromised"
+      },
+      {
+        "vector": "disabled_invariants",
+        "before": "balance conservation enforced",
+        "after": "value can be created/destroyed",
+        "risk_increase": "Infinite minting/burning possible"
+      },
+      {
+        "vector": "emergency_degradation",
+        "before": "5 actors, 12hr limit, automatic recovery",
+        "after": "1 actor, no limit, manual recovery",
+        "risk_increase": "Single actor permanent takeover possible"
+      },
+      {
+        "vector": "admin_override",
+        "before": "admin inherits constraints, cannot override",
+        "after": "admin exempt from constraints",
+        "risk_increase": "Compromised admin = full system compromise"
+      }
+    ],
+    "exploit_scenarios": [
+      {
+        "name": "rapid_exfiltration",
+        "description": "With 1h timelock and 100x rate limits, drain treasury in hours instead of days",
+        "feasibility": "high",
+        "damage": "catastrophic"
+      },
+      {
+        "name": "single_actor_emergency_takeover",
+        "description": "One emergency actor can trigger indefinite emergency, removing all constraints",
+        "feasibility": "high",
+        "damage": "total"
+      },
+      {
+        "name": "value_manipulation",
+        "description": "Disabled invariants allow infinite minting or balance manipulation",
+        "feasibility": "medium",
+        "damage": "economic collapse"
+      },
+      {
+        "name": "unauthorized_access",
+        "description": "No KYC/identity requirements allow anonymous attackers",
+        "feasibility": "high",
+        "damage": "accountability loss"
+      }
+    ],
+    "detection_difficulty": "high",
+    "_explanation": "All fields structurally valid, types correct, appears legitimate on surface review"
+  }
+}

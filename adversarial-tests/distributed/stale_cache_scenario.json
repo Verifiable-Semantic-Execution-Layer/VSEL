@@ -1,0 +1,191 @@
+{
+  "scenario_name": "Stale Cache Exploitation Attack",
+  "scenario_id": "STALECACHE-001",
+  "attack_class": "Stale Policy/Invariant Cache Exploitation",
+  "attack_reference": "Attack 11 and 12: Stale Policy/Invariant Cache Exploitation",
+  "document_reference": "DISTRIBUTED_FAILURE_ATTACKS.md",
+  "description": "Simulates exploitation of stale policy and invariant caches in distributed verifiers. Policy updates propagate slowly through the system, creating windows where some verifiers enforce outdated policies while others have updated policies.",
+  "severity": "CRITICAL",
+  "mitigation_target": "Synchronous Policy Updates, Policy Version Enforcement, Cache TTL, State-Root Binding",
+  "version": "1.0",
+  "created_at": "2025-01-15T00:00:00Z",
+  "last_modified": "2025-01-15T00:00:00Z",
+
+  "test_configuration": {
+    "duration_seconds": 360,
+    "network_model": "cache_enabled_mesh",
+    "total_verifiers": 5,
+    "quorum_threshold": 3,
+    "cache_configuration": {
+      "policy_cache": {
+        "enabled": true,
+        "ttl_seconds": 300,
+        "async_invalidation": true
+      },
+      "invariant_cache": {
+        "enabled": true,
+        "ttl_seconds": 180,
+        "state_root_binding": false
+      }
+    }
+  },
+
+  "verifier_topology": {
+    "verifiers": [
+      {
+        "id": "v0",
+        "region": "us-east-1",
+        "propagation_latency_ms": 0,
+        "role": "coordinator"
+      },
+      {
+        "id": "v1",
+        "region": "us-east-1",
+        "propagation_latency_ms": 100
+      },
+      {
+        "id": "v2",
+        "region": "eu-west-1",
+        "propagation_latency_ms": 3000
+      },
+      {
+        "id": "v3",
+        "region": "eu-west-1",
+        "propagation_latency_ms": 3500
+      },
+      {
+        "id": "v4",
+        "region": "ap-southeast-1",
+        "propagation_latency_ms": 8000
+      }
+    ]
+  },
+
+  "execution_phases": [
+    {
+      "phase": 1,
+      "name": "baseline_consensus",
+      "duration_seconds": 30,
+      "description": "All verifiers operational with consistent policy version 1.0.0"
+    },
+    {
+      "phase": 2,
+      "name": "emergency_policy_update",
+      "duration_seconds": 10,
+      "description": "Emergency policy update committed to block exploitation attempt"
+    },
+    {
+      "phase": 3,
+      "name": "stale_cache_exploitation_window",
+      "duration_seconds": 45,
+      "description": "Adversary exploits window where some verifiers still have stale policy"
+    },
+    {
+      "phase": 4,
+      "name": "invariant_cache_violation",
+      "duration_seconds": 30,
+      "description": "Invariant cache staleness allows violation of conservation invariant"
+    },
+    {
+      "phase": 5,
+      "name": "cache_propagation_completion",
+      "duration_seconds": 30,
+      "description": "All caches eventually converge to current policy and invariant state"
+    },
+    {
+      "phase": 6,
+      "name": "violation_detection_and_response",
+      "duration_seconds": 60,
+      "description": "System detects invariant violations from exploitation and responds"
+    }
+  ],
+
+  "attack_vectors": [
+    {
+      "vector_id": "CACHE-001",
+      "name": "Policy Cache Propagation Delay Exploitation",
+      "description": "Adversary identifies verifiers with stale policy cache and routes policy-violating transactions to them"
+    },
+    {
+      "vector_id": "CACHE-002",
+      "name": "Invariant Cache Staleness Exploitation",
+      "description": "Adversary exploits stale invariant cache to execute operations that violate current invariants"
+    },
+    {
+      "vector_id": "CACHE-003",
+      "name": "Selective Verifier Targeting",
+      "description": "Adversary monitors verifier cache states and dynamically routes to most favorable verifier"
+    }
+  ],
+
+  "invariant_checks": [
+    {
+      "invariant": "policy_consistency",
+      "description": "All verifiers enforce consistent policy version for any given transaction"
+    },
+    {
+      "invariant": "cache_freshness",
+      "description": "All cache entries reflect state no older than TTL threshold"
+    },
+    {
+      "invariant": "conservation_of_value",
+      "description": "Total value in system remains constant"
+    }
+  ],
+
+  "expected_vulnerabilities": {
+    "critical": [
+      "Emergency policy updates take 30+ seconds to propagate",
+      "Verifiers accept transactions under stale policy during propagation",
+      "No automatic rollback of exploited transactions"
+    ],
+    "high": [
+      "Cache TTL too long for emergency policy context",
+      "Async invalidation allows race conditions",
+      "No state-root binding on invariant cache entries"
+    ],
+    "medium": [
+      "Cache invalidation lacks priority queuing",
+      "No differential cache TTL for critical vs routine policies"
+    ]
+  },
+
+  "mitigation_verification": {
+    "tests": [
+      {
+        "test_id": "CACHE-MIT-001",
+        "description": "Verify synchronous policy updates prevent exploitation",
+        "expected_result": "exploitation_prevented"
+      },
+      {
+        "test_id": "CACHE-MIT-002",
+        "description": "Verify policy version enforcement rejects stale policy transactions",
+        "expected_result": "stale_policy_transactions_rejected"
+      },
+      {
+        "test_id": "CACHE-MIT-003",
+        "description": "Verify state-root binding invalidates stale invariant cache",
+        "expected_result": "cache_invalidated_on_state_change"
+      }
+    ],
+    "success_criteria": [
+      "Policy updates propagate to all verifiers within 5 seconds",
+      "No transactions accepted under stale policy after propagation completes",
+      "Invariant cache invalidates immediately on state-changing operations"
+    ]
+  },
+
+  "metadata": {
+    "author": "Mayckon Giovani - Principal Systems Engineer",
+    "review_status": "pending",
+    "automated_testable": true,
+    "tags": [
+      "stale_cache",
+      "policy_cache",
+      "invariant_cache",
+      "policy_evasion",
+      "invariant_violation",
+      "emergency_response"
+    ]
+  }
+}

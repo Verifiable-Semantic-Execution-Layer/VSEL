@@ -1,0 +1,273 @@
+{
+  "_description": "VSEL Stale Policy Trace - Attack: Policy-Version Mismatch",
+  "_purpose": "Demonstrates trace executed under old policy version being validated against new policy",
+  "_attack_class": "A-TRACE-POLICY",
+  "_vulnerability": "Policy version binding violation - trace not bound to active policy version",
+  "_attack_scenario": "Execute under permissive old policy, present for validation under restrictive new policy, bypassing new restrictions",
+  "trace_metadata": {
+    "trace_id": "0xd9h0...f38i",
+    "protocol_version": "1.0.0",
+    "policy_version": "1.0.0",
+    "_vulnerability": "Old policy version (1.0.0) while system is at 2.0.0",
+    "invariant_version": "3.0.0",
+    "execution_domain": "mainnet",
+    "chain_id": "0x1",
+    "timestamp": 1704067200,
+    "_execution_time": "Before policy update",
+    "block_height": 12345678,
+    "actor": {
+      "id": "0xattacker...0123",
+      "type": "contract",
+      "pubkey": "0x0123...mnop"
+    },
+    "initial_state_commitment": "0xf0a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234",
+    "final_state_commitment": "0xe1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef12345",
+    "trace_commitment": "0xd2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456",
+    "signature": "0xc3d4e5f6789012345678901234567890abcdef1234567890abcdef1234567...",
+    "signature_scheme": "ed25519",
+    "_attack_note": "Trace executed under policy v1.0.0 which allowed large transfers without delay. System now at v2.0.0 which requires delay for transfers >1000.",
+    "_policy_timeline": {
+      "t0": "Policy v1.0.0 active - no delay required for any transfer",
+      "t1": "Policy v2.0.0 activated - requires 24h delay for transfers >1000",
+      "t2": "This trace executed at t2 but policy_version field still shows v1.0.0",
+      "t3": "Validation at t3 should reject but may accept if policy_version not checked"
+    }
+  },
+  "_policy_versions": {
+    "v1.0.0": {
+      "description": "Original permissive policy",
+      "transfer_limits": "No limit",
+      "delay_requirements": "None",
+      "authorization": "Single signature sufficient",
+      "allowed_operations": ["transfer", "burn", "mint", "delegate"],
+      "rate_limits": "None"
+    },
+    "v2.0.0": {
+      "description": "Updated restrictive policy",
+      "transfer_limits": "Unlimited with constraints",
+      "delay_requirements": "24h delay for transfers >1000",
+      "authorization": "Multi-sig required for >1000",
+      "allowed_operations": ["transfer", "burn"],
+      "mint_requires_governance": true,
+      "rate_limits": "10000 per day per address",
+      "_activation_time": 1704067100
+    }
+  },
+  "_stale_policy_exploit": {
+    "_description": "Execute operation that is valid under old policy but violates new policy",
+    "operation": "Transfer 5000 tokens without delay or multi-sig",
+    "under_v1": "VALID - no restrictions",
+    "under_v2": "INVALID - requires delay + multi-sig",
+    "_attack_flow": [
+      "Attacker delays transaction until just before policy update",
+      "Executes large transfer under v1 rules",
+      "Trace records policy_version: 1.0.0",
+      "System updates to v2.0.0",
+      "Attacker presents trace for validation",
+      "If validator accepts policy_version field without checking activation time, trace passes",
+      "Result: Restrictive policy bypassed"
+    ]
+  },
+  "entries": [
+    {
+      "index": 0,
+      "transition_id": "tx0",
+      "operation_type": "transfer",
+      "operation_version": "1.0",
+      "_policy_violation_under_v2": "Transfer amount 5000 exceeds v2 threshold of 1000 without delay",
+      "pre_state": {
+        "commitment": "0xf0a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234",
+        "values": {
+          "balances": {
+            "0xsender...": "10000",
+            "0xrecipient...": "0"
+          },
+          "policy_state": {
+            "active_version": "2.0.0",
+            "_critical": "Policy v2.0.0 is active at execution time",
+            "activation_time": 1704067100,
+            "execution_time": 1704067200
+          }
+        }
+      },
+      "input": {
+        "from": "0xsender...",
+        "to": "0xrecipient...",
+        "amount": "5000",
+        "_v2_violation": "Amount >1000 requires delay under v2.0.0",
+        "nonce": 1,
+        "authorization": {
+          "signatures": [
+            {
+              "signer": "0xsender...",
+              "signature": "0xa1b2c3...",
+              "scheme": "ed25519"
+            }
+          ],
+          "_v2_violation": "Under v2.0.0, multi-sig required for amount >1000"
+        },
+        "_delay_compliance": {
+          "required_under_v2": true,
+          "delay_hours": 24,
+          "actual_delay": 0,
+          "_violation": "No delay provided despite v2 requirement"
+        }
+      },
+      "input_canonical": "0x5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6",
+      "post_state": {
+        "commitment": "0xa1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234a",
+        "values": {
+          "balances": {
+            "0xsender...": "5000",
+            "0xrecipient...": "5000"
+          }
+        }
+      },
+      "observable": {
+        "event_type": "Transfer",
+        "from": "0xsender...",
+        "to": "0xrecipient...",
+        "amount": "5000",
+        "gas_used": 21000,
+        "_policy_version_applied": "Claims v1.0.0 but v2.0.0 was active"
+      },
+      "environment": {
+        "timestamp": 1704067200,
+        "_critical": "Execution at t=1704067200, policy v2.0.0 activated at t=1704067100",
+        "policy_activation_time": 1704067100,
+        "block_height": 12345678,
+        "chain_id": "0x1"
+      },
+      "metadata": {
+        "gas_price": "20",
+        "execution_order": 0,
+        "causal_dependencies": [],
+        "previous_commitment": "0xf0a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef1234",
+        "_vulnerability": "Metadata shows policy_version: 1.0.0 but doesn't prove it was active at execution time"
+      },
+      "policy_metadata": {
+        "claimed_version": "1.0.0",
+        "_actual_active_version": "2.0.0",
+        "_violation": "Trace claims old policy but executed after new policy activation"
+      },
+      "chain_hash": "0x01a2b3c4d5e6f789012345678901234567890abcdef1234567890abcdef123456",
+      "entry_commitment": "0x12b3c4d5e6f789012345678901234567890abcdef1234567890abcdef1234567",
+      "signatures": [
+        {
+          "signer": "0xsender...",
+          "signature": "0xb3c4d5e6...",
+          "scheme": "ed25519"
+        }
+      ]
+    }
+  ],
+  "_policy_compliance_analysis": {
+    "under_claimed_v1": {
+      "delay_required": false,
+      "multi_sig_required": false,
+      "transfer_limit": "None",
+      "result": "COMPLIANT"
+    },
+    "under_actual_v2": {
+      "delay_required": true,
+      "delay_provided": false,
+      "multi_sig_required": true,
+      "multi_sig_provided": false,
+      "transfer_limit": "1000 threshold for restrictions",
+      "amount": "5000",
+      "result": "VIOLATION"
+    },
+    "_binding_failure": "Trace not cryptographically bound to active policy version at execution time"
+  },
+  "_policy_binding_requirements": {
+    "what_should_be_bound": [
+      "Active policy version hash at execution time",
+      "Policy activation timestamp",
+      "Proof that claimed policy was active",
+      "Policy registry inclusion proof"
+    ],
+    "verification_requirements": [
+      "Check execution time >= policy activation time",
+      "Verify claimed policy version was active at execution time",
+      "Reject traces claiming inactive policy versions",
+      "Use policy registry for version validation"
+    ]
+  },
+  "invariant_checks": [
+    {
+      "invariant_id": "policy_version_consistency",
+      "check_type": "context",
+      "at_entry": [0],
+      "satisfied": false,
+      "violation": "Trace claims policy v1.0.0 but v2.0.0 was active at execution",
+      "proof": "Execution timestamp 1704067200 > policy activation 1704067100"
+    },
+    {
+      "invariant_id": "policy_compliance",
+      "check_type": "safety",
+      "at_entry": [0],
+      "satisfied": false,
+      "violation": "Transfer violates v2.0.0 delay and multi-sig requirements",
+      "proof": "Amount 5000 > 1000 threshold, no delay, single signature"
+    },
+    {
+      "invariant_id": "policy_transition_validity",
+      "check_type": "temporal",
+      "at_entry": [0],
+      "satisfied": false,
+      "violation": "Old policy cannot be used after new policy activation",
+      "proof": null
+    }
+  ],
+  "verification_result": {
+    "complete": true,
+    "ordered": true,
+    "authentic": true,
+    "non_equivocating": true,
+    "replay_resistant": true,
+    "bound_to_intent": true,
+    "bound_to_policy": false,
+    "_policy_binding_failure": "Trace claims policy v1.0.0 but executed under v2.0.0 rules. No proof of active policy at execution time.",
+    "bound_to_invariant": true,
+    "bound_to_context": true,
+    "bound_to_actor": true,
+    "bound_to_time": true,
+    "bound_to_transitions": true,
+    "bound_to_external": true,
+    "auditable": false,
+    "_audit_failure": "Cannot verify which policy version was actually active",
+    "independently_verifiable": false
+  },
+  "expected_test_outcome": {
+    "verification": "REJECT",
+    "rejection_reason": "POLICY_VERSION_MISMATCH - Trace claims policy v1.0.0 but v2.0.0 was active at execution time (1704067200 > 1704067100)",
+    "constraint_satisfaction": "FAIL",
+    "_constraint_violations": [
+      "Missing delay requirement for large transfer under v2.0.0",
+      "Missing multi-signature requirement under v2.0.0"
+    ],
+    "proof_validity": "INVALID - Policy binding required",
+    "semantic_validity": "INVALID_UNDER_CURRENT_POLICY",
+    "invariant_preservation": "VIOLATED - Policy compliance invariant violated",
+    "_detection_vector": "Verifier must check policy version against policy registry at execution time",
+    "_specific_checks": [
+      "Verify execution timestamp >= policy activation timestamp",
+      "Check claimed policy version matches active version at execution time",
+      "Validate all policy requirements for operation type and amount",
+      "Reject traces with stale policy versions"
+    ],
+    "_policy_upgrade_protection": [
+      "Immutable policy registry with activation timestamps",
+      "Cryptographic binding of trace to active policy",
+      "Grace period for policy transitions",
+      "Explicit policy version validation in verifier"
+    ]
+  },
+  "_mitigation_strategies": {
+    "cryptographic_binding": "Include policy version hash in trace commitment: commitment = Hash(entry || policy_hash)",
+    "registry_validation": "Query policy registry to verify active version at execution time",
+    "activation_proofs": "Include proof that claimed policy was active (e.g., block height proof)",
+    "version_enforcement": "Verifier rejects any trace with policy version != current active version",
+    "transition_periods": "Disallow transactions during policy transition windows"
+  }
+}
