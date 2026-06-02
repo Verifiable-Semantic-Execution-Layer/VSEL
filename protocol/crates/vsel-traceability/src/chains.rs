@@ -102,7 +102,6 @@ impl std::fmt::Display for ChainStage {
     }
 }
 
-
 // ---------------------------------------------------------------------------
 // Validity period
 // ---------------------------------------------------------------------------
@@ -293,7 +292,6 @@ impl ChainLink {
     }
 }
 
-
 // ---------------------------------------------------------------------------
 // Compliance evidence chain
 // ---------------------------------------------------------------------------
@@ -334,7 +332,9 @@ pub enum ChainError {
 
     /// Timestamp ordering violation — a link's timestamp is before the
     /// previous link's timestamp.
-    #[error("timestamp ordering violation at stage {stage}: {timestamp} < previous {prev_timestamp}")]
+    #[error(
+        "timestamp ordering violation at stage {stage}: {timestamp} < previous {prev_timestamp}"
+    )]
     TimestampOrderViolation {
         stage: ChainStage,
         timestamp: u64,
@@ -380,9 +380,11 @@ impl ComplianceEvidenceChain {
     /// Returns `true` if the chain contains all five stages.
     pub fn is_complete(&self) -> bool {
         self.links.len() == 5
-            && self.links.iter().enumerate().all(|(i, link)| {
-                link.stage.index() == i
-            })
+            && self
+                .links
+                .iter()
+                .enumerate()
+                .all(|(i, link)| link.stage.index() == i)
     }
 
     /// Get the link for a specific stage.
@@ -565,7 +567,6 @@ impl ChainBuilder {
         Ok(self.build())
     }
 }
-
 
 // ---------------------------------------------------------------------------
 // Tests

@@ -14,8 +14,8 @@
 
 use std::collections::BTreeMap;
 
-use proptest::prelude::*;
 use proptest::collection::btree_map;
+use proptest::prelude::*;
 
 use vsel_core::input::*;
 use vsel_core::observable::{obs, Observable, TransitionStatus};
@@ -132,8 +132,12 @@ fn arb_protocol_version() -> impl Strategy<Value = ProtocolVersion> {
 
 /// Build a valid State from components by deriving all dependent fields.
 fn arb_valid_state() -> impl Strategy<Value = State> {
-    (arb_canonical_state(), arb_environment(), arb_trace_metadata()).prop_map(
-        |(canonical, environment, metadata)| {
+    (
+        arb_canonical_state(),
+        arb_environment(),
+        arb_trace_metadata(),
+    )
+        .prop_map(|(canonical, environment, metadata)| {
             let derived = derive(&canonical);
             let economic = derive_economic(&canonical, &environment);
             State {
@@ -143,8 +147,7 @@ fn arb_valid_state() -> impl Strategy<Value = State> {
                 economic,
                 metadata,
             }
-        },
-    )
+        })
 }
 
 /// Build a valid State at a specific non-genesis sequence index.
@@ -186,8 +189,8 @@ fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
         any::<u64>(),
         arb_domain_tag(),
     )
-        .prop_map(|(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| {
-            Authorization {
+        .prop_map(
+            |(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| Authorization {
                 classical_sig,
                 pqc_sig,
                 public_key: HybridPublicKey {
@@ -196,8 +199,8 @@ fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
                 },
                 nonce,
                 domain,
-            }
-        })
+            },
+        )
 }
 
 /// Generate a structurally valid Input.
@@ -209,10 +212,7 @@ fn arb_valid_input() -> impl Strategy<Value = Input> {
         prop::collection::vec(any::<u8>(), 0..64),
     )
         .prop_map(|(payload_type, data, auth, aux_data)| Input {
-            payload: Payload {
-                payload_type,
-                data,
-            },
+            payload: Payload { payload_type, data },
             auth,
             aux: AuxiliaryData { data: aux_data },
         })
@@ -246,7 +246,11 @@ fn minimal_canonical() -> CanonicalState {
         accounts: BTreeMap::new(),
         storage: BTreeMap::new(),
         system_data: SystemData {
-            protocol_version: ProtocolVersion { major: 0, minor: 1, patch: 0 },
+            protocol_version: ProtocolVersion {
+                major: 0,
+                minor: 1,
+                patch: 0,
+            },
             total_supply: 0,
             parameters: BTreeMap::new(),
         },
@@ -261,19 +265,32 @@ fn build_state_at_seq(c: CanonicalState, seq: u64) -> State {
         execution_domain: test_domain_tag(),
     };
     let econ = derive_economic(&c, &env);
-    let commitment = if seq == 0 { Hash([0u8; 32]) } else { Hash([0xABu8; 32]) };
+    let commitment = if seq == 0 {
+        Hash([0u8; 32])
+    } else {
+        Hash([0xABu8; 32])
+    };
     let meta = TraceMetadata {
         sequence_index: seq,
         previous_commitment: commitment,
         epoch: 0,
         timestamp: 1_000_000,
     };
-    State { canonical: c, derived: d, environment: env, economic: econ, metadata: meta }
+    State {
+        canonical: c,
+        derived: d,
+        environment: env,
+        economic: econ,
+        metadata: meta,
+    }
 }
 
 fn make_input(payload_type: &str, data: Vec<u8>) -> Input {
     Input {
-        payload: Payload { payload_type: payload_type.to_string(), data },
+        payload: Payload {
+            payload_type: payload_type.to_string(),
+            data,
+        },
         auth: valid_auth(),
         aux: AuxiliaryData { data: vec![] },
     }
@@ -288,7 +305,14 @@ fn make_deposit_input(account_id: [u8; 32], amount: u128) -> Input {
 
 fn canonical_with_account(id: [u8; 32], balance: u128) -> CanonicalState {
     let mut c = minimal_canonical();
-    c.accounts.insert(AccountId(id), AccountData { balance, nonce: 0, data: vec![] });
+    c.accounts.insert(
+        AccountId(id),
+        AccountData {
+            balance,
+            nonce: 0,
+            data: vec![],
+        },
+    );
     c.system_data.total_supply = balance;
     c
 }
@@ -315,7 +339,11 @@ fn build_valid_trace() -> Trace {
     let e2 = engine.record_transition(&s2, &sigma2, &s3, &obs2);
     let commitment = engine.current_chain_hash().clone();
 
-    Trace { entries: vec![e0, e1, e2], initial_state: s0, commitment }
+    Trace {
+        entries: vec![e0, e1, e2],
+        initial_state: s0,
+        commitment,
+    }
 }
 
 // ===========================================================================

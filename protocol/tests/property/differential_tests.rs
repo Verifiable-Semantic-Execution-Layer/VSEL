@@ -135,8 +135,12 @@ fn arb_trace_metadata() -> impl Strategy<Value = TraceMetadata> {
 }
 
 fn arb_valid_state() -> impl Strategy<Value = State> {
-    (arb_canonical_state(), arb_environment(), arb_trace_metadata()).prop_map(
-        |(canonical, environment, metadata)| {
+    (
+        arb_canonical_state(),
+        arb_environment(),
+        arb_trace_metadata(),
+    )
+        .prop_map(|(canonical, environment, metadata)| {
             let derived = derive(&canonical);
             let economic = derive_economic(&canonical, &environment);
             State {
@@ -146,8 +150,7 @@ fn arb_valid_state() -> impl Strategy<Value = State> {
                 economic,
                 metadata,
             }
-        },
-    )
+        })
 }
 
 fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
@@ -159,8 +162,8 @@ fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
         any::<u64>(),
         arb_domain_tag(),
     )
-        .prop_map(|(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| {
-            Authorization {
+        .prop_map(
+            |(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| Authorization {
                 classical_sig,
                 pqc_sig,
                 public_key: HybridPublicKey {
@@ -169,8 +172,8 @@ fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
                 },
                 nonce,
                 domain,
-            }
-        })
+            },
+        )
 }
 
 fn arb_valid_input() -> impl Strategy<Value = Input> {
@@ -181,10 +184,7 @@ fn arb_valid_input() -> impl Strategy<Value = Input> {
         prop::collection::vec(any::<u8>(), 0..64),
     )
         .prop_map(|(payload_type, data, auth, aux_data)| Input {
-            payload: Payload {
-                payload_type,
-                data,
-            },
+            payload: Payload { payload_type, data },
             auth,
             aux: AuxiliaryData { data: aux_data },
         })
@@ -309,9 +309,8 @@ fn test_constraint_system() -> ConstraintSystem {
 
 /// Strategy for generating a single-entry trace.
 fn arb_single_entry_trace() -> impl Strategy<Value = Trace> {
-    (arb_valid_state(), arb_valid_input(), arb_observable()).prop_map(
-        |(state, input, obs)| build_trace(state, vec![input], vec![obs]),
-    )
+    (arb_valid_state(), arb_valid_input(), arb_observable())
+        .prop_map(|(state, input, obs)| build_trace(state, vec![input], vec![obs]))
 }
 
 /// Strategy for generating a multi-entry trace (5+ entries).
@@ -370,7 +369,6 @@ fn compute_constraint_commitment(cs: &ConstraintSystem) -> Hash {
     commitment.copy_from_slice(&hash);
     Hash(commitment)
 }
-
 
 // ---------------------------------------------------------------------------
 // Helper: run differential comparison on a trace

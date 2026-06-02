@@ -13,8 +13,8 @@
 
 use std::collections::BTreeMap;
 
-use proptest::prelude::*;
 use proptest::collection::btree_map;
+use proptest::prelude::*;
 
 use vsel_core::state::*;
 use vsel_core::types::*;
@@ -90,7 +90,9 @@ fn arb_canonical_state() -> impl Strategy<Value = CanonicalState> {
 /// Generate a non-zero DomainTag (required for valid environment).
 fn arb_domain_tag() -> impl Strategy<Value = DomainTag> {
     arb_bytes32()
-        .prop_filter("domain tag must not be all zeros", |b| b.iter().any(|&x| x != 0))
+        .prop_filter("domain tag must not be all zeros", |b| {
+            b.iter().any(|&x| x != 0)
+        })
         .prop_map(|b| DomainTag(Hash(b)))
 }
 
@@ -133,8 +135,12 @@ fn arb_trace_metadata() -> impl Strategy<Value = TraceMetadata> {
 
 /// Build a valid State from a CanonicalState by deriving all components.
 fn arb_valid_state() -> impl Strategy<Value = State> {
-    (arb_canonical_state(), arb_environment(), arb_trace_metadata()).prop_map(
-        |(canonical, environment, metadata)| {
+    (
+        arb_canonical_state(),
+        arb_environment(),
+        arb_trace_metadata(),
+    )
+        .prop_map(|(canonical, environment, metadata)| {
             let derived = derive(&canonical);
             let economic = derive_economic(&canonical, &environment);
             State {
@@ -144,8 +150,7 @@ fn arb_valid_state() -> impl Strategy<Value = State> {
                 economic,
                 metadata,
             }
-        },
-    )
+        })
 }
 
 // ---------------------------------------------------------------------------

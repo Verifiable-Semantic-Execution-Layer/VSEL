@@ -158,7 +158,6 @@ impl PublicInputs {
     }
 }
 
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -313,7 +312,10 @@ mod tests {
 
         let expected_root = commit(&trace.initial_state.canonical);
         assert_eq!(pub_inputs.root_init, expected_root);
-        assert_eq!(pub_inputs.root_final, expected_root, "empty trace: root_final == root_init");
+        assert_eq!(
+            pub_inputs.root_final, expected_root,
+            "empty trace: root_final == root_init"
+        );
         assert!(pub_inputs.observables.is_empty());
         assert_eq!(pub_inputs.domain, test_domain_tag());
         assert_eq!(pub_inputs.version, test_version());

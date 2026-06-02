@@ -1,14 +1,19 @@
 # VSEL — Verifiable Semantic Execution Layer
 
-A formally verified execution layer where **if a proof is accepted, the corresponding execution is semantically valid** under a mechanized formal specification.
+A verification-oriented execution layer that distinguishes cryptographic proof consistency from final semantic acceptance. Final acceptance is only valid in the trace-strict verifier path when proof, public inputs, witness, constraints, invariants, the complete execution trace, and authoritative executable or mechanized semantic evidence all verify.
 
 ```
-Verify(π) ⟹ SatisfiesConstraints(τ) ⟹ ValidConcreteTrace(τ_c) ⟹ ValidSIRTrace(τ_sir) ⟹ ValidFormalTrace(τ_f)
+StrictTraceVerify(π, Pub, W, C, τ, E_sem) = FullyVerified
+  ⟹ CryptographicallyConsistent(π, Pub)
+  ∧ WitnessConstraintVerified(W, C)
+  ∧ DeterministicReplay(τ)
+  ∧ AuthoritativeSemanticEvidence(E_sem)
+  ⟹ ValidTrace(τ)
 ```
 
 ## What is VSEL?
 
-VSEL is a protocol that bridges the gap between formal mathematical specifications and concrete execution. Instead of trusting that code "probably does the right thing," VSEL provides cryptographic proof that every execution trace is semantically valid — not just computationally correct, but *meaningful* under a formally verified specification.
+VSEL is a protocol intended to bridge formal mathematical specifications and concrete execution. A cryptographically consistent proof is necessary but not sufficient: semantic validity requires an additional executable or mechanized semantic verifier whose evidence is bound to the proof context and the complete execution trace. The legacy `verify()` path reports cryptographic consistency only.
 
 The core insight: Lean 4 is the absolute source of truth. Rust does not invent semantics — it consumes a derived representation. The constraint engine does not have hand-written constraints — it compiles from an intermediate representation. Correctness takes absolute precedence over performance.
 
@@ -129,7 +134,7 @@ cd tla && tlc Properties -config MC.cfg
 
 ## Current Status
 
-Phase 8 of 10 complete. 846 tests passing (672 unit + 170 property-based + 4 integration). 9 audit gates passed. All invariants hold across all completed phases.
+VSEL-001 remediation is implemented at the verifier-contract level. `verify()` remains cryptographic-only, `verify_strict()` remains fail-closed without trace context, and `verify_strict_trace()` is the final semantic-acceptance path: it replays the supplied trace deterministically, checks witness/constraint binding, and requires authoritative semantic evidence.
 
 ## Roadmap
 

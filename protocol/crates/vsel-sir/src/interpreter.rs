@@ -118,11 +118,7 @@ impl Interpreter {
                 self.eval(body, &new_env)
             }
 
-            SirExpr::If {
-                cond,
-                then_,
-                else_,
-            } => {
+            SirExpr::If { cond, then_, else_ } => {
                 let c = self.eval(cond, env)?;
                 match c {
                     SirValue::Bool { value: true } => self.eval(then_, env),
@@ -264,11 +260,7 @@ impl Interpreter {
     }
 
     /// Evaluate a builtin function call.
-    fn eval_builtin(
-        &self,
-        name: &str,
-        args: &[SirValue],
-    ) -> Result<SirValue, InterpreterError> {
+    fn eval_builtin(&self, name: &str, args: &[SirValue]) -> Result<SirValue, InterpreterError> {
         match name {
             "not" => {
                 if args.len() != 1 {
@@ -311,9 +303,7 @@ impl Interpreter {
                     ));
                 }
                 match &args[0] {
-                    SirValue::Int { value } => Ok(SirValue::Int {
-                        value: value.abs(),
-                    }),
+                    SirValue::Int { value } => Ok(SirValue::Int { value: value.abs() }),
                     _ => Err(InterpreterError::TypeError(
                         "abs expects an Int argument".into(),
                     )),
@@ -461,29 +451,45 @@ mod tests {
 
         let add = SirExpr::BinOp {
             op: "add".into(),
-            left: Box::new(SirExpr::Literal { value: SirValue::Int { value: 3 } }),
-            right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 4 } }),
+            left: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 3 },
+            }),
+            right: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 4 },
+            }),
         };
         assert_eq!(i.eval(&add, &env).unwrap(), SirValue::Int { value: 7 });
 
         let sub = SirExpr::BinOp {
             op: "sub".into(),
-            left: Box::new(SirExpr::Literal { value: SirValue::Int { value: 10 } }),
-            right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 3 } }),
+            left: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 10 },
+            }),
+            right: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 3 },
+            }),
         };
         assert_eq!(i.eval(&sub, &env).unwrap(), SirValue::Int { value: 7 });
 
         let mul = SirExpr::BinOp {
             op: "mul".into(),
-            left: Box::new(SirExpr::Literal { value: SirValue::Int { value: 6 } }),
-            right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 7 } }),
+            left: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 6 },
+            }),
+            right: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 7 },
+            }),
         };
         assert_eq!(i.eval(&mul, &env).unwrap(), SirValue::Int { value: 42 });
 
         let div = SirExpr::BinOp {
             op: "div".into(),
-            left: Box::new(SirExpr::Literal { value: SirValue::Int { value: 10 } }),
-            right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 3 } }),
+            left: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 10 },
+            }),
+            right: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 3 },
+            }),
         };
         assert_eq!(i.eval(&div, &env).unwrap(), SirValue::Int { value: 3 });
     }
@@ -492,8 +498,12 @@ mod tests {
     fn test_eval_binop_div_by_zero() {
         let expr = SirExpr::BinOp {
             op: "div".into(),
-            left: Box::new(SirExpr::Literal { value: SirValue::Int { value: 1 } }),
-            right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+            left: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 1 },
+            }),
+            right: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 0 },
+            }),
         };
         assert!(interp().eval(&expr, &SirEnv::new()).is_err());
     }
@@ -505,22 +515,34 @@ mod tests {
 
         let lt = SirExpr::BinOp {
             op: "lt".into(),
-            left: Box::new(SirExpr::Literal { value: SirValue::Int { value: 1 } }),
-            right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 2 } }),
+            left: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 1 },
+            }),
+            right: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 2 },
+            }),
         };
         assert_eq!(i.eval(&lt, &env).unwrap(), SirValue::Bool { value: true });
 
         let gt = SirExpr::BinOp {
             op: "gt".into(),
-            left: Box::new(SirExpr::Literal { value: SirValue::Int { value: 1 } }),
-            right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 2 } }),
+            left: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 1 },
+            }),
+            right: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 2 },
+            }),
         };
         assert_eq!(i.eval(&gt, &env).unwrap(), SirValue::Bool { value: false });
 
         let eq = SirExpr::BinOp {
             op: "eq".into(),
-            left: Box::new(SirExpr::Literal { value: SirValue::Int { value: 5 } }),
-            right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 5 } }),
+            left: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 5 },
+            }),
+            right: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 5 },
+            }),
         };
         assert_eq!(i.eval(&eq, &env).unwrap(), SirValue::Bool { value: true });
     }
@@ -532,17 +554,31 @@ mod tests {
 
         let and_expr = SirExpr::BinOp {
             op: "and".into(),
-            left: Box::new(SirExpr::Literal { value: SirValue::Bool { value: true } }),
-            right: Box::new(SirExpr::Literal { value: SirValue::Bool { value: false } }),
+            left: Box::new(SirExpr::Literal {
+                value: SirValue::Bool { value: true },
+            }),
+            right: Box::new(SirExpr::Literal {
+                value: SirValue::Bool { value: false },
+            }),
         };
-        assert_eq!(i.eval(&and_expr, &env).unwrap(), SirValue::Bool { value: false });
+        assert_eq!(
+            i.eval(&and_expr, &env).unwrap(),
+            SirValue::Bool { value: false }
+        );
 
         let or_expr = SirExpr::BinOp {
             op: "or".into(),
-            left: Box::new(SirExpr::Literal { value: SirValue::Bool { value: false } }),
-            right: Box::new(SirExpr::Literal { value: SirValue::Bool { value: true } }),
+            left: Box::new(SirExpr::Literal {
+                value: SirValue::Bool { value: false },
+            }),
+            right: Box::new(SirExpr::Literal {
+                value: SirValue::Bool { value: true },
+            }),
         };
-        assert_eq!(i.eval(&or_expr, &env).unwrap(), SirValue::Bool { value: true });
+        assert_eq!(
+            i.eval(&or_expr, &env).unwrap(),
+            SirValue::Bool { value: true }
+        );
     }
 
     // -- eval: field access --
@@ -554,10 +590,15 @@ mod tests {
         let env = env_with("state", SirValue::Map { entries });
 
         let expr = SirExpr::FieldAccess {
-            expr: Box::new(SirExpr::Var { name: "state".into() }),
+            expr: Box::new(SirExpr::Var {
+                name: "state".into(),
+            }),
             field: "balance".into(),
         };
-        assert_eq!(interp().eval(&expr, &env).unwrap(), SirValue::Int { value: 100 });
+        assert_eq!(
+            interp().eval(&expr, &env).unwrap(),
+            SirValue::Int { value: 100 }
+        );
     }
 
     #[test]
@@ -566,7 +607,9 @@ mod tests {
         let env = env_with("state", SirValue::Map { entries });
 
         let expr = SirExpr::FieldAccess {
-            expr: Box::new(SirExpr::Var { name: "state".into() }),
+            expr: Box::new(SirExpr::Var {
+                name: "state".into(),
+            }),
             field: "missing".into(),
         };
         assert!(interp().eval(&expr, &env).is_err());
@@ -587,15 +630,25 @@ mod tests {
     #[test]
     fn test_eval_match_literal() {
         let expr = SirExpr::Match {
-            scrutinee: Box::new(SirExpr::Literal { value: SirValue::Int { value: 1 } }),
+            scrutinee: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 1 },
+            }),
             arms: vec![
                 SirMatchArm {
-                    pattern: SirPattern::Literal { value: SirValue::Int { value: 0 } },
-                    body: SirExpr::Literal { value: SirValue::Bool { value: false } },
+                    pattern: SirPattern::Literal {
+                        value: SirValue::Int { value: 0 },
+                    },
+                    body: SirExpr::Literal {
+                        value: SirValue::Bool { value: false },
+                    },
                 },
                 SirMatchArm {
-                    pattern: SirPattern::Literal { value: SirValue::Int { value: 1 } },
-                    body: SirExpr::Literal { value: SirValue::Bool { value: true } },
+                    pattern: SirPattern::Literal {
+                        value: SirValue::Int { value: 1 },
+                    },
+                    body: SirExpr::Literal {
+                        value: SirValue::Bool { value: true },
+                    },
                 },
             ],
         };
@@ -608,7 +661,9 @@ mod tests {
     #[test]
     fn test_eval_match_wildcard() {
         let expr = SirExpr::Match {
-            scrutinee: Box::new(SirExpr::Literal { value: SirValue::Int { value: 99 } }),
+            scrutinee: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 99 },
+            }),
             arms: vec![SirMatchArm {
                 pattern: SirPattern::Var { name: "x".into() },
                 body: SirExpr::Var { name: "x".into() },
@@ -623,10 +678,16 @@ mod tests {
     #[test]
     fn test_eval_match_no_arm() {
         let expr = SirExpr::Match {
-            scrutinee: Box::new(SirExpr::Literal { value: SirValue::Int { value: 5 } }),
+            scrutinee: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 5 },
+            }),
             arms: vec![SirMatchArm {
-                pattern: SirPattern::Literal { value: SirValue::Int { value: 0 } },
-                body: SirExpr::Literal { value: SirValue::Unit },
+                pattern: SirPattern::Literal {
+                    value: SirValue::Int { value: 0 },
+                },
+                body: SirExpr::Literal {
+                    value: SirValue::Unit,
+                },
             }],
         };
         assert!(interp().eval(&expr, &SirEnv::new()).is_err());
@@ -638,7 +699,9 @@ mod tests {
     fn test_eval_builtin_not() {
         let expr = SirExpr::Apply {
             func: Box::new(SirExpr::Var { name: "not".into() }),
-            args: vec![SirExpr::Literal { value: SirValue::Bool { value: true } }],
+            args: vec![SirExpr::Literal {
+                value: SirValue::Bool { value: true },
+            }],
         };
         assert_eq!(
             interp().eval(&expr, &SirEnv::new()).unwrap(),
@@ -666,7 +729,9 @@ mod tests {
     fn test_eval_builtin_abs() {
         let expr = SirExpr::Apply {
             func: Box::new(SirExpr::Var { name: "abs".into() }),
-            args: vec![SirExpr::Literal { value: SirValue::Int { value: -7 } }],
+            args: vec![SirExpr::Literal {
+                value: SirValue::Int { value: -7 },
+            }],
         };
         assert_eq!(
             interp().eval(&expr, &SirEnv::new()).unwrap(),
@@ -677,7 +742,9 @@ mod tests {
     #[test]
     fn test_eval_unknown_builtin() {
         let expr = SirExpr::Apply {
-            func: Box::new(SirExpr::Var { name: "unknown_fn".into() }),
+            func: Box::new(SirExpr::Var {
+                name: "unknown_fn".into(),
+            }),
             args: vec![],
         };
         assert!(interp().eval(&expr, &SirEnv::new()).is_err());
@@ -698,8 +765,12 @@ mod tests {
                 postconditions: vec![],
                 body: SirExpr::BinOp {
                     op: "add".into(),
-                    left: Box::new(SirExpr::Var { name: "state".into() }),
-                    right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 1 } }),
+                    left: Box::new(SirExpr::Var {
+                        name: "state".into(),
+                    }),
+                    right: Box::new(SirExpr::Literal {
+                        value: SirValue::Int { value: 1 },
+                    }),
                 },
                 allowed_mutations: vec![],
             }],
@@ -708,7 +779,12 @@ mod tests {
         };
 
         let result = interp()
-            .execute(&program, "increment", &SirValue::Int { value: 10 }, &SirValue::Unit)
+            .execute(
+                &program,
+                "increment",
+                &SirValue::Int { value: 10 },
+                &SirValue::Unit,
+            )
             .unwrap();
         assert_eq!(result, SirValue::Int { value: 11 });
     }
@@ -740,7 +816,9 @@ mod tests {
                     value: SirValue::Bool { value: false },
                 }],
                 postconditions: vec![],
-                body: SirExpr::Literal { value: SirValue::Unit },
+                body: SirExpr::Literal {
+                    value: SirValue::Unit,
+                },
                 allowed_mutations: vec![],
             }],
             invariants: vec![],
@@ -788,10 +866,14 @@ mod tests {
             expr: SirExpr::BinOp {
                 op: "gt".into(),
                 left: Box::new(SirExpr::FieldAccess {
-                    expr: Box::new(SirExpr::Var { name: "state".into() }),
+                    expr: Box::new(SirExpr::Var {
+                        name: "state".into(),
+                    }),
                     field: "balance".into(),
                 }),
-                right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                right: Box::new(SirExpr::Literal {
+                    value: SirValue::Int { value: 0 },
+                }),
             },
         };
         assert!(interp().check_invariant(&inv, &state).unwrap());

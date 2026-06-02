@@ -308,9 +308,8 @@ impl CircuitCompilationContext {
     /// are added to the constraint language.
     #[allow(dead_code)]
     fn record_unsupported(&mut self, description: &str) {
-        self.errors.push(Plonky3Error::UnsupportedGate(
-            description.to_string(),
-        ));
+        self.errors
+            .push(Plonky3Error::UnsupportedGate(description.to_string()));
     }
 
     /// Compile a single `ConstraintExpr` into gates, returning the
@@ -321,7 +320,6 @@ impl CircuitCompilationContext {
     fn compile_expr(&mut self, expr: &ConstraintExpr) -> WireId {
         match expr {
             // ----- Leaf nodes -----
-
             ConstraintExpr::Constant(v) => {
                 let wire = self.alloc_wire();
                 // Reduce the constant to a Goldilocks field element.
@@ -336,7 +334,10 @@ impl CircuitCompilationContext {
                         GoldilocksField(GoldilocksField::MODULUS - abs_val)
                     }
                 };
-                self.add_gate(Plonky3Gate::Constant { wire, value: field_val });
+                self.add_gate(Plonky3Gate::Constant {
+                    wire,
+                    value: field_val,
+                });
                 wire
             }
 
@@ -351,16 +352,11 @@ impl CircuitCompilationContext {
                 wire
             }
 
-            ConstraintExpr::WitnessRef(name) => {
-                self.witness_wire(name)
-            }
+            ConstraintExpr::WitnessRef(name) => self.witness_wire(name),
 
-            ConstraintExpr::PublicInputRef(name) => {
-                self.public_input_wire(name)
-            }
+            ConstraintExpr::PublicInputRef(name) => self.public_input_wire(name),
 
             // ----- Equality / Inequality -----
-
             ConstraintExpr::Eq(a, b) => {
                 let left = self.compile_expr(a);
                 let right = self.compile_expr(b);
@@ -405,7 +401,6 @@ impl CircuitCompilationContext {
             }
 
             // ----- Arithmetic -----
-
             ConstraintExpr::Add(a, b) => {
                 let left = self.compile_expr(a);
                 let right = self.compile_expr(b);
@@ -446,7 +441,6 @@ impl CircuitCompilationContext {
             }
 
             // ----- Boolean -----
-
             ConstraintExpr::And(a, b) => {
                 // Boolean AND: a * b = c, with both inputs constrained to {0, 1}.
                 let left = self.compile_expr(a);
@@ -500,7 +494,6 @@ impl CircuitCompilationContext {
             }
 
             // ----- Comparisons (range proofs) -----
-
             ConstraintExpr::Lt(a, b) => {
                 // Lt(a, b): b - a - 1 ∈ [0, 2^n)
                 let left = self.compile_expr(a);
@@ -601,7 +594,6 @@ impl CircuitCompilationContext {
             }
 
             // ----- Conditional -----
-
             ConstraintExpr::IfThenElse(cond, then_expr, else_expr) => {
                 // Selector/MUX: c*t + (1-c)*e = r, with c ∈ {0, 1}.
                 let condition = self.compile_expr(cond);
@@ -620,7 +612,6 @@ impl CircuitCompilationContext {
             }
 
             // ----- Field access (wire indirection) -----
-
             ConstraintExpr::FieldAccess(base, field) => {
                 // Wire indirection: resolve base.field to a witness wire.
                 // The base expression is compiled, and the field access is
@@ -710,11 +701,7 @@ impl CircuitBuilder for Plonky3CircuitBuilder {
     /// - Auxiliary computation -> field elements for Merkle paths, etc.
     ///
     /// Requirements 2.2, 2.3.
-    fn assign_witness(
-        &self,
-        circuit: &Self::Circuit,
-        witness: &Witness,
-    ) -> Self::WireAssignment {
+    fn assign_witness(&self, circuit: &Self::Circuit, witness: &Witness) -> Self::WireAssignment {
         let mut assignments = HashMap::new();
 
         // Assign intermediate state data to witness wires.
@@ -810,7 +797,10 @@ impl CircuitBuilder for Plonky3CircuitBuilder {
             let version_val = (public_inputs.version.major as u64) * 1_000_000
                 + (public_inputs.version.minor as u64) * 1_000
                 + (public_inputs.version.patch as u64);
-            assignments.insert(wire_id, GoldilocksField(version_val % GoldilocksField::MODULUS));
+            assignments.insert(
+                wire_id,
+                GoldilocksField(version_val % GoldilocksField::MODULUS),
+            );
         }
 
         // For any public input wires not yet assigned, default to zero.
@@ -881,8 +871,8 @@ impl Plonky3CircuitBuilder {
 mod tests {
     use super::*;
     use vsel_constraints::compiler::{
-        Constraint, ConstraintCategory, ConstraintExpr, ConstraintId, PublicInput,
-        WitnessVariable, WitnessVariableKind,
+        Constraint, ConstraintCategory, ConstraintExpr, ConstraintId, PublicInput, WitnessVariable,
+        WitnessVariableKind,
     };
 
     /// Build a minimal constraint system for testing.
@@ -925,7 +915,10 @@ mod tests {
 
         assert_eq!(circuit.num_private_inputs, 1, "one witness variable: x");
         assert_eq!(circuit.num_public_inputs, 1, "one public input: root_init");
-        assert!(!circuit.gates.is_empty(), "should have gates for Eq(WitnessRef, Constant)");
+        assert!(
+            !circuit.gates.is_empty(),
+            "should have gates for Eq(WitnessRef, Constant)"
+        );
         assert_eq!(circuit.constraint_version, "1.0.0");
     }
 
@@ -966,10 +959,12 @@ mod tests {
         });
         let circuit = builder.build_circuit(&cs);
 
-        let has_constant = circuit.gates.iter().any(|g| matches!(
-            g,
-            Plonky3Gate::Constant { value, .. } if *value == GoldilocksField(99)
-        ));
+        let has_constant = circuit.gates.iter().any(|g| {
+            matches!(
+                g,
+                Plonky3Gate::Constant { value, .. } if *value == GoldilocksField(99)
+            )
+        });
         assert!(has_constant, "should have a Constant gate with value 99");
     }
 
@@ -985,10 +980,12 @@ mod tests {
         });
         let circuit = builder.build_circuit(&cs);
 
-        let has_one = circuit.gates.iter().any(|g| matches!(
-            g,
-            Plonky3Gate::Constant { value, .. } if *value == GoldilocksField::ONE
-        ));
+        let has_one = circuit.gates.iter().any(|g| {
+            matches!(
+                g,
+                Plonky3Gate::Constant { value, .. } if *value == GoldilocksField::ONE
+            )
+        });
         assert!(has_one, "BoolConstant(true) should produce Constant(1)");
     }
 
@@ -1004,10 +1001,12 @@ mod tests {
         });
         let circuit = builder.build_circuit(&cs);
 
-        let has_zero = circuit.gates.iter().any(|g| matches!(
-            g,
-            Plonky3Gate::Constant { value, .. } if *value == GoldilocksField::ZERO
-        ));
+        let has_zero = circuit.gates.iter().any(|g| {
+            matches!(
+                g,
+                Plonky3Gate::Constant { value, .. } if *value == GoldilocksField::ZERO
+            )
+        });
         assert!(has_zero, "BoolConstant(false) should produce Constant(0)");
     }
 
@@ -1036,7 +1035,10 @@ mod tests {
         });
         let circuit = builder.build_circuit(&cs);
 
-        let has_equality = circuit.gates.iter().any(|g| matches!(g, Plonky3Gate::Equality { .. }));
+        let has_equality = circuit
+            .gates
+            .iter()
+            .any(|g| matches!(g, Plonky3Gate::Equality { .. }));
         assert!(has_equality, "Eq should produce an Equality gate");
     }
 
@@ -1055,10 +1057,15 @@ mod tests {
         });
         let circuit = builder.build_circuit(&cs);
 
-        let has_add = circuit.gates.iter().any(|g| matches!(
-            g,
-            Plonky3Gate::Arithmetic { op: ArithOp::Add, .. }
-        ));
+        let has_add = circuit.gates.iter().any(|g| {
+            matches!(
+                g,
+                Plonky3Gate::Arithmetic {
+                    op: ArithOp::Add,
+                    ..
+                }
+            )
+        });
         assert!(has_add, "Add should produce an Arithmetic(Add) gate");
     }
 
@@ -1077,10 +1084,15 @@ mod tests {
         });
         let circuit = builder.build_circuit(&cs);
 
-        let has_sub = circuit.gates.iter().any(|g| matches!(
-            g,
-            Plonky3Gate::Arithmetic { op: ArithOp::Sub, .. }
-        ));
+        let has_sub = circuit.gates.iter().any(|g| {
+            matches!(
+                g,
+                Plonky3Gate::Arithmetic {
+                    op: ArithOp::Sub,
+                    ..
+                }
+            )
+        });
         assert!(has_sub, "Sub should produce an Arithmetic(Sub) gate");
     }
 
@@ -1099,10 +1111,15 @@ mod tests {
         });
         let circuit = builder.build_circuit(&cs);
 
-        let has_mul = circuit.gates.iter().any(|g| matches!(
-            g,
-            Plonky3Gate::Arithmetic { op: ArithOp::Mul, .. }
-        ));
+        let has_mul = circuit.gates.iter().any(|g| {
+            matches!(
+                g,
+                Plonky3Gate::Arithmetic {
+                    op: ArithOp::Mul,
+                    ..
+                }
+            )
+        });
         assert!(has_mul, "Mul should produce an Arithmetic(Mul) gate");
     }
 
@@ -1122,11 +1139,19 @@ mod tests {
         let circuit = builder.build_circuit(&cs);
 
         // And produces Boolean constraints + Arithmetic(Mul).
-        let has_boolean = circuit.gates.iter().any(|g| matches!(g, Plonky3Gate::Boolean { .. }));
-        let has_mul = circuit.gates.iter().any(|g| matches!(
-            g,
-            Plonky3Gate::Arithmetic { op: ArithOp::Mul, .. }
-        ));
+        let has_boolean = circuit
+            .gates
+            .iter()
+            .any(|g| matches!(g, Plonky3Gate::Boolean { .. }));
+        let has_mul = circuit.gates.iter().any(|g| {
+            matches!(
+                g,
+                Plonky3Gate::Arithmetic {
+                    op: ArithOp::Mul,
+                    ..
+                }
+            )
+        });
         assert!(has_boolean, "And should produce Boolean constraint gates");
         assert!(has_mul, "And should produce Arithmetic(Mul) gate for a*b");
     }
@@ -1147,11 +1172,19 @@ mod tests {
         let circuit = builder.build_circuit(&cs);
 
         // Or produces Boolean constraints + Add + Mul + Sub.
-        let has_boolean = circuit.gates.iter().any(|g| matches!(g, Plonky3Gate::Boolean { .. }));
-        let has_add = circuit.gates.iter().any(|g| matches!(
-            g,
-            Plonky3Gate::Arithmetic { op: ArithOp::Add, .. }
-        ));
+        let has_boolean = circuit
+            .gates
+            .iter()
+            .any(|g| matches!(g, Plonky3Gate::Boolean { .. }));
+        let has_add = circuit.gates.iter().any(|g| {
+            matches!(
+                g,
+                Plonky3Gate::Arithmetic {
+                    op: ArithOp::Add,
+                    ..
+                }
+            )
+        });
         assert!(has_boolean, "Or should produce Boolean constraint gates");
         assert!(has_add, "Or should produce Arithmetic(Add) gate for a+b");
     }
@@ -1171,7 +1204,10 @@ mod tests {
         });
         let circuit = builder.build_circuit(&cs);
 
-        let has_range = circuit.gates.iter().any(|g| matches!(g, Plonky3Gate::RangeProof { .. }));
+        let has_range = circuit
+            .gates
+            .iter()
+            .any(|g| matches!(g, Plonky3Gate::RangeProof { .. }));
         assert!(has_range, "Lt should produce a RangeProof gate");
     }
 
@@ -1190,7 +1226,10 @@ mod tests {
         });
         let circuit = builder.build_circuit(&cs);
 
-        let has_range = circuit.gates.iter().any(|g| matches!(g, Plonky3Gate::RangeProof { .. }));
+        let has_range = circuit
+            .gates
+            .iter()
+            .any(|g| matches!(g, Plonky3Gate::RangeProof { .. }));
         assert!(has_range, "Le should produce a RangeProof gate");
     }
 
@@ -1209,7 +1248,10 @@ mod tests {
         });
         let circuit = builder.build_circuit(&cs);
 
-        let has_range = circuit.gates.iter().any(|g| matches!(g, Plonky3Gate::RangeProof { .. }));
+        let has_range = circuit
+            .gates
+            .iter()
+            .any(|g| matches!(g, Plonky3Gate::RangeProof { .. }));
         assert!(has_range, "Gt should produce a RangeProof gate");
     }
 
@@ -1228,7 +1270,10 @@ mod tests {
         });
         let circuit = builder.build_circuit(&cs);
 
-        let has_range = circuit.gates.iter().any(|g| matches!(g, Plonky3Gate::RangeProof { .. }));
+        let has_range = circuit
+            .gates
+            .iter()
+            .any(|g| matches!(g, Plonky3Gate::RangeProof { .. }));
         assert!(has_range, "Ge should produce a RangeProof gate");
     }
 
@@ -1248,18 +1293,34 @@ mod tests {
         let circuit = builder.build_circuit(&cs);
 
         // Neq produces Sub + Mul + Constant(1) + Equality.
-        let has_sub = circuit.gates.iter().any(|g| matches!(
-            g,
-            Plonky3Gate::Arithmetic { op: ArithOp::Sub, .. }
-        ));
-        let has_mul = circuit.gates.iter().any(|g| matches!(
-            g,
-            Plonky3Gate::Arithmetic { op: ArithOp::Mul, .. }
-        ));
-        let has_equality = circuit.gates.iter().any(|g| matches!(g, Plonky3Gate::Equality { .. }));
+        let has_sub = circuit.gates.iter().any(|g| {
+            matches!(
+                g,
+                Plonky3Gate::Arithmetic {
+                    op: ArithOp::Sub,
+                    ..
+                }
+            )
+        });
+        let has_mul = circuit.gates.iter().any(|g| {
+            matches!(
+                g,
+                Plonky3Gate::Arithmetic {
+                    op: ArithOp::Mul,
+                    ..
+                }
+            )
+        });
+        let has_equality = circuit
+            .gates
+            .iter()
+            .any(|g| matches!(g, Plonky3Gate::Equality { .. }));
         assert!(has_sub, "Neq should produce Sub gate for a-b");
         assert!(has_mul, "Neq should produce Mul gate for diff*inv");
-        assert!(has_equality, "Neq should produce Equality gate for product=1");
+        assert!(
+            has_equality,
+            "Neq should produce Equality gate for product=1"
+        );
     }
 
     #[test]
@@ -1278,10 +1339,19 @@ mod tests {
         });
         let circuit = builder.build_circuit(&cs);
 
-        let has_selector = circuit.gates.iter().any(|g| matches!(g, Plonky3Gate::Selector { .. }));
-        let has_boolean = circuit.gates.iter().any(|g| matches!(g, Plonky3Gate::Boolean { .. }));
+        let has_selector = circuit
+            .gates
+            .iter()
+            .any(|g| matches!(g, Plonky3Gate::Selector { .. }));
+        let has_boolean = circuit
+            .gates
+            .iter()
+            .any(|g| matches!(g, Plonky3Gate::Boolean { .. }));
         assert!(has_selector, "IfThenElse should produce a Selector gate");
-        assert!(has_boolean, "IfThenElse should constrain condition to boolean");
+        assert!(
+            has_boolean,
+            "IfThenElse should constrain condition to boolean"
+        );
     }
 
     #[test]
@@ -1392,7 +1462,10 @@ mod tests {
         let builder = Plonky3CircuitBuilder;
         let cs = minimal_constraint_system();
         let result = builder.try_build_circuit(&cs);
-        assert!(result.is_ok(), "minimal constraint system should compile successfully");
+        assert!(
+            result.is_ok(),
+            "minimal constraint system should compile successfully"
+        );
     }
 
     #[test]
@@ -1400,7 +1473,10 @@ mod tests {
         let builder = Plonky3CircuitBuilder;
         let cs = ConstraintSystem::new("1.0.0");
         let result = builder.try_build_circuit(&cs);
-        assert!(result.is_ok(), "empty constraint system should compile successfully");
+        assert!(
+            result.is_ok(),
+            "empty constraint system should compile successfully"
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -1496,11 +1572,16 @@ mod tests {
         let circuit = builder.build_circuit(&cs);
 
         // -1 mod p = p - 1
-        let has_p_minus_1 = circuit.gates.iter().any(|g| matches!(
-            g,
-            Plonky3Gate::Constant { value, .. }
-                if *value == GoldilocksField(GoldilocksField::MODULUS - 1)
-        ));
-        assert!(has_p_minus_1, "Constant(-1) should map to p-1 in Goldilocks field");
+        let has_p_minus_1 = circuit.gates.iter().any(|g| {
+            matches!(
+                g,
+                Plonky3Gate::Constant { value, .. }
+                    if *value == GoldilocksField(GoldilocksField::MODULUS - 1)
+            )
+        });
+        assert!(
+            has_p_minus_1,
+            "Constant(-1) should map to p-1 in Goldilocks field"
+        );
     }
 }

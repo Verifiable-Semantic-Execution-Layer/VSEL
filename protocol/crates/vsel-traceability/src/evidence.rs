@@ -519,10 +519,7 @@ impl Finding {
 
     /// Set the remediation description. Only valid at or after the
     /// Remediation stage.
-    pub fn set_remediation(
-        &mut self,
-        remediation: impl Into<String>,
-    ) -> Result<(), EvidenceError> {
+    pub fn set_remediation(&mut self, remediation: impl Into<String>) -> Result<(), EvidenceError> {
         if self.stage < LifecycleStage::Remediation {
             return Err(EvidenceError::PrematureRemediation {
                 finding_id: self.id.clone(),
@@ -688,10 +685,7 @@ impl EvidenceStore {
     }
 
     /// Get all unresolved findings with severity ≥ the given threshold.
-    pub fn unresolved_findings_at_or_above(
-        &self,
-        min_severity: Severity,
-    ) -> Vec<&Finding> {
+    pub fn unresolved_findings_at_or_above(&self, min_severity: Severity) -> Vec<&Finding> {
         self.findings
             .values()
             .filter(|f| f.severity <= min_severity && !f.is_resolved())
@@ -773,9 +767,7 @@ pub enum EvidenceError {
     DuplicateId(String),
 
     /// Invalid lifecycle stage transition.
-    #[error(
-        "invalid lifecycle transition for finding '{finding_id}': {from} → {to}"
-    )]
+    #[error("invalid lifecycle transition for finding '{finding_id}': {from} → {to}")]
     InvalidLifecycleTransition {
         finding_id: String,
         from: LifecycleStage,
@@ -783,18 +775,14 @@ pub enum EvidenceError {
     },
 
     /// Attempted to set remediation before the Remediation stage.
-    #[error(
-        "cannot set remediation for finding '{finding_id}' at stage {current_stage}"
-    )]
+    #[error("cannot set remediation for finding '{finding_id}' at stage {current_stage}")]
     PrematureRemediation {
         finding_id: String,
         current_stage: LifecycleStage,
     },
 
     /// Attempted to verify remediation before the Verification stage.
-    #[error(
-        "cannot verify remediation for finding '{finding_id}' at stage {current_stage}"
-    )]
+    #[error("cannot verify remediation for finding '{finding_id}' at stage {current_stage}")]
     PrematureVerification {
         finding_id: String,
         current_stage: LifecycleStage,
@@ -829,7 +817,13 @@ mod tests {
     }
 
     fn sample_finding(id: &str, phase: u32, severity: Severity) -> Finding {
-        Finding::new(id, phase, severity, "Test finding description", 1_700_000_000)
+        Finding::new(
+            id,
+            phase,
+            severity,
+            "Test finding description",
+            1_700_000_000,
+        )
     }
 
     // -- EvidenceCategory ----------------------------------------------------
@@ -1141,13 +1135,25 @@ mod tests {
     fn test_store_evidence_for_phase() {
         let mut store = EvidenceStore::new();
         store
-            .add_evidence(sample_evidence("AE-0-001", 0, EvidenceCategory::FormalVerification))
+            .add_evidence(sample_evidence(
+                "AE-0-001",
+                0,
+                EvidenceCategory::FormalVerification,
+            ))
             .unwrap();
         store
-            .add_evidence(sample_evidence("AE-0-002", 0, EvidenceCategory::TestExecution))
+            .add_evidence(sample_evidence(
+                "AE-0-002",
+                0,
+                EvidenceCategory::TestExecution,
+            ))
             .unwrap();
         store
-            .add_evidence(sample_evidence("AE-1-001", 1, EvidenceCategory::ModelChecking))
+            .add_evidence(sample_evidence(
+                "AE-1-001",
+                1,
+                EvidenceCategory::ModelChecking,
+            ))
             .unwrap();
 
         assert_eq!(store.evidence_for_phase(0).len(), 2);
@@ -1159,13 +1165,25 @@ mod tests {
     fn test_store_evidence_by_category() {
         let mut store = EvidenceStore::new();
         store
-            .add_evidence(sample_evidence("AE-0-001", 0, EvidenceCategory::FormalVerification))
+            .add_evidence(sample_evidence(
+                "AE-0-001",
+                0,
+                EvidenceCategory::FormalVerification,
+            ))
             .unwrap();
         store
-            .add_evidence(sample_evidence("AE-0-002", 0, EvidenceCategory::FormalVerification))
+            .add_evidence(sample_evidence(
+                "AE-0-002",
+                0,
+                EvidenceCategory::FormalVerification,
+            ))
             .unwrap();
         store
-            .add_evidence(sample_evidence("AE-0-003", 0, EvidenceCategory::TestExecution))
+            .add_evidence(sample_evidence(
+                "AE-0-003",
+                0,
+                EvidenceCategory::TestExecution,
+            ))
             .unwrap();
 
         assert_eq!(
@@ -1192,10 +1210,18 @@ mod tests {
     fn test_store_verify_all_integrity() {
         let mut store = EvidenceStore::new();
         store
-            .add_evidence(sample_evidence("AE-0-001", 0, EvidenceCategory::FormalVerification))
+            .add_evidence(sample_evidence(
+                "AE-0-001",
+                0,
+                EvidenceCategory::FormalVerification,
+            ))
             .unwrap();
         store
-            .add_evidence(sample_evidence("AE-0-002", 0, EvidenceCategory::TestExecution))
+            .add_evidence(sample_evidence(
+                "AE-0-002",
+                0,
+                EvidenceCategory::TestExecution,
+            ))
             .unwrap();
 
         let failures = store.verify_all_integrity();
@@ -1236,9 +1262,15 @@ mod tests {
     #[test]
     fn test_store_findings_for_phase() {
         let mut store = EvidenceStore::new();
-        store.add_finding(sample_finding("F-0-001", 0, Severity::Critical)).unwrap();
-        store.add_finding(sample_finding("F-0-002", 0, Severity::Moderate)).unwrap();
-        store.add_finding(sample_finding("F-1-001", 1, Severity::Serious)).unwrap();
+        store
+            .add_finding(sample_finding("F-0-001", 0, Severity::Critical))
+            .unwrap();
+        store
+            .add_finding(sample_finding("F-0-002", 0, Severity::Moderate))
+            .unwrap();
+        store
+            .add_finding(sample_finding("F-1-001", 1, Severity::Serious))
+            .unwrap();
 
         assert_eq!(store.findings_for_phase(0).len(), 2);
         assert_eq!(store.findings_for_phase(1).len(), 1);
@@ -1265,7 +1297,9 @@ mod tests {
     #[test]
     fn test_phase_gate_blocks_on_critical() {
         let mut store = EvidenceStore::new();
-        store.add_finding(sample_finding("F-0-001", 0, Severity::Critical)).unwrap();
+        store
+            .add_finding(sample_finding("F-0-001", 0, Severity::Critical))
+            .unwrap();
 
         let result = store.can_progress_phase(0);
         assert!(!result.can_progress);
@@ -1275,7 +1309,9 @@ mod tests {
     #[test]
     fn test_phase_gate_blocks_on_catastrophic() {
         let mut store = EvidenceStore::new();
-        store.add_finding(sample_finding("F-0-001", 0, Severity::Catastrophic)).unwrap();
+        store
+            .add_finding(sample_finding("F-0-001", 0, Severity::Catastrophic))
+            .unwrap();
 
         let result = store.can_progress_phase(0);
         assert!(!result.can_progress);
@@ -1285,7 +1321,9 @@ mod tests {
     #[test]
     fn test_phase_gate_blocks_on_serious() {
         let mut store = EvidenceStore::new();
-        store.add_finding(sample_finding("F-0-001", 0, Severity::Serious)).unwrap();
+        store
+            .add_finding(sample_finding("F-0-001", 0, Severity::Serious))
+            .unwrap();
 
         let result = store.can_progress_phase(0);
         assert!(!result.can_progress);
@@ -1295,7 +1333,9 @@ mod tests {
     #[test]
     fn test_phase_gate_allows_moderate() {
         let mut store = EvidenceStore::new();
-        store.add_finding(sample_finding("F-0-001", 0, Severity::Moderate)).unwrap();
+        store
+            .add_finding(sample_finding("F-0-001", 0, Severity::Moderate))
+            .unwrap();
 
         let result = store.can_progress_phase(0);
         assert!(result.can_progress);
@@ -1304,7 +1344,9 @@ mod tests {
     #[test]
     fn test_phase_gate_allows_informational() {
         let mut store = EvidenceStore::new();
-        store.add_finding(sample_finding("F-0-001", 0, Severity::Informational)).unwrap();
+        store
+            .add_finding(sample_finding("F-0-001", 0, Severity::Informational))
+            .unwrap();
 
         let result = store.can_progress_phase(0);
         assert!(result.can_progress);
@@ -1362,7 +1404,9 @@ mod tests {
     fn test_phase_gate_different_phase_not_affected() {
         let mut store = EvidenceStore::new();
         // Critical finding in phase 1 should not block phase 0.
-        store.add_finding(sample_finding("F-1-001", 1, Severity::Critical)).unwrap();
+        store
+            .add_finding(sample_finding("F-1-001", 1, Severity::Critical))
+            .unwrap();
 
         let result = store.can_progress_phase(0);
         assert!(result.can_progress);

@@ -395,10 +395,7 @@ mod tests {
         create_domain_tag(b"test::migration")
     }
 
-    fn test_policy(
-        source: HashAlgorithm,
-        target: HashAlgorithm,
-    ) -> MigrationPolicy {
+    fn test_policy(source: HashAlgorithm, target: HashAlgorithm) -> MigrationPolicy {
         MigrationPolicy {
             source_algorithm: source,
             target_algorithm: target,
@@ -434,10 +431,8 @@ mod tests {
 
         let migration = migrate_commitment(data, &domain, &policy).unwrap();
 
-        let expected_original =
-            domain_hash_with_algorithm(HashAlgorithm::Sha3_256, &domain, data);
-        let expected_migrated =
-            domain_hash_with_algorithm(HashAlgorithm::Blake3, &domain, data);
+        let expected_original = domain_hash_with_algorithm(HashAlgorithm::Sha3_256, &domain, data);
+        let expected_migrated = domain_hash_with_algorithm(HashAlgorithm::Blake3, &domain, data);
 
         assert_eq!(migration.original_commitment, expected_original);
         assert_eq!(migration.migrated_commitment, expected_migrated);
@@ -461,7 +456,11 @@ mod tests {
 
         let migration = migrate_commitment(data, &domain, &policy).unwrap();
         // Verify with different data — should fail
-        assert!(!verify_commitment_migration(b"tampered data", &domain, &migration));
+        assert!(!verify_commitment_migration(
+            b"tampered data",
+            &domain,
+            &migration
+        ));
     }
 
     #[test]
@@ -472,7 +471,11 @@ mod tests {
         let policy = test_policy(HashAlgorithm::Sha3_256, HashAlgorithm::Blake3);
 
         let migration = migrate_commitment(data, &domain, &policy).unwrap();
-        assert!(!verify_commitment_migration(data, &other_domain, &migration));
+        assert!(!verify_commitment_migration(
+            data,
+            &other_domain,
+            &migration
+        ));
     }
 
     // -- Signature migration -------------------------------------------------
@@ -555,7 +558,13 @@ mod tests {
         let witness = b"same data".to_vec();
         let commit = Hash([2u8; 32]);
 
-        let id1 = store.archive(witness.clone(), commit.clone(), HashAlgorithm::Blake3, 100, None);
+        let id1 = store.archive(
+            witness.clone(),
+            commit.clone(),
+            HashAlgorithm::Blake3,
+            100,
+            None,
+        );
         let id2 = store.archive(witness, commit, HashAlgorithm::Blake3, 200, None);
 
         // Same witness data produces same ID (deterministic hash)
@@ -568,11 +577,29 @@ mod tests {
         let commit = Hash([3u8; 32]);
 
         // Archive with expiry at t=1000
-        store.archive(b"expires".to_vec(), commit.clone(), HashAlgorithm::Sha3_256, 0, Some(1000));
+        store.archive(
+            b"expires".to_vec(),
+            commit.clone(),
+            HashAlgorithm::Sha3_256,
+            0,
+            Some(1000),
+        );
         // Archive with no expiry
-        store.archive(b"permanent".to_vec(), commit.clone(), HashAlgorithm::Blake3, 0, None);
+        store.archive(
+            b"permanent".to_vec(),
+            commit.clone(),
+            HashAlgorithm::Blake3,
+            0,
+            None,
+        );
         // Archive with expiry at t=2000
-        store.archive(b"later".to_vec(), commit, HashAlgorithm::Poseidon, 0, Some(2000));
+        store.archive(
+            b"later".to_vec(),
+            commit,
+            HashAlgorithm::Poseidon,
+            0,
+            Some(2000),
+        );
 
         assert_eq!(store.len(), 3);
 
@@ -654,7 +681,10 @@ mod tests {
         .unwrap();
 
         let archived = archive.get(&migration.witness_archive_id).unwrap();
-        assert_eq!(archived.expiry, None, "witness archives should have no expiry");
+        assert_eq!(
+            archived.expiry, None,
+            "witness archives should have no expiry"
+        );
     }
 
     // -- CryptoAgility -------------------------------------------------------
@@ -710,10 +740,7 @@ mod tests {
         agility.add_migration_policy(policy);
 
         assert_eq!(agility.active_migrations().len(), 1);
-        assert_eq!(
-            agility.active_migrations()[0].reason,
-            "test migration"
-        );
+        assert_eq!(agility.active_migrations()[0].reason, "test migration");
     }
 
     #[test]

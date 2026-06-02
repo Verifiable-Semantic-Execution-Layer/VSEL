@@ -77,10 +77,7 @@ impl DependencyGraph {
 
         for obl in tracker.all() {
             // Ensure the node exists even if it has no dependencies.
-            graph
-                .upstream
-                .entry(obl.obligation_id.clone())
-                .or_default();
+            graph.upstream.entry(obl.obligation_id.clone()).or_default();
             graph
                 .downstream
                 .entry(obl.obligation_id.clone())
@@ -189,10 +186,7 @@ impl DependencyGraph {
     /// 4. If any upstream is Unresolved/InProgress → this node is Suspect
     ///    (even if this node itself is Discharged).
     /// 5. If all upstream are Discharged and this node is Discharged → Healthy.
-    pub fn compute_health(
-        &self,
-        tracker: &ObligationTracker,
-    ) -> BTreeMap<String, NodeHealth> {
+    pub fn compute_health(&self, tracker: &ObligationTracker) -> BTreeMap<String, NodeHealth> {
         let mut health = BTreeMap::new();
 
         for node_id in self.upstream.keys() {
@@ -204,11 +198,7 @@ impl DependencyGraph {
     }
 
     /// Compute health for a single node.
-    pub fn compute_node_health(
-        &self,
-        node_id: &str,
-        tracker: &ObligationTracker,
-    ) -> NodeHealth {
+    pub fn compute_node_health(&self, node_id: &str, tracker: &ObligationTracker) -> NodeHealth {
         let own_status = tracker
             .get(node_id)
             .map(|o| o.status)
@@ -255,10 +245,7 @@ impl DependencyGraph {
     }
 
     /// Get all suspect nodes — discharged but with unresolved upstream.
-    pub fn suspect_nodes(
-        &self,
-        tracker: &ObligationTracker,
-    ) -> Vec<String> {
+    pub fn suspect_nodes(&self, tracker: &ObligationTracker) -> Vec<String> {
         let health = self.compute_health(tracker);
         health
             .into_iter()
@@ -268,10 +255,7 @@ impl DependencyGraph {
     }
 
     /// Get a health summary.
-    pub fn health_summary(
-        &self,
-        tracker: &ObligationTracker,
-    ) -> HealthSummary {
+    pub fn health_summary(&self, tracker: &ObligationTracker) -> HealthSummary {
         let health = self.compute_health(tracker);
         let mut summary = HealthSummary::default();
         summary.total = health.len();
@@ -449,7 +433,10 @@ mod tests {
     fn test_topological_sort_succeeds() {
         let (_, graph) = build_full_graph();
         let sorted = graph.topological_sort();
-        assert!(sorted.is_some(), "Topological sort should succeed for acyclic graph");
+        assert!(
+            sorted.is_some(),
+            "Topological sort should succeed for acyclic graph"
+        );
         let sorted = sorted.unwrap();
         assert_eq!(sorted.len(), 46);
     }
@@ -534,7 +521,9 @@ mod tests {
         let (mut tracker, graph) = build_full_graph();
 
         // Discharge AX-1, then mark it failed.
-        tracker.mark_failed("AX-1", "failure evidence", "2025-01-15", "alice").unwrap();
+        tracker
+            .mark_failed("AX-1", "failure evidence", "2025-01-15", "alice")
+            .unwrap();
 
         let health = graph.compute_health(&tracker);
         assert_eq!(health["AX-1"], NodeHealth::Failed);
@@ -555,7 +544,9 @@ mod tests {
         // Discharge everything in topological order.
         let sorted = graph.topological_sort().unwrap();
         for id in &sorted {
-            tracker.discharge(id, "evidence", "2025-01-15", "reviewer").unwrap();
+            tracker
+                .discharge(id, "evidence", "2025-01-15", "reviewer")
+                .unwrap();
         }
 
         let health = graph.compute_health(&tracker);

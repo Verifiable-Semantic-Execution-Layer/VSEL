@@ -269,7 +269,12 @@ mod tests {
     fn test_deserialize_value_bytes() {
         let json = r#"{"type": "Bytes", "value": [1, 2, 3]}"#;
         let v = deserialize_value(json).unwrap();
-        assert_eq!(v, SirValue::Bytes { value: vec![1, 2, 3] });
+        assert_eq!(
+            v,
+            SirValue::Bytes {
+                value: vec![1, 2, 3]
+            }
+        );
     }
 
     #[test]
@@ -279,10 +284,7 @@ mod tests {
         assert_eq!(
             v,
             SirValue::Tuple {
-                elements: vec![
-                    SirValue::Int { value: 1 },
-                    SirValue::Bool { value: false },
-                ]
+                elements: vec![SirValue::Int { value: 1 }, SirValue::Bool { value: false },]
             }
         );
     }

@@ -237,18 +237,19 @@ fn bench_hash_backend_proof_verification(c: &mut Criterion) {
     let prover = DefaultProver::new("1.0.0-bench");
     let cs = bench_constraint_system();
     let trace = bench_trace(10);
-    let proof = prover.prove(&trace, &cs).expect("proof generation must succeed");
+    let proof = prover
+        .prove(&trace, &cs)
+        .expect("proof generation must succeed");
 
-    let verifier = DefaultVerifier::new(
-        ProtocolVersion { major: 1, minor: 0, patch: 0 },
-    );
+    let verifier = DefaultVerifier::new(ProtocolVersion {
+        major: 1,
+        minor: 0,
+        patch: 0,
+    });
 
     c.bench_function("hash_backend_proof_verification", |b| {
         b.iter(|| {
-            let _ = black_box(verifier.verify(
-                black_box(&proof),
-                black_box(&proof.public_inputs),
-            ));
+            let _ = black_box(verifier.verify(black_box(&proof), black_box(&proof.public_inputs)));
         });
     });
 }
@@ -278,8 +279,7 @@ fn bench_hash_backend_recursive_composition(c: &mut Criterion) {
 
         // Fix up state chaining: proof[i].root_final = proof[i+1].root_init
         for i in 0..proofs.len().saturating_sub(1) {
-            proofs[i].public_inputs.root_final =
-                proofs[i + 1].public_inputs.root_init.clone();
+            proofs[i].public_inputs.root_final = proofs[i + 1].public_inputs.root_init.clone();
         }
 
         // Ensure domain and version consistency.

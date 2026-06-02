@@ -10,8 +10,8 @@
 
 use std::collections::BTreeMap;
 
-use proptest::prelude::*;
 use proptest::collection::btree_map;
+use proptest::prelude::*;
 
 use vsel_core::input::*;
 use vsel_core::observable::*;
@@ -97,7 +97,9 @@ fn arb_canonical_state() -> impl Strategy<Value = CanonicalState> {
 /// Generate a non-zero DomainTag (required for valid environment).
 fn arb_domain_tag() -> impl Strategy<Value = DomainTag> {
     arb_bytes32()
-        .prop_filter("domain tag must not be all zeros", |b| b.iter().any(|&x| x != 0))
+        .prop_filter("domain tag must not be all zeros", |b| {
+            b.iter().any(|&x| x != 0)
+        })
         .prop_map(|b| DomainTag(Hash(b)))
 }
 
@@ -140,8 +142,12 @@ fn arb_trace_metadata() -> impl Strategy<Value = TraceMetadata> {
 
 /// Build a valid State from components by deriving D and Ω.
 fn arb_valid_state() -> impl Strategy<Value = State> {
-    (arb_canonical_state(), arb_environment(), arb_trace_metadata()).prop_map(
-        |(canonical, environment, metadata)| {
+    (
+        arb_canonical_state(),
+        arb_environment(),
+        arb_trace_metadata(),
+    )
+        .prop_map(|(canonical, environment, metadata)| {
             let derived = derive(&canonical);
             let economic = derive_economic(&canonical, &environment);
             State {
@@ -151,8 +157,7 @@ fn arb_valid_state() -> impl Strategy<Value = State> {
                 economic,
                 metadata,
             }
-        },
-    )
+        })
 }
 
 /// Generate a valid Authorization.
@@ -165,8 +170,8 @@ fn arb_authorization() -> impl Strategy<Value = Authorization> {
         any::<u64>(),
         arb_domain_tag(),
     )
-        .prop_map(|(classical_sig, pqc_sig, pk_classical, pk_pqc, nonce, domain)| {
-            Authorization {
+        .prop_map(
+            |(classical_sig, pqc_sig, pk_classical, pk_pqc, nonce, domain)| Authorization {
                 classical_sig,
                 pqc_sig,
                 public_key: HybridPublicKey {
@@ -175,8 +180,8 @@ fn arb_authorization() -> impl Strategy<Value = Authorization> {
                 },
                 nonce,
                 domain,
-            }
-        })
+            },
+        )
 }
 
 /// Generate a valid Input.
@@ -188,10 +193,7 @@ fn arb_input() -> impl Strategy<Value = Input> {
         prop::collection::vec(any::<u8>(), 0..64),
     )
         .prop_map(|(payload_type, data, auth, aux_data)| Input {
-            payload: Payload {
-                payload_type,
-                data,
-            },
+            payload: Payload { payload_type, data },
             auth,
             aux: AuxiliaryData { data: aux_data },
         })
@@ -220,10 +222,7 @@ fn arb_transition_status() -> impl Strategy<Value = TransitionStatus> {
 
 /// Generate a random OutputEvent.
 fn arb_output_event() -> impl Strategy<Value = OutputEvent> {
-    (
-        "[a-z_]{1,20}",
-        prop::collection::vec(any::<u8>(), 0..64),
-    )
+    ("[a-z_]{1,20}", prop::collection::vec(any::<u8>(), 0..64))
         .prop_map(|(event_type, data)| OutputEvent { event_type, data })
 }
 
@@ -255,7 +254,15 @@ fn arb_trace_entry() -> impl Strategy<Value = TraceEntry> {
         arb_hash(),
     )
         .prop_map(
-            |(index, pre_state_commitment, input, post_state_commitment, observable, environment, chain_hash)| {
+            |(
+                index,
+                pre_state_commitment,
+                input,
+                post_state_commitment,
+                observable,
+                environment,
+                chain_hash,
+            )| {
                 TraceEntry {
                     index,
                     pre_state_commitment,
@@ -378,8 +385,8 @@ proptest! {
 // **Validates: Requirements 4.4**
 // ---------------------------------------------------------------------------
 
-use vsel_mapping::canonicalization::{canonicalize_input, canonicalize_state};
 use vsel_core::state::derive;
+use vsel_mapping::canonicalization::{canonicalize_input, canonicalize_state};
 
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(100))]
@@ -563,19 +570,16 @@ fn arb_error_state_and_input() -> impl Strategy<Value = (State, Input)> {
 
             (state, input)
         })
-        .prop_filter(
-            "input must classify as Error",
-            |(state, input)| {
-                use vsel_core::transition::classify;
-                classify(state, input) == TransitionClass::Error
-            },
-        )
+        .prop_filter("input must classify as Error", |(state, input)| {
+            use vsel_core::transition::classify;
+            classify(state, input) == TransitionClass::Error
+        })
 }
 
 /// Build a well-formed trace by actually executing transitions from an initial state.
 fn arb_executed_trace() -> impl Strategy<Value = Trace> {
-    (arb_valid_state(), prop::collection::vec(arb_input(), 0..4))
-        .prop_map(|(initial_state, inputs)| {
+    (arb_valid_state(), prop::collection::vec(arb_input(), 0..4)).prop_map(
+        |(initial_state, inputs)| {
             use vsel_core::observable::obs;
             use vsel_core::state::commit;
             use vsel_core::transition::apply;
@@ -619,7 +623,8 @@ fn arb_executed_trace() -> impl Strategy<Value = Trace> {
                 initial_state,
                 commitment: chain_hash,
             }
-        })
+        },
+    )
 }
 
 proptest! {

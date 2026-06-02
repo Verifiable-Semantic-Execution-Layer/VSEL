@@ -6,6 +6,7 @@ edition = "2021"
 [features]
 default = ["hash-backend"]
 hash-backend = []
+legacy-verifier-tests = []
 # Enables the Plonky3 STARK proof backend over the Goldilocks field.
 # Opt-in only — not included in default features.
 # All p3-* crates are optional and only pulled in when this feature is active.

@@ -280,15 +280,11 @@ fn test_reduce128_multiples_of_p_plus_remainder() {
             if x <= u128::MAX {
                 let result = reduce128(x);
                 assert!(result < P, "reduce128({k}*p + {r}) = {result} >= p");
-                assert_eq!(
-                    result, r,
-                    "reduce128({k}*p + {r}) = {result}, expected {r}"
-                );
+                assert_eq!(result, r, "reduce128({k}*p + {r}) = {result}, expected {r}");
             }
         }
     }
 }
-
 
 // ===========================================================================
 // Task 1.3: Property test for reduce128 algebraic identity (Property 5)

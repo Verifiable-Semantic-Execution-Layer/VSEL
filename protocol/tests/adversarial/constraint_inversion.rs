@@ -31,12 +31,21 @@ fn make_deposit_program() -> SirProgram {
         version: "0.1.0".to_string(),
         state_schema: SirStateSchema {
             fields: vec![
-                SirFieldSchema { name: "balance".into(), field_type: "Int".into() },
-                SirFieldSchema { name: "nonce".into(), field_type: "Int".into() },
+                SirFieldSchema {
+                    name: "balance".into(),
+                    field_type: "Int".into(),
+                },
+                SirFieldSchema {
+                    name: "nonce".into(),
+                    field_type: "Int".into(),
+                },
             ],
         },
         input_schema: SirInputSchema {
-            fields: vec![SirFieldSchema { name: "amount".into(), field_type: "Int".into() }],
+            fields: vec![SirFieldSchema {
+                name: "amount".into(),
+                field_type: "Int".into(),
+            }],
         },
         transitions: vec![SirTransition {
             name: "deposit".into(),
@@ -44,20 +53,28 @@ fn make_deposit_program() -> SirProgram {
             preconditions: vec![SirExpr::BinOp {
                 op: "gt".into(),
                 left: Box::new(SirExpr::FieldAccess {
-                    expr: Box::new(SirExpr::Var { name: "input".into() }),
+                    expr: Box::new(SirExpr::Var {
+                        name: "input".into(),
+                    }),
                     field: "amount".into(),
                 }),
-                right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                right: Box::new(SirExpr::Literal {
+                    value: SirValue::Int { value: 0 },
+                }),
             }],
             postconditions: vec![],
             body: SirExpr::BinOp {
                 op: "add".into(),
                 left: Box::new(SirExpr::FieldAccess {
-                    expr: Box::new(SirExpr::Var { name: "state".into() }),
+                    expr: Box::new(SirExpr::Var {
+                        name: "state".into(),
+                    }),
                     field: "balance".into(),
                 }),
                 right: Box::new(SirExpr::FieldAccess {
-                    expr: Box::new(SirExpr::Var { name: "input".into() }),
+                    expr: Box::new(SirExpr::Var {
+                        name: "input".into(),
+                    }),
                     field: "amount".into(),
                 }),
             },
@@ -69,10 +86,14 @@ fn make_deposit_program() -> SirProgram {
             expr: SirExpr::BinOp {
                 op: "ge".into(),
                 left: Box::new(SirExpr::FieldAccess {
-                    expr: Box::new(SirExpr::Var { name: "state".into() }),
+                    expr: Box::new(SirExpr::Var {
+                        name: "state".into(),
+                    }),
                     field: "balance".into(),
                 }),
-                right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                right: Box::new(SirExpr::Literal {
+                    value: SirValue::Int { value: 0 },
+                }),
             },
         }],
         observables: vec![],
@@ -85,19 +106,30 @@ fn make_noop_program() -> SirProgram {
         version: "0.1.0".to_string(),
         state_schema: SirStateSchema {
             fields: vec![
-                SirFieldSchema { name: "balance".into(), field_type: "Int".into() },
-                SirFieldSchema { name: "nonce".into(), field_type: "Int".into() },
+                SirFieldSchema {
+                    name: "balance".into(),
+                    field_type: "Int".into(),
+                },
+                SirFieldSchema {
+                    name: "nonce".into(),
+                    field_type: "Int".into(),
+                },
             ],
         },
         input_schema: SirInputSchema {
-            fields: vec![SirFieldSchema { name: "amount".into(), field_type: "Int".into() }],
+            fields: vec![SirFieldSchema {
+                name: "amount".into(),
+                field_type: "Int".into(),
+            }],
         },
         transitions: vec![SirTransition {
             name: "noop".into(),
             class: "Noop".into(),
             preconditions: vec![],
             postconditions: vec![],
-            body: SirExpr::Var { name: "state".into() },
+            body: SirExpr::Var {
+                name: "state".into(),
+            },
             allowed_mutations: vec![],
         }],
         invariants: vec![SirInvariant {
@@ -106,10 +138,14 @@ fn make_noop_program() -> SirProgram {
             expr: SirExpr::BinOp {
                 op: "ge".into(),
                 left: Box::new(SirExpr::FieldAccess {
-                    expr: Box::new(SirExpr::Var { name: "state".into() }),
+                    expr: Box::new(SirExpr::Var {
+                        name: "state".into(),
+                    }),
                     field: "balance".into(),
                 }),
-                right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                right: Box::new(SirExpr::Literal {
+                    value: SirValue::Int { value: 0 },
+                }),
             },
         }],
         observables: vec![],
@@ -142,18 +178,13 @@ fn remove_constraint(system: &ConstraintSystem, index: usize) -> ConstraintSyste
 
 /// Categorize a constraint for reporting.
 fn constraint_summary(c: &Constraint) -> String {
-    format!(
-        "[{:?}] {}",
-        c.category, c.description
-    )
+    format!("[{:?}] {}", c.category, c.description)
 }
 
 /// Generate adversarial witnesses targeting a specific constraint category.
 /// Returns a list of (pre_state, input, post_state) tuples that should
 /// violate the removed constraint's semantic intent.
-fn generate_adversarial_witnesses(
-    removed: &Constraint,
-) -> Vec<(SirValue, SirValue, SirValue)> {
+fn generate_adversarial_witnesses(removed: &Constraint) -> Vec<(SirValue, SirValue, SirValue)> {
     let mut witnesses = Vec::new();
 
     match removed.category {
@@ -268,9 +299,7 @@ struct InversionResult {
 }
 
 /// Run constraint inversion analysis on a compiled constraint system.
-fn run_constraint_inversion(
-    system: &ConstraintSystem,
-) -> Vec<InversionResult> {
+fn run_constraint_inversion(system: &ConstraintSystem) -> Vec<InversionResult> {
     let mut results = Vec::new();
 
     for (idx, constraint) in system.constraints.iter().enumerate() {
@@ -323,11 +352,18 @@ fn test_constraint_inversion_noop_program() {
     let mut redundant_count = 0;
 
     for r in &results {
-        let status = if r.is_necessary { "NECESSARY" } else { "redundant" };
+        let status = if r.is_necessary {
+            "NECESSARY"
+        } else {
+            "redundant"
+        };
         println!(
             "  [{}] #{}: {} (adversarial: {}/{})",
-            status, r.constraint_index, r.constraint_summary,
-            r.adversarial_passes, r.total_witnesses
+            status,
+            r.constraint_index,
+            r.constraint_summary,
+            r.adversarial_passes,
+            r.total_witnesses
         );
         if r.is_necessary {
             necessary_count += 1;
@@ -336,10 +372,14 @@ fn test_constraint_inversion_noop_program() {
         }
     }
 
-    println!("Necessary: {}, Redundant: {}", necessary_count, redundant_count);
+    println!(
+        "Necessary: {}, Redundant: {}",
+        necessary_count, redundant_count
+    );
 
     // Verify: invariant constraints must be necessary
-    let invariant_results: Vec<_> = results.iter()
+    let invariant_results: Vec<_> = results
+        .iter()
         .filter(|r| r.category == ConstraintCategory::Invariant)
         .collect();
 
@@ -378,11 +418,18 @@ fn test_constraint_inversion_deposit_program() {
     let mut redundant_count = 0;
 
     for r in &results {
-        let status = if r.is_necessary { "NECESSARY" } else { "redundant" };
+        let status = if r.is_necessary {
+            "NECESSARY"
+        } else {
+            "redundant"
+        };
         println!(
             "  [{}] #{}: {} (adversarial: {}/{})",
-            status, r.constraint_index, r.constraint_summary,
-            r.adversarial_passes, r.total_witnesses
+            status,
+            r.constraint_index,
+            r.constraint_summary,
+            r.adversarial_passes,
+            r.total_witnesses
         );
         if r.is_necessary {
             necessary_count += 1;
@@ -391,7 +438,10 @@ fn test_constraint_inversion_deposit_program() {
         }
     }
 
-    println!("Necessary: {}, Redundant: {}", necessary_count, redundant_count);
+    println!(
+        "Necessary: {}, Redundant: {}",
+        necessary_count, redundant_count
+    );
 
     // Verify: semantic constraints (preconditions) — in the evaluator context,
     // the body constraint (state_post = body_expr) is so strict that it
@@ -399,7 +449,8 @@ fn test_constraint_inversion_deposit_program() {
     // in the algebraic (ZK circuit) evaluation context where the body
     // constraint evaluates correctly against field-level values.
     // We verify that the body constraint itself is necessary.
-    let structural_results: Vec<_> = results.iter()
+    let structural_results: Vec<_> = results
+        .iter()
         .filter(|r| r.category == ConstraintCategory::Structural)
         .collect();
 
@@ -491,7 +542,9 @@ fn test_constraint_inversion_100_percent_coverage() {
             results.len(),
             system.constraints.len(),
             "Program '{}': all {} constraints must be tested, got {}",
-            name, system.constraints.len(), results.len()
+            name,
+            system.constraints.len(),
+            results.len()
         );
 
         println!(
@@ -499,7 +552,11 @@ fn test_constraint_inversion_100_percent_coverage() {
             name,
             results.len(),
             system.constraints.len(),
-            if system.constraints.is_empty() { 100 } else { results.len() * 100 / system.constraints.len() }
+            if system.constraints.is_empty() {
+                100
+            } else {
+                results.len() * 100 / system.constraints.len()
+            }
         );
     }
 }

@@ -203,10 +203,7 @@ pub fn check_ci3_authorization_transitivity(
 /// inconsistencies in cross-system interactions.
 ///
 /// Uses a default threshold of 300 time units if not specified via config.
-pub fn check_ci4_causal_consistency(
-    state_a: &State,
-    state_b: &State,
-) -> CrossInvariantResult {
+pub fn check_ci4_causal_consistency(state_a: &State, state_b: &State) -> CrossInvariantResult {
     check_ci4_causal_consistency_with_threshold(state_a, state_b, 300)
 }
 
@@ -247,10 +244,7 @@ pub fn check_ci4_causal_consistency_with_threshold(
 ///
 /// Verifies that the major protocol versions match. Systems with different
 /// major versions are incompatible and must not compose.
-pub fn check_ci5_version_compatibility(
-    state_a: &State,
-    state_b: &State,
-) -> CrossInvariantResult {
+pub fn check_ci5_version_compatibility(state_a: &State, state_b: &State) -> CrossInvariantResult {
     let ver_a = &state_a.canonical.system_data.protocol_version;
     let ver_b = &state_b.canonical.system_data.protocol_version;
 
@@ -276,10 +270,7 @@ pub fn check_ci5_version_compatibility(
 /// Verifies price oracle consistency between two systems. If both systems
 /// have price data for the same asset pair, the prices must not diverge
 /// beyond a reasonable threshold (10% = 1000 basis points).
-pub fn check_ce_arbitrage(
-    state_a: &State,
-    state_b: &State,
-) -> CrossInvariantResult {
+pub fn check_ce_arbitrage(state_a: &State, state_b: &State) -> CrossInvariantResult {
     let oracle_a = &state_a.economic.price_oracle;
     let oracle_b = &state_b.economic.price_oracle;
 
@@ -547,10 +538,14 @@ mod tests {
         let key = StorageKey(vec![1, 2, 3]);
 
         let mut a = build_state(0, 1000);
-        a.canonical.storage.insert(key.clone(), StorageValue(vec![10]));
+        a.canonical
+            .storage
+            .insert(key.clone(), StorageValue(vec![10]));
 
         let mut b = build_state(0, 1000);
-        b.canonical.storage.insert(key.clone(), StorageValue(vec![20]));
+        b.canonical
+            .storage
+            .insert(key.clone(), StorageValue(vec![20]));
 
         let result = check_ci2_shared_state_consistency(&a, &b, &[key]);
         assert!(!result.valid);
@@ -562,7 +557,9 @@ mod tests {
         let key = StorageKey(vec![1, 2, 3]);
 
         let mut a = build_state(0, 1000);
-        a.canonical.storage.insert(key.clone(), StorageValue(vec![10]));
+        a.canonical
+            .storage
+            .insert(key.clone(), StorageValue(vec![10]));
 
         let b = build_state(0, 1000);
         // b does not have the key
@@ -764,7 +761,10 @@ mod tests {
         // A is 90% of combined, max 5000 bps (50%) — should fail for A
         let result = check_ce_contagion(&a, &b, 5000);
         assert!(!result.valid);
-        assert!(result.violations.iter().any(|v| v.invariant_id == "CE_contagion"));
+        assert!(result
+            .violations
+            .iter()
+            .any(|v| v.invariant_id == "CE_contagion"));
     }
 
     #[test]
@@ -809,7 +809,11 @@ mod tests {
         // and CE_contagion (900/1100 > 50%)
         assert!(result.violations.len() >= 3);
 
-        let ids: Vec<&str> = result.violations.iter().map(|v| v.invariant_id.as_str()).collect();
+        let ids: Vec<&str> = result
+            .violations
+            .iter()
+            .map(|v| v.invariant_id.as_str())
+            .collect();
         assert!(ids.contains(&"CI-1"));
         assert!(ids.contains(&"CI-4"));
         assert!(ids.contains(&"CI-5"));

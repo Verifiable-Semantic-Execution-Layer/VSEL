@@ -305,7 +305,6 @@ impl KeyStore {
     }
 }
 
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -361,7 +360,10 @@ mod tests {
     fn test_derive_key_id_different_keys_differ() {
         let kp1 = generate_hybrid_keypair();
         let kp2 = generate_hybrid_keypair();
-        assert_ne!(derive_key_id(&kp1.public_key), derive_key_id(&kp2.public_key));
+        assert_ne!(
+            derive_key_id(&kp1.public_key),
+            derive_key_id(&kp2.public_key)
+        );
     }
 
     // -- KeyStore generate ---------------------------------------------------

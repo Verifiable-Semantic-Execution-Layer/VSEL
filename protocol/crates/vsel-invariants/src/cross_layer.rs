@@ -10,9 +10,7 @@
 
 use vsel_core::state::State;
 
-use crate::{
-    ConstraintSystem, InvariantCategory, InvariantResult, InvariantViolation, Severity,
-};
+use crate::{ConstraintSystem, InvariantCategory, InvariantResult, InvariantViolation, Severity};
 
 /// X_exec: Rust implementation equals Lean 4 specification.
 ///
@@ -71,10 +69,7 @@ pub fn x_proof(_state: &State, constraints: &ConstraintSystem) -> InvariantResul
 }
 
 /// Check all cross-layer invariants.
-pub fn check_all_cross_layer(
-    state: &State,
-    constraints: &ConstraintSystem,
-) -> InvariantResult {
+pub fn check_all_cross_layer(state: &State, constraints: &ConstraintSystem) -> InvariantResult {
     let checks = [
         x_exec(state, constraints),
         x_constraint(state, constraints),

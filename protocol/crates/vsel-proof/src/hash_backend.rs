@@ -347,12 +347,10 @@ impl ZkBackend for HashBackend {
         }
 
         if bytes.len() != 32 {
-            return Err(HashBackendError::DeserializationFailed(
-                format!(
-                    "expected 32 bytes (SHA3-256 output), got {} bytes",
-                    bytes.len()
-                ),
-            ));
+            return Err(HashBackendError::DeserializationFailed(format!(
+                "expected 32 bytes (SHA3-256 output), got {} bytes",
+                bytes.len()
+            )));
         }
 
         Ok(HashBackendProof::new(bytes.to_vec()))

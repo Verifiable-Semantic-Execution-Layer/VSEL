@@ -9,15 +9,15 @@
 
 use std::collections::BTreeMap;
 
-use proptest::prelude::*;
 use proptest::collection::btree_map;
+use proptest::prelude::*;
 
 use vsel_core::input::*;
 use vsel_core::state::*;
 use vsel_core::types::*;
 
-use vsel_invariants::{Trace, TraceStep, InvariantSystem, DefaultInvariantSystem};
-use vsel_invariants::temporal::{check_all_temporal, t_no_revert, t_cons, t_causal, t_complete};
+use vsel_invariants::temporal::{check_all_temporal, t_causal, t_complete, t_cons, t_no_revert};
+use vsel_invariants::{DefaultInvariantSystem, InvariantSystem, Trace, TraceStep};
 
 // ---------------------------------------------------------------------------
 // Arbitrary strategies for generating valid trace components
@@ -117,8 +117,8 @@ fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
         any::<u64>(),
         arb_domain_tag(),
     )
-        .prop_map(|(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| {
-            Authorization {
+        .prop_map(
+            |(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| Authorization {
                 classical_sig,
                 pqc_sig,
                 public_key: HybridPublicKey {
@@ -127,8 +127,8 @@ fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
                 },
                 nonce,
                 domain,
-            }
-        })
+            },
+        )
 }
 
 /// Generate a structurally valid Input.
@@ -140,10 +140,7 @@ fn arb_valid_input() -> impl Strategy<Value = Input> {
         prop::collection::vec(any::<u8>(), 0..64),
     )
         .prop_map(|(payload_type, data, auth, aux_data)| Input {
-            payload: Payload {
-                payload_type,
-                data,
-            },
+            payload: Payload { payload_type, data },
             auth,
             aux: AuxiliaryData { data: aux_data },
         })
@@ -201,8 +198,8 @@ fn arb_valid_trace(max_steps: usize) -> impl Strategy<Value = Trace> {
         arb_environment(),
         arb_valid_input(),
         1..=max_steps,
-        0u64..=1_000u64,       // base timestamp
-        0u64..=100u64,          // base sequence index
+        0u64..=1_000u64, // base timestamp
+        0u64..=100u64,   // base sequence index
     )
         .prop_flat_map(|(canonical, env, input, num_steps, base_ts, base_seq)| {
             // Generate timestamp increments for each step (non-decreasing)

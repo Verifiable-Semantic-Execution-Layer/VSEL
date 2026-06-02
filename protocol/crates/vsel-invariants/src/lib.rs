@@ -163,11 +163,7 @@ pub trait InvariantSystem {
 
     /// Check cross-layer invariants.
     /// X_exec, X_constraint, X_proof
-    fn check_cross_layer(
-        &self,
-        state: &State,
-        constraints: &ConstraintSystem,
-    ) -> InvariantResult;
+    fn check_cross_layer(&self, state: &State, constraints: &ConstraintSystem) -> InvariantResult;
 
     /// Admissibility — ValidState(s) ∧ EconomicallyValid(s)
     fn is_admissible(&self, state: &State) -> bool;
@@ -198,11 +194,7 @@ impl InvariantSystem for DefaultInvariantSystem {
         economic::check_all_economic(state)
     }
 
-    fn check_cross_layer(
-        &self,
-        state: &State,
-        constraints: &ConstraintSystem,
-    ) -> InvariantResult {
+    fn check_cross_layer(&self, state: &State, constraints: &ConstraintSystem) -> InvariantResult {
         cross_layer::check_all_cross_layer(state, constraints)
     }
 

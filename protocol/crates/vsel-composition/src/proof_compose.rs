@@ -127,8 +127,13 @@ pub fn compose_proofs(
     let composed_commitments = compose_commitments(proof_a, proof_b, proof_cross);
 
     // Generate composed proof data.
-    let composed_proof_data =
-        compose_proof_data(proof_a, proof_b, proof_cross, &composed_commitments, &composed_public_inputs);
+    let composed_proof_data = compose_proof_data(
+        proof_a,
+        proof_b,
+        proof_cross,
+        &composed_commitments,
+        &composed_public_inputs,
+    );
 
     // Metadata for the composed proof.
     let metadata = ProofMetadata {
@@ -155,11 +160,7 @@ pub fn compose_proofs(
 ///
 /// Each commitment field is computed by hashing the corresponding fields
 /// from all three proofs with the cross-composition domain separator.
-fn compose_commitments(
-    proof_a: &Proof,
-    proof_b: &Proof,
-    proof_cross: &Proof,
-) -> ProofCommitments {
+fn compose_commitments(proof_a: &Proof, proof_b: &Proof, proof_cross: &Proof) -> ProofCommitments {
     // Compose trace commitments.
     let trace_commitment = domain_hash_commitments(
         b"trace",
@@ -329,8 +330,8 @@ mod tests {
         let proof_b = make_proof(make_hash(1), make_hash(2), 200);
         let proof_cross = make_proof(make_hash(0), make_hash(2), 50);
 
-        let composed = compose_proofs(&proof_a, &proof_b, &proof_cross)
-            .expect("composition should succeed");
+        let composed =
+            compose_proofs(&proof_a, &proof_b, &proof_cross).expect("composition should succeed");
 
         // root_init from proof_a.
         assert_eq!(composed.public_inputs.root_init, make_hash(0));
@@ -390,10 +391,7 @@ mod tests {
     #[test]
     fn test_compose_proofs_preserves_observable_order() {
         let mut proof_a = make_proof(make_hash(0), make_hash(1), 100);
-        proof_a.public_inputs.observables = vec![
-            make_observable(1),
-            make_observable(2),
-        ];
+        proof_a.public_inputs.observables = vec![make_observable(1), make_observable(2)];
         let proof_b = make_proof(make_hash(1), make_hash(2), 200);
         let proof_cross = make_proof(make_hash(0), make_hash(2), 50);
 

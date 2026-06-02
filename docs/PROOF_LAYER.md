@@ -11,12 +11,11 @@ It specifies:
 * how proofs bind to formal semantics
 * what guarantees verifiers can rely on
 
-The core requirement is:
+The core requirement is now scoped to **strict final acceptance**, not to every API named `verify`:
 
-> A valid proof must certify that an execution trace is semantically valid under the formal specification.
+> `FullyVerified` may be emitted only when cryptographic consistency, witness/constraint verification, non-vacuous semantic/invariant constraint coverage, deterministic replay of the complete execution trace, and authoritative executable or mechanized semantic evidence all pass.
 
-Not that it satisfies a circuit.
-That part is just an implementation detail.
+`CryptographicallyConsistent` is not semantic validity. It only means the proof object and public inputs are internally consistent under the legacy cryptographic verifier.
 
 ---
 
@@ -33,15 +32,19 @@ A proof ( \pi ) must attest:
 \pi = Proof(\tau, C)
 ]
 
-Such that:
+For the legacy cryptographic verifier:
 
 [
-Verify(\pi) \Rightarrow ValidTrace(\tau)
+Verify_{crypto}(\pi, Pub) \Rightarrow CryptographicallyConsistent(\pi, Pub)
 ]
 
-This is the only statement that matters.
+For final acceptance:
 
-Anything weaker is insufficient.
+[
+StrictTraceVerify(\pi, Pub, W, C, \tau, E_{sem}) = FullyVerified \Rightarrow ValidTrace(\tau)
+]
+
+where `FullyVerified` is impossible unless `W` satisfies `C` in fail-closed mode, `\tau` replays deterministically from its initial state, and `E_sem` is authoritative semantic evidence bound to the same context.
 
 ---
 
@@ -106,10 +109,10 @@ Multiple valid interpretations of the same witness are not allowed.
 
 ## 6. Proof Semantics
 
-A proof is valid if and only if:
+A proof is finally accepted if and only if:
 
 [
-Verify(\pi, Pub) = true
+StrictTraceVerify(\pi, Pub, W, C, \tau, E_{sem}) = FullyVerified
 ]
 
 Which implies:
@@ -119,8 +122,12 @@ Which implies:
 ]
 
 * ( \tau ) matches commitments
-* ( \tau ) satisfies constraints
-* ( \tau ) is a valid formal trace
+* ( \tau ) is supplied completely enough for deterministic replay
+* ( W ) binds to the witness commitment
+* ( C ) binds to the constraint commitment
+* every declared constraint evaluates to true without missing-variable or unsupported-expression vacuity
+* semantic and invariant constraints are non-vacuous
+* authoritative executable/mechanized evidence certifies the formal trace
 
 ---
 
@@ -338,7 +345,7 @@ Ensuring:
 
 ## 12. Soundness
 
-Soundness guarantees:
+Strict soundness target:
 
 [
 Pr[\text{invalid } \tau \text{ accepted}] \leq \epsilon
@@ -350,6 +357,10 @@ This depends on:
 
 * cryptographic assumptions
 * constraint correctness
+* executable/mechanized semantic verifier correctness
+* explicit binding of semantic evidence to proof, witness, constraint, policy, and version commitments
+
+The current hash-based/default verifier path does not by itself establish this bound.
 
 ---
 
@@ -396,15 +407,18 @@ Prevents:
 
 ## 16. Proof Verification
 
-Verification checks:
+Strict verification checks:
 
 1. commitment consistency
 2. constraint satisfaction
-3. trace validity (via constraints)
-4. domain correctness
+3. witness commitment recomputation
+4. non-vacuous semantic/invariant constraint coverage
+5. deterministic replay of the complete trace
+6. authoritative semantic evidence
+7. domain correctness
 
 [
-Verify(\pi, Pub) \Rightarrow ValidTrace(\tau)
+StrictTraceVerify(\pi, Pub, W, C, \tau, E_{sem}) \Rightarrow ValidTrace(\tau)
 ]
 
 ---

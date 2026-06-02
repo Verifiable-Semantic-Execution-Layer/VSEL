@@ -295,7 +295,9 @@ mod tests {
         assert_eq!(
             e,
             SirExpr::If {
-                cond: Box::new(SirExpr::Var { name: "flag".into() }),
+                cond: Box::new(SirExpr::Var {
+                    name: "flag".into()
+                }),
                 then_: Box::new(SirExpr::Literal {
                     value: SirValue::Int { value: 1 }
                 }),

@@ -15,8 +15,8 @@ use std::collections::BTreeMap;
 
 use proptest::prelude::*;
 
-use vsel_constraints::compiler::{compile, satisfies_constraints};
 use vsel_constraints::analyze_underconstraints;
+use vsel_constraints::compiler::{compile, satisfies_constraints};
 use vsel_sir::types::{
     SirExpr, SirFieldSchema, SirInputSchema, SirInvariant, SirProgram, SirStateSchema,
     SirTransition, SirValue,
@@ -28,12 +28,12 @@ use vsel_sir::types::{
 
 /// Generate a random SIR field schema.
 fn arb_sir_field_schema() -> impl Strategy<Value = SirFieldSchema> {
-    ("[a-z][a-z0-9_]{0,9}", prop_oneof!["Int", "Bool", "Bytes"]).prop_map(
-        |(name, field_type)| SirFieldSchema {
+    ("[a-z][a-z0-9_]{0,9}", prop_oneof!["Int", "Bool", "Bytes"]).prop_map(|(name, field_type)| {
+        SirFieldSchema {
             name,
             field_type: field_type.to_string(),
-        },
-    )
+        }
+    })
 }
 
 /// Generate a random state schema with 1-5 fields (unique names).
@@ -116,13 +116,13 @@ fn arb_sir_expr(max_depth: u32) -> impl Strategy<Value = SirExpr> {
 
         let if_expr = {
             let d = max_depth - 1;
-            (arb_sir_expr(d), arb_sir_expr(d), arb_sir_expr(d)).prop_map(
-                |(cond, then_, else_)| SirExpr::If {
+            (arb_sir_expr(d), arb_sir_expr(d), arb_sir_expr(d)).prop_map(|(cond, then_, else_)| {
+                SirExpr::If {
                     cond: Box::new(cond),
                     then_: Box::new(then_),
                     else_: Box::new(else_),
-                },
-            )
+                }
+            })
         };
 
         let field_access = {
@@ -195,8 +195,8 @@ fn arb_sir_invariant() -> impl Strategy<Value = SirInvariant> {
 
 /// Generate a complete SIR program with random structure.
 fn arb_sir_program() -> impl Strategy<Value = SirProgram> {
-    (arb_sir_state_schema(), arb_sir_input_schema()).prop_flat_map(
-        |(state_schema, input_schema)| {
+    (arb_sir_state_schema(), arb_sir_input_schema())
+        .prop_flat_map(|(state_schema, input_schema)| {
             let ss = state_schema.clone();
             (
                 Just(state_schema.clone()),
@@ -204,18 +204,17 @@ fn arb_sir_program() -> impl Strategy<Value = SirProgram> {
                 prop::collection::vec(arb_sir_transition(&ss), 1..=3),
                 prop::collection::vec(arb_sir_invariant(), 0..=3),
             )
-        },
-    )
-    .prop_map(
-        |(state_schema, input_schema, transitions, invariants)| SirProgram {
-            version: "0.1.0".to_string(),
-            state_schema,
-            input_schema,
-            transitions,
-            invariants,
-            observables: vec![],
-        },
-    )
+        })
+        .prop_map(
+            |(state_schema, input_schema, transitions, invariants)| SirProgram {
+                version: "0.1.0".to_string(),
+                state_schema,
+                input_schema,
+                transitions,
+                invariants,
+                observables: vec![],
+            },
+        )
 }
 
 // ---------------------------------------------------------------------------
@@ -691,7 +690,9 @@ proptest! {
 /// Collect all variable names referenced in a SIR expression tree.
 fn collect_sir_var_refs(expr: &SirExpr, refs: &mut std::collections::BTreeSet<String>) {
     match expr {
-        SirExpr::Var { name } => { refs.insert(name.clone()); }
+        SirExpr::Var { name } => {
+            refs.insert(name.clone());
+        }
         SirExpr::Literal { .. } => {}
         SirExpr::BinOp { left, right, .. } => {
             collect_sir_var_refs(left, refs);
@@ -711,11 +712,15 @@ fn collect_sir_var_refs(expr: &SirExpr, refs: &mut std::collections::BTreeSet<St
         }
         SirExpr::Match { scrutinee, arms } => {
             collect_sir_var_refs(scrutinee, refs);
-            for arm in arms { collect_sir_var_refs(&arm.body, refs); }
+            for arm in arms {
+                collect_sir_var_refs(&arm.body, refs);
+            }
         }
         SirExpr::Apply { func, args } => {
             collect_sir_var_refs(func, refs);
-            for a in args { collect_sir_var_refs(a, refs); }
+            for a in args {
+                collect_sir_var_refs(a, refs);
+            }
         }
     }
 }
@@ -725,9 +730,13 @@ fn collect_sir_var_refs(expr: &SirExpr, refs: &mut std::collections::BTreeSet<St
 fn collect_program_var_refs(program: &SirProgram) -> std::collections::BTreeSet<String> {
     let mut refs = std::collections::BTreeSet::new();
     for t in &program.transitions {
-        for pre in &t.preconditions { collect_sir_var_refs(pre, &mut refs); }
+        for pre in &t.preconditions {
+            collect_sir_var_refs(pre, &mut refs);
+        }
         collect_sir_var_refs(&t.body, &mut refs);
-        for post in &t.postconditions { collect_sir_var_refs(post, &mut refs); }
+        for post in &t.postconditions {
+            collect_sir_var_refs(post, &mut refs);
+        }
     }
     for inv in &program.invariants {
         collect_sir_var_refs(&inv.expr, &mut refs);

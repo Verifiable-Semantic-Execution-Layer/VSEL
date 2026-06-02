@@ -80,10 +80,7 @@ pub fn check_temporal_consistency(
 /// and compares against the expected values.
 ///
 /// Returns `true` if all chain hashes match.
-pub fn verify_chain(
-    entry_commitments: &[Hash],
-    expected_chain_hashes: &[Hash],
-) -> bool {
+pub fn verify_chain(entry_commitments: &[Hash], expected_chain_hashes: &[Hash]) -> bool {
     if entry_commitments.len() != expected_chain_hashes.len() {
         return false;
     }
@@ -122,7 +119,10 @@ mod tests {
         let entry = Hash([1u8; 32]);
         let h1 = compute_chain_hash(&Hash([0u8; 32]), &entry);
         let h2 = compute_chain_hash(&Hash([2u8; 32]), &entry);
-        assert_ne!(h1, h2, "different previous hashes must produce different chain hashes");
+        assert_ne!(
+            h1, h2,
+            "different previous hashes must produce different chain hashes"
+        );
     }
 
     #[test]
@@ -130,7 +130,10 @@ mod tests {
         let prev = Hash([0u8; 32]);
         let h1 = compute_chain_hash(&prev, &Hash([1u8; 32]));
         let h2 = compute_chain_hash(&prev, &Hash([2u8; 32]));
-        assert_ne!(h1, h2, "different entry commitments must produce different chain hashes");
+        assert_ne!(
+            h1, h2,
+            "different entry commitments must produce different chain hashes"
+        );
     }
 
     #[test]

@@ -266,10 +266,7 @@ impl ObligationTracker {
     /// Reset an obligation to unresolved (e.g., after upstream change).
     ///
     /// Returns `Err` if the obligation is not found.
-    pub fn reset(
-        &mut self,
-        obligation_id: &str,
-    ) -> Result<(), TrackerError> {
+    pub fn reset(&mut self, obligation_id: &str) -> Result<(), TrackerError> {
         let obl = self
             .obligations
             .get_mut(obligation_id)
@@ -374,7 +371,6 @@ impl std::fmt::Display for TrackerError {
 
 impl std::error::Error for TrackerError {}
 
-
 // ---------------------------------------------------------------------------
 // Builder — populate tracker from the traceability matrix
 // ---------------------------------------------------------------------------
@@ -387,9 +383,7 @@ impl std::error::Error for TrackerError {}
 /// status `Unresolved`.
 ///
 /// Requirements: 16.5, 16.7
-pub fn build_obligation_tracker(
-    matrix: &crate::matrix::TraceabilityMatrix,
-) -> ObligationTracker {
+pub fn build_obligation_tracker(matrix: &crate::matrix::TraceabilityMatrix) -> ObligationTracker {
     let mut tracker = ObligationTracker::new();
 
     // Obligation statements keyed by ID.
@@ -402,18 +396,9 @@ pub fn build_obligation_tracker(
     let falsification = falsification_targets();
 
     for (id, entry) in &matrix.proof_obligations {
-        let statement = statements
-            .get(id.as_str())
-            .cloned()
-            .unwrap_or_default();
-        let dependencies = deps
-            .get(id.as_str())
-            .cloned()
-            .unwrap_or_default();
-        let falsification_target = falsification
-            .get(id.as_str())
-            .cloned()
-            .unwrap_or_default();
+        let statement = statements.get(id.as_str()).cloned().unwrap_or_default();
+        let dependencies = deps.get(id.as_str()).cloned().unwrap_or_default();
+        let falsification_target = falsification.get(id.as_str()).cloned().unwrap_or_default();
 
         tracker.register(TrackedObligation {
             obligation_id: id.clone(),
@@ -438,68 +423,207 @@ fn obligation_statements() -> BTreeMap<&'static str, String> {
     let mut m = BTreeMap::new();
 
     // Axioms
-    m.insert("AX-1", "Determinism: Apply(s, σ) produces exactly one s' for every (s, σ) pair".to_string());
-    m.insert("AX-2", "Closure: for all s ∈ S and σ ∈ Σ, Apply(s, σ) ∈ S".to_string());
+    m.insert(
+        "AX-1",
+        "Determinism: Apply(s, σ) produces exactly one s' for every (s, σ) pair".to_string(),
+    );
+    m.insert(
+        "AX-2",
+        "Closure: for all s ∈ S and σ ∈ Σ, Apply(s, σ) ∈ S".to_string(),
+    );
     m.insert("AX-3", "Genesis: initial states satisfy genesis constraints with D(s₀) = Derive(C(s₀)) and τ(s₀) = 0".to_string());
-    m.insert("AX-4", "Proof system soundness: the underlying proof system is sound".to_string());
-    m.insert("AX-5", "Hash collision resistance: the hash function is collision-resistant".to_string());
-    m.insert("AX-6", "Environment faithfulness: environment data is accurate".to_string());
+    m.insert(
+        "AX-4",
+        "Proof system soundness: the underlying proof system is sound".to_string(),
+    );
+    m.insert(
+        "AX-5",
+        "Hash collision resistance: the hash function is collision-resistant".to_string(),
+    );
+    m.insert(
+        "AX-6",
+        "Environment faithfulness: environment data is accurate".to_string(),
+    );
 
     // Definitions
-    m.insert("DEF-1", "Derived state determinism: D = Derive(C) is deterministic".to_string());
-    m.insert("DEF-2", "Encoding injectivity: Encode(s₁) = Encode(s₂) ⟹ s₁ = s₂".to_string());
-    m.insert("DEF-3", "Commitment binding: Commit(C) = D.commitment".to_string());
-    m.insert("DEF-4", "Observable determinism: Obs(s, σ, s') is deterministic".to_string());
-    m.insert("DEF-5", "Canonicalization idempotence: Canonical(Canonical(σ)) = Canonical(σ)".to_string());
-    m.insert("DEF-6", "Canonicalization semantic preservation: semantics preserved through canonicalization".to_string());
+    m.insert(
+        "DEF-1",
+        "Derived state determinism: D = Derive(C) is deterministic".to_string(),
+    );
+    m.insert(
+        "DEF-2",
+        "Encoding injectivity: Encode(s₁) = Encode(s₂) ⟹ s₁ = s₂".to_string(),
+    );
+    m.insert(
+        "DEF-3",
+        "Commitment binding: Commit(C) = D.commitment".to_string(),
+    );
+    m.insert(
+        "DEF-4",
+        "Observable determinism: Obs(s, σ, s') is deterministic".to_string(),
+    );
+    m.insert(
+        "DEF-5",
+        "Canonicalization idempotence: Canonical(Canonical(σ)) = Canonical(σ)".to_string(),
+    );
+    m.insert(
+        "DEF-6",
+        "Canonicalization semantic preservation: semantics preserved through canonicalization"
+            .to_string(),
+    );
 
     // Lemmas
-    m.insert("LEM-1", "Invariant preservation: ∀ (s, σ, s') ∈ T, ∀ G ∈ GlobalInvariants: G(s) ⟹ G(s')".to_string());
-    m.insert("LEM-2", "Trace inductive invariance: s₀ ∈ I ∧ (∀ i: G(sᵢ) ⟹ G(sᵢ₊₁)) ⟹ ∀ i: G(sᵢ)".to_string());
-    m.insert("LEM-3", "Semantic mapping commutativity: μ_S(Apply_c(s, σ)) = Apply_f(μ_S(s), μ_Σ(σ))".to_string());
-    m.insert("LEM-4", "Constraint soundness: SatisfiesConstraints(τ) ⟹ ValidTrace(τ)".to_string());
-    m.insert("LEM-5", "Constraint completeness: ValidTrace(τ) ⟹ SatisfiesConstraints(τ)".to_string());
-    m.insert("LEM-6", "Witness semantic uniqueness: same public inputs ⟹ same semantic execution".to_string());
-    m.insert("LEM-7", "Error state invariant preservation: Apply(s, σ_invalid) = s_error preserves invariants".to_string());
-    m.insert("LEM-8", "Noop semantic neutrality: noop transitions do not change semantic state".to_string());
-    m.insert("LEM-9", "Batch decomposition equivalence: Apply(s, [σ₁..σₙ]) = sequential application".to_string());
-    m.insert("LEM-10", "Trace reconstruction fidelity: Reconstruct(s₀, σ₀..σₙ₋₁) = τ".to_string());
+    m.insert(
+        "LEM-1",
+        "Invariant preservation: ∀ (s, σ, s') ∈ T, ∀ G ∈ GlobalInvariants: G(s) ⟹ G(s')"
+            .to_string(),
+    );
+    m.insert(
+        "LEM-2",
+        "Trace inductive invariance: s₀ ∈ I ∧ (∀ i: G(sᵢ) ⟹ G(sᵢ₊₁)) ⟹ ∀ i: G(sᵢ)".to_string(),
+    );
+    m.insert(
+        "LEM-3",
+        "Semantic mapping commutativity: μ_S(Apply_c(s, σ)) = Apply_f(μ_S(s), μ_Σ(σ))".to_string(),
+    );
+    m.insert(
+        "LEM-4",
+        "Constraint soundness: SatisfiesConstraints(τ) ⟹ ValidTrace(τ)".to_string(),
+    );
+    m.insert(
+        "LEM-5",
+        "Constraint completeness: ValidTrace(τ) ⟹ SatisfiesConstraints(τ)".to_string(),
+    );
+    m.insert(
+        "LEM-6",
+        "Witness semantic uniqueness: same public inputs ⟹ same semantic execution".to_string(),
+    );
+    m.insert(
+        "LEM-7",
+        "Error state invariant preservation: Apply(s, σ_invalid) = s_error preserves invariants"
+            .to_string(),
+    );
+    m.insert(
+        "LEM-8",
+        "Noop semantic neutrality: noop transitions do not change semantic state".to_string(),
+    );
+    m.insert(
+        "LEM-9",
+        "Batch decomposition equivalence: Apply(s, [σ₁..σₙ]) = sequential application".to_string(),
+    );
+    m.insert(
+        "LEM-10",
+        "Trace reconstruction fidelity: Reconstruct(s₀, σ₀..σₙ₋₁) = τ".to_string(),
+    );
 
     // Safety
-    m.insert("SAFE-1", "Unreachable invalid states: no reachable state is invalid".to_string());
-    m.insert("SAFE-2", "Resource conservation: Total(C_s) = Total(C_s') + Δ_fees".to_string());
-    m.insert("SAFE-3", "No hidden state mutation: Diff(s, s') ⊆ AllowedMutations(σ)".to_string());
-    m.insert("SAFE-4", "Temporal monotonicity: metadata is monotonically increasing".to_string());
-    m.insert("SAFE-5", "No rollback: state cannot revert to a previous state".to_string());
-    m.insert("SAFE-6", "Domain isolation: proofs are domain-separated".to_string());
+    m.insert(
+        "SAFE-1",
+        "Unreachable invalid states: no reachable state is invalid".to_string(),
+    );
+    m.insert(
+        "SAFE-2",
+        "Resource conservation: Total(C_s) = Total(C_s') + Δ_fees".to_string(),
+    );
+    m.insert(
+        "SAFE-3",
+        "No hidden state mutation: Diff(s, s') ⊆ AllowedMutations(σ)".to_string(),
+    );
+    m.insert(
+        "SAFE-4",
+        "Temporal monotonicity: metadata is monotonically increasing".to_string(),
+    );
+    m.insert(
+        "SAFE-5",
+        "No rollback: state cannot revert to a previous state".to_string(),
+    );
+    m.insert(
+        "SAFE-6",
+        "Domain isolation: proofs are domain-separated".to_string(),
+    );
 
     // Liveness
-    m.insert("LIVE-1", "No deadlock: the system always has a valid transition".to_string());
+    m.insert(
+        "LIVE-1",
+        "No deadlock: the system always has a valid transition".to_string(),
+    );
     m.insert("LIVE-2", "Provability: ValidTrace(τ) ⟹ ∃ π".to_string());
 
     // Constraints
-    m.insert("CONST-1", "No unconstrained variables: every witness variable is referenced by ≥1 constraint".to_string());
-    m.insert("CONST-2", "No unused witness inputs: every witness input influences ≥1 constraint output".to_string());
-    m.insert("CONST-3", "Branch completeness: every conditional generates constraints for both branches".to_string());
-    m.insert("CONST-4", "Constraint derivation determinism: same SIR/IR ⟹ same constraint system".to_string());
+    m.insert(
+        "CONST-1",
+        "No unconstrained variables: every witness variable is referenced by ≥1 constraint"
+            .to_string(),
+    );
+    m.insert(
+        "CONST-2",
+        "No unused witness inputs: every witness input influences ≥1 constraint output".to_string(),
+    );
+    m.insert(
+        "CONST-3",
+        "Branch completeness: every conditional generates constraints for both branches"
+            .to_string(),
+    );
+    m.insert(
+        "CONST-4",
+        "Constraint derivation determinism: same SIR/IR ⟹ same constraint system".to_string(),
+    );
 
     // Proof
-    m.insert("PROOF-1", "Full trace binding: proof binds to complete trace including intermediates".to_string());
-    m.insert("PROOF-2", "Observable binding: all observables included in or derivable from public inputs".to_string());
-    m.insert("PROOF-3", "Domain separation: Domain(π) is unique and non-reusable across contexts".to_string());
-    m.insert("PROOF-4", "Knowledge soundness: prover must know a valid witness".to_string());
+    m.insert(
+        "PROOF-1",
+        "Full trace binding: proof binds to complete trace including intermediates".to_string(),
+    );
+    m.insert(
+        "PROOF-2",
+        "Observable binding: all observables included in or derivable from public inputs"
+            .to_string(),
+    );
+    m.insert(
+        "PROOF-3",
+        "Domain separation: Domain(π) is unique and non-reusable across contexts".to_string(),
+    );
+    m.insert(
+        "PROOF-4",
+        "Knowledge soundness: prover must know a valid witness".to_string(),
+    );
 
     // Composition
-    m.insert("COMP-1", "Cross-system resource conservation: Total_A + Total_B = constant".to_string());
-    m.insert("COMP-2", "Shared state consistency: cross-system shared state is consistent".to_string());
-    m.insert("COMP-3", "Compositional invariant preservation: composed system preserves invariants".to_string());
+    m.insert(
+        "COMP-1",
+        "Cross-system resource conservation: Total_A + Total_B = constant".to_string(),
+    );
+    m.insert(
+        "COMP-2",
+        "Shared state consistency: cross-system shared state is consistent".to_string(),
+    );
+    m.insert(
+        "COMP-3",
+        "Compositional invariant preservation: composed system preserves invariants".to_string(),
+    );
 
     // Economic
-    m.insert("ECON-1", "Economic invariant preservation: economic invariants preserved under transition".to_string());
-    m.insert("ECON-2", "Initial state economic validity: genesis state is economically valid".to_string());
-    m.insert("ECON-3", "Temporal economic enforcement: temporal economic invariants enforced".to_string());
-    m.insert("ECON-4", "Economic context determinism: Ω = DeriveEconomic(C, E) is deterministic".to_string());
-    m.insert("ECON-5", "Economic admissibility completeness: admissibility check is complete".to_string());
+    m.insert(
+        "ECON-1",
+        "Economic invariant preservation: economic invariants preserved under transition"
+            .to_string(),
+    );
+    m.insert(
+        "ECON-2",
+        "Initial state economic validity: genesis state is economically valid".to_string(),
+    );
+    m.insert(
+        "ECON-3",
+        "Temporal economic enforcement: temporal economic invariants enforced".to_string(),
+    );
+    m.insert(
+        "ECON-4",
+        "Economic context determinism: Ω = DeriveEconomic(C, E) is deterministic".to_string(),
+    );
+    m.insert(
+        "ECON-5",
+        "Economic admissibility completeness: admissibility check is complete".to_string(),
+    );
 
     m
 }
@@ -581,57 +705,147 @@ fn falsification_targets() -> BTreeMap<&'static str, String> {
 
     m.insert("AX-1", "Find (s, σ) producing two different s'".to_string());
     m.insert("AX-2", "Find (s, σ) where Apply(s, σ) ∉ S".to_string());
-    m.insert("AX-3", "Find initial state violating genesis constraints".to_string());
-    m.insert("AX-4", "Find invalid proof accepted by verifier".to_string());
+    m.insert(
+        "AX-3",
+        "Find initial state violating genesis constraints".to_string(),
+    );
+    m.insert(
+        "AX-4",
+        "Find invalid proof accepted by verifier".to_string(),
+    );
     m.insert("AX-5", "Find hash collision".to_string());
     m.insert("AX-6", "Find environment data inconsistency".to_string());
 
-    m.insert("DEF-1", "Find C where Derive(C) is nondeterministic".to_string());
-    m.insert("DEF-2", "Find s₁ ≠ s₂ where Encode(s₁) = Encode(s₂)".to_string());
+    m.insert(
+        "DEF-1",
+        "Find C where Derive(C) is nondeterministic".to_string(),
+    );
+    m.insert(
+        "DEF-2",
+        "Find s₁ ≠ s₂ where Encode(s₁) = Encode(s₂)".to_string(),
+    );
     m.insert("DEF-3", "Find C where Commit(C) ≠ D.commitment".to_string());
     m.insert("DEF-4", "Find nondeterministic observable".to_string());
-    m.insert("DEF-5", "Find σ where Canonical(Canonical(σ)) ≠ Canonical(σ)".to_string());
-    m.insert("DEF-6", "Find σ where canonicalization changes semantics".to_string());
+    m.insert(
+        "DEF-5",
+        "Find σ where Canonical(Canonical(σ)) ≠ Canonical(σ)".to_string(),
+    );
+    m.insert(
+        "DEF-6",
+        "Find σ where canonicalization changes semantics".to_string(),
+    );
 
-    m.insert("LEM-1", "Find transition violating a global invariant".to_string());
-    m.insert("LEM-2", "Find trace where inductive invariance fails".to_string());
-    m.insert("LEM-3", "Find commutativity violation in semantic mapping".to_string());
-    m.insert("LEM-4", "Find invalid trace satisfying constraints".to_string());
-    m.insert("LEM-5", "Find valid trace not satisfying constraints".to_string());
-    m.insert("LEM-6", "Find two witnesses with same public inputs but different semantics".to_string());
-    m.insert("LEM-7", "Find error transition violating invariants".to_string());
-    m.insert("LEM-8", "Find noop transition changing semantic state".to_string());
-    m.insert("LEM-9", "Find batch not equivalent to sequential application".to_string());
-    m.insert("LEM-10", "Find trace not reconstructible from initial state and inputs".to_string());
+    m.insert(
+        "LEM-1",
+        "Find transition violating a global invariant".to_string(),
+    );
+    m.insert(
+        "LEM-2",
+        "Find trace where inductive invariance fails".to_string(),
+    );
+    m.insert(
+        "LEM-3",
+        "Find commutativity violation in semantic mapping".to_string(),
+    );
+    m.insert(
+        "LEM-4",
+        "Find invalid trace satisfying constraints".to_string(),
+    );
+    m.insert(
+        "LEM-5",
+        "Find valid trace not satisfying constraints".to_string(),
+    );
+    m.insert(
+        "LEM-6",
+        "Find two witnesses with same public inputs but different semantics".to_string(),
+    );
+    m.insert(
+        "LEM-7",
+        "Find error transition violating invariants".to_string(),
+    );
+    m.insert(
+        "LEM-8",
+        "Find noop transition changing semantic state".to_string(),
+    );
+    m.insert(
+        "LEM-9",
+        "Find batch not equivalent to sequential application".to_string(),
+    );
+    m.insert(
+        "LEM-10",
+        "Find trace not reconstructible from initial state and inputs".to_string(),
+    );
 
     m.insert("SAFE-1", "Find reachable invalid state".to_string());
-    m.insert("SAFE-2", "Find transition violating resource conservation".to_string());
-    m.insert("SAFE-3", "Find hidden state mutation outside AllowedMutations".to_string());
+    m.insert(
+        "SAFE-2",
+        "Find transition violating resource conservation".to_string(),
+    );
+    m.insert(
+        "SAFE-3",
+        "Find hidden state mutation outside AllowedMutations".to_string(),
+    );
     m.insert("SAFE-4", "Find non-monotonic metadata".to_string());
     m.insert("SAFE-5", "Find state rollback".to_string());
     m.insert("SAFE-6", "Find cross-domain proof acceptance".to_string());
 
     m.insert("LIVE-1", "Find deadlocked state".to_string());
-    m.insert("LIVE-2", "Find valid trace without provable proof".to_string());
+    m.insert(
+        "LIVE-2",
+        "Find valid trace without provable proof".to_string(),
+    );
 
     m.insert("CONST-1", "Find unconstrained witness variable".to_string());
     m.insert("CONST-2", "Find unused witness input".to_string());
-    m.insert("CONST-3", "Find conditional with missing branch constraints".to_string());
-    m.insert("CONST-4", "Find nondeterministic constraint derivation".to_string());
+    m.insert(
+        "CONST-3",
+        "Find conditional with missing branch constraints".to_string(),
+    );
+    m.insert(
+        "CONST-4",
+        "Find nondeterministic constraint derivation".to_string(),
+    );
 
-    m.insert("PROOF-1", "Find proof not binding to full trace".to_string());
-    m.insert("PROOF-2", "Find observable not derivable from public inputs".to_string());
+    m.insert(
+        "PROOF-1",
+        "Find proof not binding to full trace".to_string(),
+    );
+    m.insert(
+        "PROOF-2",
+        "Find observable not derivable from public inputs".to_string(),
+    );
     m.insert("PROOF-3", "Find cross-context proof replay".to_string());
-    m.insert("PROOF-4", "Find proof forgery without valid witness".to_string());
+    m.insert(
+        "PROOF-4",
+        "Find proof forgery without valid witness".to_string(),
+    );
 
-    m.insert("COMP-1", "Find cross-system resource creation/destruction".to_string());
+    m.insert(
+        "COMP-1",
+        "Find cross-system resource creation/destruction".to_string(),
+    );
     m.insert("COMP-2", "Find inconsistent shared state".to_string());
-    m.insert("COMP-3", "Find composed system violating invariants".to_string());
+    m.insert(
+        "COMP-3",
+        "Find composed system violating invariants".to_string(),
+    );
 
-    m.insert("ECON-1", "Find transition violating economic invariants".to_string());
-    m.insert("ECON-2", "Find economically invalid genesis state".to_string());
-    m.insert("ECON-3", "Find temporal economic invariant violation".to_string());
-    m.insert("ECON-4", "Find nondeterministic economic context derivation".to_string());
+    m.insert(
+        "ECON-1",
+        "Find transition violating economic invariants".to_string(),
+    );
+    m.insert(
+        "ECON-2",
+        "Find economically invalid genesis state".to_string(),
+    );
+    m.insert(
+        "ECON-3",
+        "Find temporal economic invariant violation".to_string(),
+    );
+    m.insert(
+        "ECON-4",
+        "Find nondeterministic economic context derivation".to_string(),
+    );
     m.insert("ECON-5", "Find incomplete admissibility check".to_string());
 
     m
@@ -686,38 +900,70 @@ mod tests {
 
         // AX-1 through AX-6
         for i in 1..=6 {
-            assert!(tracker.get(&format!("AX-{}", i)).is_some(), "Missing AX-{}", i);
+            assert!(
+                tracker.get(&format!("AX-{}", i)).is_some(),
+                "Missing AX-{}",
+                i
+            );
         }
         // DEF-1 through DEF-6
         for i in 1..=6 {
-            assert!(tracker.get(&format!("DEF-{}", i)).is_some(), "Missing DEF-{}", i);
+            assert!(
+                tracker.get(&format!("DEF-{}", i)).is_some(),
+                "Missing DEF-{}",
+                i
+            );
         }
         // LEM-1 through LEM-10
         for i in 1..=10 {
-            assert!(tracker.get(&format!("LEM-{}", i)).is_some(), "Missing LEM-{}", i);
+            assert!(
+                tracker.get(&format!("LEM-{}", i)).is_some(),
+                "Missing LEM-{}",
+                i
+            );
         }
         // SAFE-1 through SAFE-6
         for i in 1..=6 {
-            assert!(tracker.get(&format!("SAFE-{}", i)).is_some(), "Missing SAFE-{}", i);
+            assert!(
+                tracker.get(&format!("SAFE-{}", i)).is_some(),
+                "Missing SAFE-{}",
+                i
+            );
         }
         // LIVE-1, LIVE-2
         assert!(tracker.get("LIVE-1").is_some());
         assert!(tracker.get("LIVE-2").is_some());
         // CONST-1 through CONST-4
         for i in 1..=4 {
-            assert!(tracker.get(&format!("CONST-{}", i)).is_some(), "Missing CONST-{}", i);
+            assert!(
+                tracker.get(&format!("CONST-{}", i)).is_some(),
+                "Missing CONST-{}",
+                i
+            );
         }
         // PROOF-1 through PROOF-4
         for i in 1..=4 {
-            assert!(tracker.get(&format!("PROOF-{}", i)).is_some(), "Missing PROOF-{}", i);
+            assert!(
+                tracker.get(&format!("PROOF-{}", i)).is_some(),
+                "Missing PROOF-{}",
+                i
+            );
         }
         // COMP-1 through COMP-3
         for i in 1..=3 {
-            assert!(tracker.get(&format!("COMP-{}", i)).is_some(), "Missing COMP-{}", i);
+            assert!(
+                tracker.get(&format!("COMP-{}", i)).is_some(),
+                "Missing COMP-{}",
+                i
+            );
         }
         // ECON-1 through ECON-5
         for i in 1..=5 {
-            assert!(tracker.get(&format!("ECON-{}", i)).is_some(), "Missing ECON-{}", i);
+            assert!(
+                tracker.get(&format!("ECON-{}", i)).is_some(),
+                "Missing ECON-{}",
+                i
+            );
         }
     }
 
@@ -728,32 +974,59 @@ mod tests {
 
         // Start work on AX-1.
         tracker
-            .start_work("AX-1", DischargeMethod::TheoremProve, VerificationTool::Lean4, "alice")
+            .start_work(
+                "AX-1",
+                DischargeMethod::TheoremProve,
+                VerificationTool::Lean4,
+                "alice",
+            )
             .unwrap();
-        assert_eq!(tracker.get("AX-1").unwrap().status, ObligationStatus::InProgress);
+        assert_eq!(
+            tracker.get("AX-1").unwrap().status,
+            ObligationStatus::InProgress
+        );
 
         // Discharge AX-1.
         tracker
-            .discharge("AX-1", "formal/VSEL/Foundations/Transition.lean", "2025-01-15", "alice")
+            .discharge(
+                "AX-1",
+                "formal/VSEL/Foundations/Transition.lean",
+                "2025-01-15",
+                "alice",
+            )
             .unwrap();
         let ax1 = tracker.get("AX-1").unwrap();
         assert_eq!(ax1.status, ObligationStatus::Discharged);
-        assert_eq!(ax1.evidence.as_deref(), Some("formal/VSEL/Foundations/Transition.lean"));
+        assert_eq!(
+            ax1.evidence.as_deref(),
+            Some("formal/VSEL/Foundations/Transition.lean")
+        );
         assert_eq!(ax1.last_verified.as_deref(), Some("2025-01-15"));
         assert_eq!(ax1.reviewer.as_deref(), Some("alice"));
 
         // Mark LEM-4 as failed.
         tracker
-            .start_work("LEM-4", DischargeMethod::Test, VerificationTool::RustTest, "bob")
+            .start_work(
+                "LEM-4",
+                DischargeMethod::Test,
+                VerificationTool::RustTest,
+                "bob",
+            )
             .unwrap();
         tracker
             .mark_failed("LEM-4", "test failure log", "2025-01-16", "bob")
             .unwrap();
-        assert_eq!(tracker.get("LEM-4").unwrap().status, ObligationStatus::Failed);
+        assert_eq!(
+            tracker.get("LEM-4").unwrap().status,
+            ObligationStatus::Failed
+        );
 
         // Reset LEM-4.
         tracker.reset("LEM-4").unwrap();
-        assert_eq!(tracker.get("LEM-4").unwrap().status, ObligationStatus::Unresolved);
+        assert_eq!(
+            tracker.get("LEM-4").unwrap().status,
+            ObligationStatus::Unresolved
+        );
     }
 
     #[test]
@@ -770,7 +1043,12 @@ mod tests {
             .discharge("AX-1", "evidence", "2025-01-15", "alice")
             .unwrap();
         tracker
-            .start_work("AX-2", DischargeMethod::ModelCheck, VerificationTool::TlaPlus, "bob")
+            .start_work(
+                "AX-2",
+                DischargeMethod::ModelCheck,
+                VerificationTool::TlaPlus,
+                "bob",
+            )
             .unwrap();
 
         let summary = tracker.status_summary();
@@ -793,7 +1071,10 @@ mod tests {
         assert_eq!(tracker.by_category(ObligationCategory::Liveness).len(), 2);
         assert_eq!(tracker.by_category(ObligationCategory::Constraint).len(), 4);
         assert_eq!(tracker.by_category(ObligationCategory::Proof).len(), 4);
-        assert_eq!(tracker.by_category(ObligationCategory::Composition).len(), 3);
+        assert_eq!(
+            tracker.by_category(ObligationCategory::Composition).len(),
+            3
+        );
         assert_eq!(tracker.by_category(ObligationCategory::Economic).len(), 5);
     }
 
@@ -806,11 +1087,17 @@ mod tests {
         assert_eq!(tracker.outstanding().len(), 46);
 
         // Collect IDs first to avoid borrow conflict.
-        let ids: Vec<String> = tracker.obligation_ids().iter().map(|s| s.to_string()).collect();
+        let ids: Vec<String> = tracker
+            .obligation_ids()
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
 
         // Discharge all.
         for id in &ids {
-            tracker.discharge(id, "evidence", "2025-01-15", "reviewer").unwrap();
+            tracker
+                .discharge(id, "evidence", "2025-01-15", "reviewer")
+                .unwrap();
         }
 
         assert!(tracker.all_discharged());
@@ -821,7 +1108,12 @@ mod tests {
     fn test_error_on_unknown_obligation() {
         let mut tracker = ObligationTracker::new();
         assert_eq!(
-            tracker.start_work("NONEXISTENT", DischargeMethod::Test, VerificationTool::RustTest, "x"),
+            tracker.start_work(
+                "NONEXISTENT",
+                DischargeMethod::Test,
+                VerificationTool::RustTest,
+                "x"
+            ),
             Err(TrackerError::ObligationNotFound("NONEXISTENT".to_string()))
         );
         assert_eq!(

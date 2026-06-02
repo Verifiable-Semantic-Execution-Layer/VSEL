@@ -52,9 +52,7 @@ use p3_air::{Air, AirBuilder, BaseAir, WindowAccess};
 use p3_field::PrimeCharacteristicRing;
 use p3_goldilocks::Goldilocks;
 
-use vsel_constraints::compiler::{
-    ConstraintCategory, ConstraintExpr, ConstraintSystem,
-};
+use vsel_constraints::compiler::{ConstraintCategory, ConstraintExpr, ConstraintSystem};
 
 use crate::plonky3_backend::Plonky3Error;
 
@@ -365,11 +363,7 @@ where
 ///
 /// Uses the builder's trace access to resolve column references and
 /// constructs the polynomial expression using field arithmetic.
-fn eval_poly_expr<AB>(
-    poly: &PolyExpr,
-    local: &[AB::Var],
-    builder: &AB,
-) -> AB::Expr
+fn eval_poly_expr<AB>(poly: &PolyExpr, local: &[AB::Var], builder: &AB) -> AB::Expr
 where
     AB: AirBuilder<F = Goldilocks>,
 {
@@ -524,13 +518,9 @@ impl CompilationContext {
     ///
     /// Returns `Err(Plonky3Error::UnsupportedGate)` if a variant cannot
     /// be encoded (Requirement 1.9).
-    fn compile_constraint_expr(
-        &mut self,
-        expr: &ConstraintExpr,
-    ) -> Result<PolyExpr, Plonky3Error> {
+    fn compile_constraint_expr(&mut self, expr: &ConstraintExpr) -> Result<PolyExpr, Plonky3Error> {
         match expr {
             // ----- Leaf nodes -----
-
             ConstraintExpr::Constant(v) => {
                 // Constant(v): the constraint is that some column equals v.
                 // As a standalone expression, return the constant value.
@@ -557,7 +547,6 @@ impl CompilationContext {
             }
 
             // ----- Equality / Inequality -----
-
             ConstraintExpr::Eq(a, b) => {
                 // Eq(a, b): eval(a) - eval(b) = 0
                 let lhs = self.compile_constraint_expr(a)?;
@@ -573,16 +562,10 @@ impl CompilationContext {
                 let diff = PolyExpr::Sub(Box::new(lhs), Box::new(rhs));
 
                 // Allocate auxiliary column for the inverse of the difference.
-                let inv_col = self.alloc_aux_col(&format!(
-                    "__neq_inv_{}",
-                    self.aux_cols.len()
-                ));
+                let inv_col = self.alloc_aux_col(&format!("__neq_inv_{}", self.aux_cols.len()));
 
                 // Constraint: diff * inv - 1 = 0
-                let product = PolyExpr::Mul(
-                    Box::new(diff),
-                    Box::new(PolyExpr::Column(inv_col)),
-                );
+                let product = PolyExpr::Mul(Box::new(diff), Box::new(PolyExpr::Column(inv_col)));
                 Ok(PolyExpr::Sub(
                     Box::new(product),
                     Box::new(PolyExpr::Constant(1)),
@@ -590,17 +573,13 @@ impl CompilationContext {
             }
 
             // ----- Arithmetic -----
-
             ConstraintExpr::Add(a, b) => {
                 // Add(a, b): eval(a) + eval(b) - aux_sum = 0
                 let lhs = self.compile_constraint_expr(a)?;
                 let rhs = self.compile_constraint_expr(b)?;
                 let sum = PolyExpr::Add(Box::new(lhs), Box::new(rhs));
 
-                let aux_col = self.alloc_aux_col(&format!(
-                    "__add_result_{}",
-                    self.aux_cols.len()
-                ));
+                let aux_col = self.alloc_aux_col(&format!("__add_result_{}", self.aux_cols.len()));
 
                 Ok(PolyExpr::Sub(
                     Box::new(sum),
@@ -614,10 +593,7 @@ impl CompilationContext {
                 let rhs = self.compile_constraint_expr(b)?;
                 let diff = PolyExpr::Sub(Box::new(lhs), Box::new(rhs));
 
-                let aux_col = self.alloc_aux_col(&format!(
-                    "__sub_result_{}",
-                    self.aux_cols.len()
-                ));
+                let aux_col = self.alloc_aux_col(&format!("__sub_result_{}", self.aux_cols.len()));
 
                 Ok(PolyExpr::Sub(
                     Box::new(diff),
@@ -631,10 +607,7 @@ impl CompilationContext {
                 let rhs = self.compile_constraint_expr(b)?;
                 let product = PolyExpr::Mul(Box::new(lhs), Box::new(rhs));
 
-                let aux_col = self.alloc_aux_col(&format!(
-                    "__mul_result_{}",
-                    self.aux_cols.len()
-                ));
+                let aux_col = self.alloc_aux_col(&format!("__mul_result_{}", self.aux_cols.len()));
 
                 Ok(PolyExpr::Sub(
                     Box::new(product),
@@ -643,7 +616,6 @@ impl CompilationContext {
             }
 
             // ----- Boolean -----
-
             ConstraintExpr::And(a, b) => {
                 // And(a, b): a*(1-a)=0, b*(1-b)=0, a*b - aux = 0
                 // We emit the product constraint: a*b - aux = 0.
@@ -682,10 +654,7 @@ impl CompilationContext {
 
                 // Product constraint: a*b - aux = 0
                 let product = PolyExpr::Mul(Box::new(lhs), Box::new(rhs));
-                let aux_col = self.alloc_aux_col(&format!(
-                    "__and_result_{}",
-                    self.aux_cols.len()
-                ));
+                let aux_col = self.alloc_aux_col(&format!("__and_result_{}", self.aux_cols.len()));
 
                 Ok(PolyExpr::Sub(
                     Box::new(product),
@@ -731,10 +700,7 @@ impl CompilationContext {
                 let product = PolyExpr::Mul(Box::new(lhs), Box::new(rhs));
                 let or_expr = PolyExpr::Sub(Box::new(sum), Box::new(product));
 
-                let aux_col = self.alloc_aux_col(&format!(
-                    "__or_result_{}",
-                    self.aux_cols.len()
-                ));
+                let aux_col = self.alloc_aux_col(&format!("__or_result_{}", self.aux_cols.len()));
 
                 Ok(PolyExpr::Sub(
                     Box::new(or_expr),
@@ -743,7 +709,6 @@ impl CompilationContext {
             }
 
             // ----- Comparisons (range proofs via bit decomposition) -----
-
             ConstraintExpr::Lt(a, b) => {
                 // Lt(a, b): b - a - 1 = Σ(bit_i * 2^i), each bit_i*(1-bit_i) = 0
                 self.compile_range_proof(a, b, true, false)
@@ -765,7 +730,6 @@ impl CompilationContext {
             }
 
             // ----- Conditional -----
-
             ConstraintExpr::IfThenElse(cond, then_expr, else_expr) => {
                 // IfThenElse(c, t, e):
                 //   c*(1-c) = 0  (boolean constraint on condition)
@@ -790,23 +754,11 @@ impl CompilationContext {
 
                 // Selector: c*t + (1-c)*e - aux = 0
                 let c_times_t = PolyExpr::Mul(Box::new(c.clone()), Box::new(t));
-                let one_minus_c = PolyExpr::Sub(
-                    Box::new(PolyExpr::Constant(1)),
-                    Box::new(c),
-                );
-                let one_minus_c_times_e = PolyExpr::Mul(
-                    Box::new(one_minus_c),
-                    Box::new(e),
-                );
-                let selector = PolyExpr::Add(
-                    Box::new(c_times_t),
-                    Box::new(one_minus_c_times_e),
-                );
+                let one_minus_c = PolyExpr::Sub(Box::new(PolyExpr::Constant(1)), Box::new(c));
+                let one_minus_c_times_e = PolyExpr::Mul(Box::new(one_minus_c), Box::new(e));
+                let selector = PolyExpr::Add(Box::new(c_times_t), Box::new(one_minus_c_times_e));
 
-                let aux_col = self.alloc_aux_col(&format!(
-                    "__ite_result_{}",
-                    self.aux_cols.len()
-                ));
+                let aux_col = self.alloc_aux_col(&format!("__ite_result_{}", self.aux_cols.len()));
 
                 Ok(PolyExpr::Sub(
                     Box::new(selector),
@@ -815,7 +767,6 @@ impl CompilationContext {
             }
 
             // ----- Field access (wire indirection) -----
-
             ConstraintExpr::FieldAccess(base, field) => {
                 // Wire indirection: resolved at trace generation time.
                 // Compile the base expression and create a derived column
@@ -901,8 +852,8 @@ impl CompilationContext {
 mod tests {
     use super::*;
     use vsel_constraints::compiler::{
-        Constraint, ConstraintCategory, ConstraintExpr, ConstraintId,
-        ConstraintSystem, PublicInput, WitnessVariable, WitnessVariableKind,
+        Constraint, ConstraintCategory, ConstraintExpr, ConstraintId, ConstraintSystem,
+        PublicInput, WitnessVariable, WitnessVariableKind,
     };
 
     /// Build a minimal constraint system for testing.
@@ -949,7 +900,7 @@ mod tests {
 
         assert_eq!(air.num_witness_cols(), 2); // x, y
         assert_eq!(air.num_public_cols(), 1); // root_init
-        // Satisfaction flag only (no constraints → no aux columns)
+                                              // Satisfaction flag only (no constraints → no aux columns)
         assert_eq!(air.num_aux_cols(), 1);
         // Total: 2 witness + 1 public + 1 flag = 4
         assert_eq!(air.trace_width(), 4);

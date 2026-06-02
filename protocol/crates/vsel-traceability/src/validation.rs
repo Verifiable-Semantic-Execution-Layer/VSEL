@@ -73,10 +73,7 @@ pub fn validate_traceability(matrix: &TraceabilityMatrix) -> ValidationResult {
                 artifact_id: id.clone(),
                 gap_type: GapType::MissingSirMapping,
                 broken_at: Layer::L1Sir,
-                description: format!(
-                    "Invariant '{}' has no SIR/IR construct mapping (L1)",
-                    id
-                ),
+                description: format!("Invariant '{}' has no SIR/IR construct mapping (L1)", id),
             });
             complete = false;
         }
@@ -87,10 +84,7 @@ pub fn validate_traceability(matrix: &TraceabilityMatrix) -> ValidationResult {
                 artifact_id: id.clone(),
                 gap_type: GapType::MissingRustEnforcement,
                 broken_at: Layer::L2Rust,
-                description: format!(
-                    "Invariant '{}' has no Rust enforcement module (L2)",
-                    id
-                ),
+                description: format!("Invariant '{}' has no Rust enforcement module (L2)", id),
             });
             complete = false;
         }
@@ -101,10 +95,7 @@ pub fn validate_traceability(matrix: &TraceabilityMatrix) -> ValidationResult {
                 artifact_id: id.clone(),
                 gap_type: GapType::MissingConstraint,
                 broken_at: Layer::L3Constraint,
-                description: format!(
-                    "Invariant '{}' has no constraint encoding (L3)",
-                    id
-                ),
+                description: format!("Invariant '{}' has no constraint encoding (L3)", id),
             });
             complete = false;
         }
@@ -115,10 +106,7 @@ pub fn validate_traceability(matrix: &TraceabilityMatrix) -> ValidationResult {
                 artifact_id: id.clone(),
                 gap_type: GapType::MissingProofObligation,
                 broken_at: Layer::L4Proof,
-                description: format!(
-                    "Invariant '{}' has no proof obligation (L4)",
-                    id
-                ),
+                description: format!("Invariant '{}' has no proof obligation (L4)", id),
             });
             complete = false;
         }
@@ -129,10 +117,7 @@ pub fn validate_traceability(matrix: &TraceabilityMatrix) -> ValidationResult {
                 artifact_id: id.clone(),
                 gap_type: GapType::MissingNistControl,
                 broken_at: Layer::Nist,
-                description: format!(
-                    "Invariant '{}' has no NIST control mapping",
-                    id
-                ),
+                description: format!("Invariant '{}' has no NIST control mapping", id),
             });
             complete = false;
         }
@@ -154,10 +139,7 @@ pub fn validate_traceability(matrix: &TraceabilityMatrix) -> ValidationResult {
                 artifact_id: id.clone(),
                 gap_type: GapType::ObligationWithoutConstraint,
                 broken_at: Layer::L3Constraint,
-                description: format!(
-                    "Proof obligation '{}' has no constraint IDs",
-                    id
-                ),
+                description: format!("Proof obligation '{}' has no constraint IDs", id),
             });
         } else {
             obligations_with_constraints += 1;
@@ -201,11 +183,7 @@ pub fn validate_traceability(matrix: &TraceabilityMatrix) -> ValidationResult {
     // Cross-reference: check that invariants referenced by obligations
     // actually exist in the matrix.
     // -----------------------------------------------------------------------
-    let known_invariants: BTreeSet<&str> = matrix
-        .entries
-        .keys()
-        .map(|s| s.as_str())
-        .collect();
+    let known_invariants: BTreeSet<&str> = matrix.entries.keys().map(|s| s.as_str()).collect();
 
     for (id, obligation) in &matrix.proof_obligations {
         for inv_id in &obligation.invariant_dependencies {
@@ -491,7 +469,10 @@ mod tests {
 
         let result = validate_traceability(&matrix);
         assert!(!result.valid);
-        assert!(result.gaps.iter().any(|g| g.gap_type == GapType::MissingConstraint));
+        assert!(result
+            .gaps
+            .iter()
+            .any(|g| g.gap_type == GapType::MissingConstraint));
     }
 
     #[test]
@@ -511,7 +492,10 @@ mod tests {
 
         let result = validate_traceability(&matrix);
         assert!(!result.valid);
-        assert!(result.gaps.iter().any(|g| g.gap_type == GapType::MissingProofObligation));
+        assert!(result
+            .gaps
+            .iter()
+            .any(|g| g.gap_type == GapType::MissingProofObligation));
     }
 
     #[test]
@@ -551,7 +535,10 @@ mod tests {
 
         let result = validate_traceability(&matrix);
         assert!(!result.valid);
-        assert!(result.gaps.iter().any(|g| g.description.contains("NONEXISTENT-1")));
+        assert!(result
+            .gaps
+            .iter()
+            .any(|g| g.description.contains("NONEXISTENT-1")));
     }
 
     #[test]

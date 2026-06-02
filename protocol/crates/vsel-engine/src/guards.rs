@@ -427,17 +427,35 @@ mod tests {
 
         let test_cases: Vec<(State, Input)> = vec![
             // Reject
-            (build_state_at_seq(minimal_canonical(), 1), make_invalid_input()),
+            (
+                build_state_at_seq(minimal_canonical(), 1),
+                make_invalid_input(),
+            ),
             // Init
-            (build_state_at_seq(minimal_canonical(), 0), make_input("init", vec![0xFF])),
+            (
+                build_state_at_seq(minimal_canonical(), 0),
+                make_input("init", vec![0xFF]),
+            ),
             // Error
-            (build_state_at_seq(minimal_canonical(), 1), make_input("transfer", vec![1u8; 32])),
+            (
+                build_state_at_seq(minimal_canonical(), 1),
+                make_input("transfer", vec![1u8; 32]),
+            ),
             // Batch
-            (build_state_at_seq(minimal_canonical(), 1), make_input("batch", vec![0x01])),
+            (
+                build_state_at_seq(minimal_canonical(), 1),
+                make_input("batch", vec![0x01]),
+            ),
             // Noop
-            (build_state_at_seq(minimal_canonical(), 1), make_input("unknown", vec![0x01])),
+            (
+                build_state_at_seq(minimal_canonical(), 1),
+                make_input("unknown", vec![0x01]),
+            ),
             // Update (deposit)
-            (build_state_at_seq(minimal_canonical(), 1), make_input("deposit", vec![0x01; 48])),
+            (
+                build_state_at_seq(minimal_canonical(), 1),
+                make_input("deposit", vec![0x01; 48]),
+            ),
         ];
 
         for (state, input) in &test_cases {

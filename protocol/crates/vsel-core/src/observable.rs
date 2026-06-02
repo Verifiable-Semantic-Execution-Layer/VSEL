@@ -376,7 +376,10 @@ mod tests {
         let o = obs(&s, &sigma, &s_prime);
         assert_eq!(o.transition_class, TransitionClass::Reject);
         assert_eq!(o.status, TransitionStatus::Rejected);
-        assert!(o.outputs.is_empty(), "reject should produce no output events");
+        assert!(
+            o.outputs.is_empty(),
+            "reject should produce no output events"
+        );
     }
 
     // -- obs for init --
@@ -410,7 +413,10 @@ mod tests {
         let o = obs(&s, &sigma, &s_prime);
         assert_eq!(o.transition_class, TransitionClass::Error);
         assert_eq!(o.status, TransitionStatus::Error);
-        assert!(o.outputs.is_empty(), "error should produce no output events");
+        assert!(
+            o.outputs.is_empty(),
+            "error should produce no output events"
+        );
     }
 
     // -- obs for noop --

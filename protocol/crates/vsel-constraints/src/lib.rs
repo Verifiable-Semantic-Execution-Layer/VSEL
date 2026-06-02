@@ -7,18 +7,15 @@ pub mod underconstraint;
 
 // Re-export key types for ergonomic use.
 pub use compiler::{
-    Constraint, ConstraintCategory, ConstraintExpr, ConstraintId, ConstraintSystem,
-    PublicInput, WitnessVariable, WitnessVariableKind,
-    compile, satisfies_constraints,
+    compile, satisfies_constraints, Constraint, ConstraintCategory, ConstraintExpr, ConstraintId,
+    ConstraintSystem, PublicInput, WitnessVariable, WitnessVariableKind,
 };
 
 pub use coverage::{
-    CoverageCell, CoverageFinding, CoverageLevel, CoverageMatrix, FindingType,
-    build_coverage_matrix,
+    build_coverage_matrix, CoverageCell, CoverageFinding, CoverageLevel, CoverageMatrix,
+    FindingType,
 };
 
 pub use underconstraint::{
-    UnderconstraintReport,
-    analyze as analyze_underconstraints,
-    extract_variable_refs,
+    analyze as analyze_underconstraints, extract_variable_refs, UnderconstraintReport,
 };

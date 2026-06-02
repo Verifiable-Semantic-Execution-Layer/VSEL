@@ -53,7 +53,11 @@ fn minimal_canonical() -> CanonicalState {
         accounts: BTreeMap::new(),
         storage: BTreeMap::new(),
         system_data: SystemData {
-            protocol_version: ProtocolVersion { major: 0, minor: 1, patch: 0 },
+            protocol_version: ProtocolVersion {
+                major: 0,
+                minor: 1,
+                patch: 0,
+            },
             total_supply: 0,
             parameters: BTreeMap::new(),
         },
@@ -68,14 +72,24 @@ fn build_state_at_seq(c: CanonicalState, seq: u64) -> State {
         execution_domain: test_domain_tag(),
     };
     let econ = derive_economic(&c, &env);
-    let commitment = if seq == 0 { Hash([0u8; 32]) } else { Hash([0xABu8; 32]) };
+    let commitment = if seq == 0 {
+        Hash([0u8; 32])
+    } else {
+        Hash([0xABu8; 32])
+    };
     let meta = TraceMetadata {
         sequence_index: seq,
         previous_commitment: commitment,
         epoch: 0,
         timestamp: 1_000_000,
     };
-    State { canonical: c, derived: d, environment: env, economic: econ, metadata: meta }
+    State {
+        canonical: c,
+        derived: d,
+        environment: env,
+        economic: econ,
+        metadata: meta,
+    }
 }
 
 fn build_genesis_state(c: CanonicalState) -> State {
@@ -84,7 +98,10 @@ fn build_genesis_state(c: CanonicalState) -> State {
 
 fn make_input(payload_type: &str, data: Vec<u8>) -> Input {
     Input {
-        payload: Payload { payload_type: payload_type.to_string(), data },
+        payload: Payload {
+            payload_type: payload_type.to_string(),
+            data,
+        },
         auth: valid_auth(),
         aux: AuxiliaryData { data: vec![] },
     }
@@ -119,7 +136,11 @@ fn build_valid_trace() -> Trace {
     let e2 = engine.record_transition(&s2, &sigma2, &s3, &obs2);
     let commitment = engine.current_chain_hash().clone();
 
-    Trace { entries: vec![e0, e1, e2], initial_state: s0, commitment }
+    Trace {
+        entries: vec![e0, e1, e2],
+        initial_state: s0,
+        commitment,
+    }
 }
 
 /// Build a valid N-entry trace from a sequence of deposit amounts.
@@ -152,7 +173,11 @@ fn build_n_entry_trace(deposit_amounts: &[u128]) -> Trace {
     }
 
     let commitment = engine.current_chain_hash().clone();
-    Trace { entries, initial_state: s0, commitment }
+    Trace {
+        entries,
+        initial_state: s0,
+        commitment,
+    }
 }
 
 // ===========================================================================
@@ -162,7 +187,10 @@ fn build_n_entry_trace(deposit_amounts: &[u128]) -> Trace {
 #[test]
 fn sanity_valid_trace_passes_verification() {
     let trace = build_valid_trace();
-    assert!(verify_trace(&trace), "Sanity: a correctly built trace must pass verification");
+    assert!(
+        verify_trace(&trace),
+        "Sanity: a correctly built trace must pass verification"
+    );
 }
 
 // ===========================================================================
@@ -438,7 +466,10 @@ fn alter_initial_state() {
     let mut trace = build_valid_trace();
     let mut fake_c = minimal_canonical();
     fake_c.system_data.total_supply = 0;
-    fake_c.system_data.parameters.insert("rogue".to_string(), vec![0xDE, 0xAD]);
+    fake_c
+        .system_data
+        .parameters
+        .insert("rogue".to_string(), vec![0xDE, 0xAD]);
     trace.initial_state = build_genesis_state(fake_c);
     assert!(
         !verify_trace(&trace),
@@ -533,29 +564,22 @@ fn mutation_strategy(trace_len: usize) -> BoxedStrategy<TraceMutation> {
         // RemoveEntry
         idx.clone().prop_map(TraceMutation::RemoveEntry),
         // AlterChainHash
-        (idx.clone(), any::<[u8; 32]>())
-            .prop_map(|(i, h)| TraceMutation::AlterChainHash(i, h)),
+        (idx.clone(), any::<[u8; 32]>()).prop_map(|(i, h)| TraceMutation::AlterChainHash(i, h)),
         // AlterPreCommitment
-        (idx.clone(), any::<[u8; 32]>())
-            .prop_map(|(i, h)| TraceMutation::AlterPreCommitment(i, h)),
+        (idx.clone(), any::<[u8; 32]>()).prop_map(|(i, h)| TraceMutation::AlterPreCommitment(i, h)),
         // AlterPostCommitment
         (idx.clone(), any::<[u8; 32]>())
             .prop_map(|(i, h)| TraceMutation::AlterPostCommitment(i, h)),
         // AlterGasUsed
-        (idx.clone(), any::<u64>())
-            .prop_map(|(i, g)| TraceMutation::AlterGasUsed(i, g)),
+        (idx.clone(), any::<u64>()).prop_map(|(i, g)| TraceMutation::AlterGasUsed(i, g)),
         // AlterTimestamp
-        (idx.clone(), any::<u64>())
-            .prop_map(|(i, t)| TraceMutation::AlterTimestamp(i, t)),
+        (idx.clone(), any::<u64>()).prop_map(|(i, t)| TraceMutation::AlterTimestamp(i, t)),
         // AlterBlockHeight
-        (idx.clone(), any::<u64>())
-            .prop_map(|(i, b)| TraceMutation::AlterBlockHeight(i, b)),
+        (idx.clone(), any::<u64>()).prop_map(|(i, b)| TraceMutation::AlterBlockHeight(i, b)),
         // AlterDomain
-        (idx.clone(), any::<[u8; 32]>())
-            .prop_map(|(i, d)| TraceMutation::AlterDomain(i, d)),
+        (idx.clone(), any::<[u8; 32]>()).prop_map(|(i, d)| TraceMutation::AlterDomain(i, d)),
         // AlterIndex
-        (idx.clone(), any::<u64>())
-            .prop_map(|(i, x)| TraceMutation::AlterIndex(i, x)),
+        (idx.clone(), any::<u64>()).prop_map(|(i, x)| TraceMutation::AlterIndex(i, x)),
         // AlterFinalCommitment
         any::<[u8; 32]>().prop_map(TraceMutation::AlterFinalCommitment),
     ]
@@ -705,9 +729,7 @@ fn remap_mutation(mutation: &TraceMutation, trace_len: usize) -> Option<TraceMut
         // Only AlterFinalCommitment works on empty traces, but our traces
         // always have at least 1 entry (the init entry).
         return match mutation {
-            TraceMutation::AlterFinalCommitment(h) => {
-                Some(TraceMutation::AlterFinalCommitment(*h))
-            }
+            TraceMutation::AlterFinalCommitment(h) => Some(TraceMutation::AlterFinalCommitment(*h)),
             _ => None,
         };
     }
@@ -727,9 +749,7 @@ fn remap_mutation(mutation: &TraceMutation, trace_len: usize) -> Option<TraceMut
                 Some(TraceMutation::SwapEntries(a, b))
             }
         }
-        TraceMutation::RemoveEntry(idx) => {
-            Some(TraceMutation::RemoveEntry(idx % trace_len))
-        }
+        TraceMutation::RemoveEntry(idx) => Some(TraceMutation::RemoveEntry(idx % trace_len)),
         TraceMutation::AlterChainHash(idx, h) => {
             Some(TraceMutation::AlterChainHash(idx % trace_len, *h))
         }
@@ -748,14 +768,8 @@ fn remap_mutation(mutation: &TraceMutation, trace_len: usize) -> Option<TraceMut
         TraceMutation::AlterBlockHeight(idx, b) => {
             Some(TraceMutation::AlterBlockHeight(idx % trace_len, *b))
         }
-        TraceMutation::AlterDomain(idx, d) => {
-            Some(TraceMutation::AlterDomain(idx % trace_len, *d))
-        }
-        TraceMutation::AlterIndex(idx, x) => {
-            Some(TraceMutation::AlterIndex(idx % trace_len, *x))
-        }
-        TraceMutation::AlterFinalCommitment(h) => {
-            Some(TraceMutation::AlterFinalCommitment(*h))
-        }
+        TraceMutation::AlterDomain(idx, d) => Some(TraceMutation::AlterDomain(idx % trace_len, *d)),
+        TraceMutation::AlterIndex(idx, x) => Some(TraceMutation::AlterIndex(idx % trace_len, *x)),
+        TraceMutation::AlterFinalCommitment(h) => Some(TraceMutation::AlterFinalCommitment(*h)),
     }
 }

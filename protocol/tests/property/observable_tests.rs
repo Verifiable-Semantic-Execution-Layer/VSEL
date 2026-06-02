@@ -11,8 +11,8 @@
 
 use std::collections::BTreeMap;
 
-use proptest::prelude::*;
 use proptest::collection::btree_map;
+use proptest::prelude::*;
 
 use vsel_core::input::*;
 use vsel_core::observable::*;
@@ -136,8 +136,12 @@ fn arb_trace_metadata() -> impl Strategy<Value = TraceMetadata> {
 
 /// Build a valid State from a CanonicalState by deriving all components.
 fn arb_valid_state() -> impl Strategy<Value = State> {
-    (arb_canonical_state(), arb_environment(), arb_trace_metadata()).prop_map(
-        |(canonical, environment, metadata)| {
+    (
+        arb_canonical_state(),
+        arb_environment(),
+        arb_trace_metadata(),
+    )
+        .prop_map(|(canonical, environment, metadata)| {
             let derived = derive(&canonical);
             let economic = derive_economic(&canonical, &environment);
             State {
@@ -147,8 +151,7 @@ fn arb_valid_state() -> impl Strategy<Value = State> {
                 economic,
                 metadata,
             }
-        },
-    )
+        })
 }
 
 // ---------------------------------------------------------------------------
@@ -167,15 +170,15 @@ fn arb_auth_domain_tag() -> impl Strategy<Value = DomainTag> {
 /// Generate a valid Authorization.
 fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
     (
-        prop::collection::vec(any::<u8>(), 1..64),  // classical_sig (non-empty)
-        prop::collection::vec(any::<u8>(), 1..64),  // pqc_sig (non-empty)
-        prop::collection::vec(any::<u8>(), 1..64),  // classical pubkey (non-empty)
-        prop::collection::vec(any::<u8>(), 1..64),  // pqc pubkey (non-empty)
-        any::<u64>(),                                // nonce
-        arb_auth_domain_tag(),                       // domain
+        prop::collection::vec(any::<u8>(), 1..64), // classical_sig (non-empty)
+        prop::collection::vec(any::<u8>(), 1..64), // pqc_sig (non-empty)
+        prop::collection::vec(any::<u8>(), 1..64), // classical pubkey (non-empty)
+        prop::collection::vec(any::<u8>(), 1..64), // pqc pubkey (non-empty)
+        any::<u64>(),                              // nonce
+        arb_auth_domain_tag(),                     // domain
     )
-        .prop_map(|(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| {
-            Authorization {
+        .prop_map(
+            |(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| Authorization {
                 classical_sig,
                 pqc_sig,
                 public_key: HybridPublicKey {
@@ -184,23 +187,20 @@ fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
                 },
                 nonce,
                 domain,
-            }
-        })
+            },
+        )
 }
 
 /// Generate a structurally valid Input (valid_input returns true).
 fn arb_valid_input() -> impl Strategy<Value = Input> {
     (
-        "[a-z]{1,20}",                               // payload_type (non-empty)
-        prop::collection::vec(any::<u8>(), 1..128),  // payload data (non-empty)
+        "[a-z]{1,20}",                              // payload_type (non-empty)
+        prop::collection::vec(any::<u8>(), 1..128), // payload data (non-empty)
         arb_valid_authorization(),
-        prop::collection::vec(any::<u8>(), 0..64),   // aux data
+        prop::collection::vec(any::<u8>(), 0..64), // aux data
     )
         .prop_map(|(payload_type, data, auth, aux_data)| Input {
-            payload: Payload {
-                payload_type,
-                data,
-            },
+            payload: Payload { payload_type, data },
             auth,
             aux: AuxiliaryData { data: aux_data },
         })
@@ -223,27 +223,20 @@ fn arb_invalid_input() -> impl Strategy<Value = Input> {
                 aux: AuxiliaryData { data: vec![] },
             }),
         // Empty payload data
-        (
-            "[a-z]{1,20}",
-            arb_valid_authorization(),
-        )
-            .prop_map(|(payload_type, auth)| Input {
-                payload: Payload {
-                    payload_type,
-                    data: vec![],
-                },
-                auth,
-                aux: AuxiliaryData { data: vec![] },
-            }),
+        ("[a-z]{1,20}", arb_valid_authorization(),).prop_map(|(payload_type, auth)| Input {
+            payload: Payload {
+                payload_type,
+                data: vec![],
+            },
+            auth,
+            aux: AuxiliaryData { data: vec![] },
+        }),
     ]
 }
 
 /// Generate either a valid or invalid input.
 fn arb_any_input() -> impl Strategy<Value = Input> {
-    prop_oneof![
-        arb_valid_input(),
-        arb_invalid_input(),
-    ]
+    prop_oneof![arb_valid_input(), arb_invalid_input(),]
 }
 
 // ---------------------------------------------------------------------------

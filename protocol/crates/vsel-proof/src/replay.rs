@@ -391,10 +391,7 @@ mod tests {
     fn test_proof_too_old_rejected() {
         let guard = default_guard(); // ref_ts = 1_000_000, max_age = 3600
         let proof = make_proof_with_timestamp(990_000); // 10_000 seconds old
-        assert_eq!(
-            guard.check_proof(&proof),
-            Err(ReplayRejection::ProofTooOld)
-        );
+        assert_eq!(guard.check_proof(&proof), Err(ReplayRejection::ProofTooOld));
     }
 
     #[test]
@@ -410,7 +407,7 @@ mod tests {
     #[test]
     fn test_proof_at_boundary_accepted() {
         let guard = default_guard(); // ref_ts = 1_000_000, max_age = 3600
-        // Exactly at the boundary: 1_000_000 - 3600 = 996_400
+                                     // Exactly at the boundary: 1_000_000 - 3600 = 996_400
         let proof = make_proof_with_timestamp(996_400);
         assert_eq!(guard.check_proof(&proof), Ok(()));
     }
@@ -419,10 +416,7 @@ mod tests {
     fn test_proof_just_past_boundary_rejected() {
         let guard = default_guard();
         let proof = make_proof_with_timestamp(996_399);
-        assert_eq!(
-            guard.check_proof(&proof),
-            Err(ReplayRejection::ProofTooOld)
-        );
+        assert_eq!(guard.check_proof(&proof), Err(ReplayRejection::ProofTooOld));
     }
 
     // -----------------------------------------------------------------------

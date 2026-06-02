@@ -53,9 +53,7 @@ fn arb_distinct_domain_tags() -> impl Strategy<Value = (DomainTag, DomainTag)> {
         prop::collection::vec(any::<u8>(), 1..=32),
     )
         .prop_filter("domain tag byte sequences must differ", |(a, b)| a != b)
-        .prop_map(|(bytes_a, bytes_b)| {
-            (create_domain_tag(&bytes_a), create_domain_tag(&bytes_b))
-        })
+        .prop_map(|(bytes_a, bytes_b)| (create_domain_tag(&bytes_a), create_domain_tag(&bytes_b)))
 }
 
 // ---------------------------------------------------------------------------

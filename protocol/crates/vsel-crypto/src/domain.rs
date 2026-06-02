@@ -134,7 +134,10 @@ mod tests {
     fn test_create_domain_tag_distinct_contexts() {
         let tag_a = create_domain_tag(b"context_a");
         let tag_b = create_domain_tag(b"context_b");
-        assert_ne!(tag_a, tag_b, "different contexts must produce different tags");
+        assert_ne!(
+            tag_a, tag_b,
+            "different contexts must produce different tags"
+        );
     }
 
     #[test]
@@ -187,7 +190,10 @@ mod tests {
         let tag_b = create_domain_tag(b"domain_b");
         let h1 = domain_hash_blake3(&tag_a, b"same_data");
         let h2 = domain_hash_blake3(&tag_b, b"same_data");
-        assert_ne!(h1, h2, "same data under different domains must differ (blake3)");
+        assert_ne!(
+            h1, h2,
+            "same data under different domains must differ (blake3)"
+        );
     }
 
     #[test]

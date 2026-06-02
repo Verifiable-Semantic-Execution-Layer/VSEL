@@ -83,16 +83,16 @@ fn arb_contract() -> impl Strategy<Value = SubsystemContract> {
         arb_property_set(3),
         arb_property_set(3),
     )
-        .prop_map(|(assumes, guarantees, exports, effects, forbids)| {
-            SubsystemContract {
+        .prop_map(
+            |(assumes, guarantees, exports, effects, forbids)| SubsystemContract {
                 assumes,
                 guarantees,
                 exports,
                 effects,
                 forbids,
                 temporal: vec![],
-            }
-        })
+            },
+        )
 }
 
 /// Generate a pair of compatible contracts where G(A) ⊇ A(B), G(B) ⊇ A(A),
@@ -1064,8 +1064,8 @@ mod plonky3_composition {
     use vsel_core::observable::{Observable, TransitionStatus};
     use vsel_core::transition::TransitionClass;
     use vsel_core::types::*;
-    use vsel_proof::plonky3_backend::{Plonky3Backend, StarkProof};
     use vsel_proof::backend::ZkBackend;
+    use vsel_proof::plonky3_backend::{Plonky3Backend, StarkProof};
     use vsel_proof::public_inputs::PublicInputs;
 
     // -- Helpers --
@@ -1104,7 +1104,11 @@ mod plonky3_composition {
     fn make_chain_public_inputs(n: usize, gas_values: &[u64]) -> Vec<PublicInputs> {
         (0..n)
             .map(|i| {
-                let gas = if i < gas_values.len() { gas_values[i] } else { (i as u64 + 1) * 100 };
+                let gas = if i < gas_values.len() {
+                    gas_values[i]
+                } else {
+                    (i as u64 + 1) * 100
+                };
                 PublicInputs {
                     root_init: make_hash(i as u8),
                     root_final: make_hash((i + 1) as u8),
@@ -1117,12 +1121,11 @@ mod plonky3_composition {
     }
 
     /// Generate STARK proofs for a chain of public inputs using the Plonky3Backend.
-    fn make_chain_proofs(
-        backend: &Plonky3Backend,
-        pub_inputs: &[PublicInputs],
-    ) -> Vec<StarkProof> {
+    fn make_chain_proofs(backend: &Plonky3Backend, pub_inputs: &[PublicInputs]) -> Vec<StarkProof> {
         use std::collections::BTreeMap;
-        use vsel_constraints::{Constraint, ConstraintCategory, ConstraintExpr, ConstraintId, ConstraintSystem};
+        use vsel_constraints::{
+            Constraint, ConstraintCategory, ConstraintExpr, ConstraintId, ConstraintSystem,
+        };
         use vsel_core::input::{Authorization, Input};
         use vsel_core::state::*;
         use vsel_proof::witness::{AuxiliaryComputation, Witness};
@@ -1151,7 +1154,13 @@ mod plonky3_composition {
                     epoch: 0,
                     timestamp: 1_000_000,
                 };
-                State { canonical: c, derived: d, environment: env, economic: econ, metadata: meta }
+                State {
+                    canonical: c,
+                    derived: d,
+                    environment: env,
+                    economic: econ,
+                    metadata: meta,
+                }
             }],
             input_sequence: vec![Input {
                 payload: Payload {
@@ -1168,7 +1177,9 @@ mod plonky3_composition {
                     nonce: 1,
                     domain: test_domain_tag(),
                 },
-                aux: AuxiliaryData { data: vec![0xAA, 0xBB] },
+                aux: AuxiliaryData {
+                    data: vec![0xAA, 0xBB],
+                },
             }],
             aux_computation: AuxiliaryComputation::empty(),
         };
@@ -1195,7 +1206,11 @@ mod plonky3_composition {
 
         pub_inputs
             .iter()
-            .map(|pi| backend.prove(&witness, &cs, pi).expect("prove should succeed"))
+            .map(|pi| {
+                backend
+                    .prove(&witness, &cs, pi)
+                    .expect("prove should succeed")
+            })
             .collect()
     }
 

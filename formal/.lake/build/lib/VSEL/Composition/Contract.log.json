@@ -1,0 +1,5 @@
+{"log":
+ [{"message":
+   ".> LEAN_PATH=././.lake/build/lib DYLD_LIBRARY_PATH=././.lake/build/lib /Users/mac/.elan/toolchains/leanprover--lean4---v4.8.0/bin/lean -DautoImplicit=false ././././VSEL/Composition/Contract.lean -R ./././. -o ././.lake/build/lib/VSEL/Composition/Contract.olean -i ././.lake/build/lib/VSEL/Composition/Contract.ilean -c ././.lake/build/ir/VSEL/Composition/Contract.c --json",
+   "level": "trace"}],
+ "depHash": "17746842149285225466"}

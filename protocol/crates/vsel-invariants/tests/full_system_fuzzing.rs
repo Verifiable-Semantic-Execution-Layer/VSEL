@@ -56,7 +56,11 @@ fn minimal_canonical() -> CanonicalState {
         accounts: BTreeMap::new(),
         storage: BTreeMap::new(),
         system_data: SystemData {
-            protocol_version: ProtocolVersion { major: 0, minor: 1, patch: 0 },
+            protocol_version: ProtocolVersion {
+                major: 0,
+                minor: 1,
+                patch: 0,
+            },
             total_supply: 0,
             parameters: BTreeMap::new(),
         },
@@ -71,19 +75,32 @@ fn build_valid_state(c: CanonicalState, seq: u64) -> State {
         execution_domain: test_domain_tag(),
     };
     let econ = derive_economic(&c, &env);
-    let commitment = if seq == 0 { Hash([0u8; 32]) } else { Hash([0xABu8; 32]) };
+    let commitment = if seq == 0 {
+        Hash([0u8; 32])
+    } else {
+        Hash([0xABu8; 32])
+    };
     let meta = TraceMetadata {
         sequence_index: seq,
         previous_commitment: commitment,
         epoch: 0,
         timestamp: 1_000_000,
     };
-    State { canonical: c, derived: d, environment: env, economic: econ, metadata: meta }
+    State {
+        canonical: c,
+        derived: d,
+        environment: env,
+        economic: econ,
+        metadata: meta,
+    }
 }
 
 fn make_input(payload_type: &str, data: Vec<u8>) -> Input {
     Input {
-        payload: Payload { payload_type: payload_type.to_string(), data },
+        payload: Payload {
+            payload_type: payload_type.to_string(),
+            data,
+        },
         auth: valid_auth(),
         aux: AuxiliaryData { data: vec![] },
     }
@@ -114,7 +131,14 @@ fn make_withdraw_input(account_id: [u8; 32], amount: u128) -> Input {
 /// Build a canonical state with a single account whose balance equals total_supply.
 fn canonical_with_account(id: [u8; 32], balance: u128) -> CanonicalState {
     let mut c = minimal_canonical();
-    c.accounts.insert(AccountId(id), AccountData { balance, nonce: 0, data: vec![] });
+    c.accounts.insert(
+        AccountId(id),
+        AccountData {
+            balance,
+            nonce: 0,
+            data: vec![],
+        },
+    );
     c.system_data.total_supply = balance;
     c
 }
@@ -127,9 +151,9 @@ fn canonical_with_account(id: [u8; 32], balance: u128) -> CanonicalState {
 fn arb_canonical_state() -> impl Strategy<Value = CanonicalState> {
     prop::collection::vec(
         (
-            prop::array::uniform32(any::<u8>()),  // account id
-            0u128..=10_000u128,                   // balance
-            0u64..=1_000u64,                      // nonce
+            prop::array::uniform32(any::<u8>()), // account id
+            0u128..=10_000u128,                  // balance
+            0u64..=1_000u64,                     // nonce
         ),
         0..=4,
     )
@@ -140,7 +164,11 @@ fn arb_canonical_state() -> impl Strategy<Value = CanonicalState> {
             // Deduplicate by just inserting — BTreeMap handles it.
             c.accounts.insert(
                 AccountId(id_bytes),
-                AccountData { balance, nonce, data: vec![] },
+                AccountData {
+                    balance,
+                    nonce,
+                    data: vec![],
+                },
             );
             total = total.saturating_add(balance);
         }
@@ -174,26 +202,33 @@ fn arb_input() -> impl Strategy<Value = Input> {
         )
             .prop_map(|(s, r, a)| make_transfer_input(s, r, a)),
         // Init
-        prop::collection::vec(any::<u8>(), 1..=32)
-            .prop_map(|data| make_input("init", data)),
+        prop::collection::vec(any::<u8>(), 1..=32).prop_map(|data| make_input("init", data)),
         // Batch
-        prop::collection::vec(any::<u8>(), 1..=32)
-            .prop_map(|data| make_input("batch", data)),
+        prop::collection::vec(any::<u8>(), 1..=32).prop_map(|data| make_input("batch", data)),
         // Noop (unrecognized payload type)
         "[a-z]{3,8}".prop_map(|name| make_input(&format!("noop_{}", name), vec![0x01])),
         // Invalid input (empty payload type — triggers Reject)
         Just(Input {
-            payload: Payload { payload_type: String::new(), data: vec![] },
+            payload: Payload {
+                payload_type: String::new(),
+                data: vec![]
+            },
             auth: valid_auth(),
             aux: AuxiliaryData { data: vec![] },
         }),
         // Invalid input (empty data — triggers Reject)
         Just(Input {
-            payload: Payload { payload_type: "deposit".to_string(), data: vec![] },
+            payload: Payload {
+                payload_type: "deposit".to_string(),
+                data: vec![]
+            },
             auth: Authorization {
                 classical_sig: vec![],
                 pqc_sig: vec![],
-                public_key: HybridPublicKey { classical: vec![], pqc: vec![] },
+                public_key: HybridPublicKey {
+                    classical: vec![],
+                    pqc: vec![]
+                },
                 nonce: 0,
                 domain: DomainTag(Hash([0u8; 32])),
             },

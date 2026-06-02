@@ -123,10 +123,7 @@ fn next_power_of_two(n: usize) -> usize {
 /// in all columns, including the constraint satisfaction flag.
 ///
 /// Requirements 1.2, 1.4.
-pub fn generate_trace(
-    witness: &Witness,
-    col_map: &ColumnMap,
-) -> RowMajorMatrix<Goldilocks> {
+pub fn generate_trace(witness: &Witness, col_map: &ColumnMap) -> RowMajorMatrix<Goldilocks> {
     let raw_len = witness_trace_length(witness);
     let padded_len = next_power_of_two(raw_len);
     let num_cols = col_map.total_cols;
@@ -215,9 +212,8 @@ fn fill_witness_columns_from_input(
     // Encode payload type hash (first 7 bytes as a field element).
     if let Some(&col_idx) = col_map.witness_cols.get("payload_type") {
         if col_idx < row.len() {
-            let type_elements = encode_bytes_as_field_elements(
-                input.payload.payload_type.as_bytes(),
-            );
+            let type_elements =
+                encode_bytes_as_field_elements(input.payload.payload_type.as_bytes());
             if let Some(&elem) = type_elements.first() {
                 row[col_idx] = elem;
             }
@@ -229,10 +225,7 @@ fn fill_witness_columns_from_input(
     let mut payload_idx = 0;
     for (name, &col_idx) in &col_map.witness_cols {
         // Skip columns we've already filled by name convention.
-        if name.starts_with("input_payload_")
-            || name == "input_nonce"
-            || name == "payload_type"
-        {
+        if name.starts_with("input_payload_") || name == "input_nonce" || name == "payload_type" {
             continue;
         }
         // Fill remaining witness columns from payload data.
@@ -340,8 +333,8 @@ mod tests {
     use p3_matrix::Matrix;
     use std::collections::HashMap;
     use vsel_constraints::compiler::{
-        Constraint, ConstraintCategory, ConstraintExpr, ConstraintId,
-        ConstraintSystem, PublicInput, WitnessVariable, WitnessVariableKind,
+        Constraint, ConstraintCategory, ConstraintExpr, ConstraintId, ConstraintSystem,
+        PublicInput, WitnessVariable, WitnessVariableKind,
     };
 
     /// Helper: create a minimal Witness with the given number of inputs.
@@ -375,14 +368,8 @@ mod tests {
 
         let mut aux = AuxiliaryComputation::empty();
         for i in 0..num_inputs {
-            aux.add(
-                format!("post_commitment_{}", i),
-                vec![(i + 100) as u8; 32],
-            );
-            aux.add(
-                format!("chain_hash_{}", i),
-                vec![(i + 200) as u8; 32],
-            );
+            aux.add(format!("post_commitment_{}", i), vec![(i + 100) as u8; 32]);
+            aux.add(format!("chain_hash_{}", i), vec![(i + 200) as u8; 32]);
         }
 
         Witness {

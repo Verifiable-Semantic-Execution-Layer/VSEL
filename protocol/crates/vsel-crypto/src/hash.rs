@@ -106,11 +106,7 @@ pub fn hash_with_algorithm(algo: HashAlgorithm, data: &[u8]) -> Hash {
 /// Computes `Algorithm(domain_tag_bytes || data)` using the specified algorithm.
 /// Delegates to the existing `domain_hash` / `domain_hash_blake3` for SHA3/BLAKE3,
 /// and uses Poseidon with domain prefix for proof-internal use.
-pub fn domain_hash_with_algorithm(
-    algo: HashAlgorithm,
-    domain: &DomainTag,
-    data: &[u8],
-) -> Hash {
+pub fn domain_hash_with_algorithm(algo: HashAlgorithm, domain: &DomainTag, data: &[u8]) -> Hash {
     match algo {
         HashAlgorithm::Sha3_256 => domain_hash(domain, data),
         HashAlgorithm::Blake3 => domain_hash_blake3(domain, data),
@@ -212,7 +208,7 @@ fn poseidon_domain_hash_dispatch(domain: &DomainTag, data: &[u8]) -> Hash {
     //   h ⊕ key_a ≠ h ⊕ key_b  (XOR with distinct values)
     //
     // Remediated: F-001 regression / Phase 11 audit finding.
-    use sha3::{Sha3_256, Digest};
+    use sha3::{Digest, Sha3_256};
     let domain_key = {
         let mut h = Sha3_256::new();
         h.update(b"VSEL::poseidon::domain_key::");
@@ -277,16 +273,28 @@ mod tests {
 
     #[test]
     fn test_different_data_produces_different_hashes() {
-        for algo in [HashAlgorithm::Sha3_256, HashAlgorithm::Blake3, HashAlgorithm::Poseidon] {
+        for algo in [
+            HashAlgorithm::Sha3_256,
+            HashAlgorithm::Blake3,
+            HashAlgorithm::Poseidon,
+        ] {
             let h1 = hash_with_algorithm(algo, b"data_a");
             let h2 = hash_with_algorithm(algo, b"data_b");
-            assert_ne!(h1, h2, "{:?} should produce different hashes for different data", algo);
+            assert_ne!(
+                h1, h2,
+                "{:?} should produce different hashes for different data",
+                algo
+            );
         }
     }
 
     #[test]
     fn test_empty_data_produces_valid_hash() {
-        for algo in [HashAlgorithm::Sha3_256, HashAlgorithm::Blake3, HashAlgorithm::Poseidon] {
+        for algo in [
+            HashAlgorithm::Sha3_256,
+            HashAlgorithm::Blake3,
+            HashAlgorithm::Poseidon,
+        ] {
             let h = hash_with_algorithm(algo, b"");
             assert_eq!(h.0.len(), 32, "{:?} should produce 32-byte hash", algo);
         }
@@ -297,7 +305,11 @@ mod tests {
     #[test]
     fn test_domain_hash_with_algorithm_deterministic() {
         let tag = create_domain_tag(b"test");
-        for algo in [HashAlgorithm::Sha3_256, HashAlgorithm::Blake3, HashAlgorithm::Poseidon] {
+        for algo in [
+            HashAlgorithm::Sha3_256,
+            HashAlgorithm::Blake3,
+            HashAlgorithm::Poseidon,
+        ] {
             let h1 = domain_hash_with_algorithm(algo, &tag, b"data");
             let h2 = domain_hash_with_algorithm(algo, &tag, b"data");
             assert_eq!(h1, h2, "{:?} domain hash should be deterministic", algo);
@@ -308,10 +320,18 @@ mod tests {
     fn test_domain_hash_with_algorithm_different_domains() {
         let tag_a = create_domain_tag(b"domain_a");
         let tag_b = create_domain_tag(b"domain_b");
-        for algo in [HashAlgorithm::Sha3_256, HashAlgorithm::Blake3, HashAlgorithm::Poseidon] {
+        for algo in [
+            HashAlgorithm::Sha3_256,
+            HashAlgorithm::Blake3,
+            HashAlgorithm::Poseidon,
+        ] {
             let h1 = domain_hash_with_algorithm(algo, &tag_a, b"same_data");
             let h2 = domain_hash_with_algorithm(algo, &tag_b, b"same_data");
-            assert_ne!(h1, h2, "{:?} should produce different hashes for different domains", algo);
+            assert_ne!(
+                h1, h2,
+                "{:?} should produce different hashes for different domains",
+                algo
+            );
         }
     }
 
@@ -320,7 +340,10 @@ mod tests {
         let tag = create_domain_tag(b"test");
         let via_hash = domain_hash_with_algorithm(HashAlgorithm::Sha3_256, &tag, b"data");
         let via_domain = domain_hash(&tag, b"data");
-        assert_eq!(via_hash, via_domain, "SHA3 domain hash should match domain.rs");
+        assert_eq!(
+            via_hash, via_domain,
+            "SHA3 domain hash should match domain.rs"
+        );
     }
 
     #[test]
@@ -328,29 +351,44 @@ mod tests {
         let tag = create_domain_tag(b"test");
         let via_hash = domain_hash_with_algorithm(HashAlgorithm::Blake3, &tag, b"data");
         let via_domain = domain_hash_blake3(&tag, b"data");
-        assert_eq!(via_hash, via_domain, "BLAKE3 domain hash should match domain.rs");
+        assert_eq!(
+            via_hash, via_domain,
+            "BLAKE3 domain hash should match domain.rs"
+        );
     }
 
     // -- Temporal class recommendations --------------------------------------
 
     #[test]
     fn test_recommended_algorithm_ephemeral() {
-        assert_eq!(recommended_algorithm(TemporalClass::T1Ephemeral), HashAlgorithm::Sha3_256);
+        assert_eq!(
+            recommended_algorithm(TemporalClass::T1Ephemeral),
+            HashAlgorithm::Sha3_256
+        );
     }
 
     #[test]
     fn test_recommended_algorithm_session() {
-        assert_eq!(recommended_algorithm(TemporalClass::T2Session), HashAlgorithm::Sha3_256);
+        assert_eq!(
+            recommended_algorithm(TemporalClass::T2Session),
+            HashAlgorithm::Sha3_256
+        );
     }
 
     #[test]
     fn test_recommended_algorithm_archival() {
-        assert_eq!(recommended_algorithm(TemporalClass::T3Archival), HashAlgorithm::Blake3);
+        assert_eq!(
+            recommended_algorithm(TemporalClass::T3Archival),
+            HashAlgorithm::Blake3
+        );
     }
 
     #[test]
     fn test_recommended_algorithm_permanent() {
-        assert_eq!(recommended_algorithm(TemporalClass::T4Permanent), HashAlgorithm::Blake3);
+        assert_eq!(
+            recommended_algorithm(TemporalClass::T4Permanent),
+            HashAlgorithm::Blake3
+        );
     }
 
     // -- State commitment ----------------------------------------------------
@@ -370,7 +408,10 @@ mod tests {
         s2.system_data.total_supply = 999;
         let h1 = commit_canonical_state(&s1);
         let h2 = commit_canonical_state(&s2);
-        assert_ne!(h1, h2, "different states must produce different commitments");
+        assert_ne!(
+            h1, h2,
+            "different states must produce different commitments"
+        );
     }
 
     #[test]
@@ -525,7 +566,8 @@ mod tests {
         for i in 0..hashes.len() {
             for j in (i + 1)..hashes.len() {
                 assert_ne!(
-                    hashes[i], hashes[j],
+                    hashes[i],
+                    hashes[j],
                     "Poseidon dispatch produced collision for inputs {:?} and {:?}",
                     std::str::from_utf8(inputs[i]).unwrap_or("<binary>"),
                     std::str::from_utf8(inputs[j]).unwrap_or("<binary>"),

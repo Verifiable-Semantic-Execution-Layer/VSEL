@@ -29,14 +29,9 @@ use crate::mapping::{map_input, map_observable, map_state, FormalState};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DivergenceKind {
     /// Post-states differ between concrete (mapped) and formal execution.
-    StateDivergence {
-        field: String,
-        detail: String,
-    },
+    StateDivergence { field: String, detail: String },
     /// Observable outputs differ.
-    ObservableDivergence {
-        detail: String,
-    },
+    ObservableDivergence { detail: String },
     /// Transition classification differs between concrete and formal.
     ClassificationDivergence {
         concrete_class: String,
@@ -91,11 +86,7 @@ pub struct DifferentialResult {
 /// 7. Return result with divergence details
 ///
 /// Requirements: 4.10, 9.10, 13.9
-pub fn run_differential(
-    pre: &State,
-    input: &Input,
-    program: &SirProgram,
-) -> DifferentialResult {
+pub fn run_differential(pre: &State, input: &Input, program: &SirProgram) -> DifferentialResult {
     // Step 1: Concrete execution
     let concrete_post = apply(pre, input);
     let transition_class = classify(pre, input);
@@ -110,12 +101,7 @@ pub fn run_differential(
 
     // Step 4: Try SIR interpreter execution
     let interpreter = Interpreter::new();
-    let sir_result = interpreter.execute(
-        program,
-        &transition_name,
-        &formal_pre.0,
-        &formal_input.0,
-    );
+    let sir_result = interpreter.execute(program, &transition_name, &formal_pre.0, &formal_input.0);
 
     // Step 5-7: Compare results
     match sir_result {
@@ -250,10 +236,7 @@ impl DifferentialTestSuite {
     }
 
     /// Run differential tests for a batch of (state, input) pairs.
-    pub fn run_batch(
-        &self,
-        cases: &[(State, Input)],
-    ) -> DifferentialSuiteSummary {
+    pub fn run_batch(&self, cases: &[(State, Input)]) -> DifferentialSuiteSummary {
         let mut total = 0;
         let mut agreed = 0;
         let mut diverged = 0;
@@ -284,16 +267,15 @@ impl DifferentialTestSuite {
     }
 
     /// Run differential tests for a sequence of inputs from a given state.
-    pub fn run_sequence(
-        &self,
-        pre: &State,
-        inputs: &[Input],
-    ) -> DifferentialSuiteSummary {
+    pub fn run_sequence(&self, pre: &State, inputs: &[Input]) -> DifferentialSuiteSummary {
         let results = run_differential_batch(pre, inputs, &self.program);
 
         let total = results.len();
         let skipped = results.iter().filter(|r| !r.sir_executed).count();
-        let diverged = results.iter().filter(|r| r.sir_executed && !r.agrees).count();
+        let diverged = results
+            .iter()
+            .filter(|r| r.sir_executed && !r.agrees)
+            .count();
         let agreed = total - skipped - diverged;
 
         let all_divergences: Vec<_> = results
@@ -331,8 +313,14 @@ pub fn detect_divergence(
     }
 
     // Try to identify which part diverged
-    if let (SirValue::Map { entries: concrete_entries }, SirValue::Map { entries: sir_entries }) =
-        (&concrete_formal.0, sir_result)
+    if let (
+        SirValue::Map {
+            entries: concrete_entries,
+        },
+        SirValue::Map {
+            entries: sir_entries,
+        },
+    ) = (&concrete_formal.0, sir_result)
     {
         for (key, concrete_val) in concrete_entries {
             if let Some(sir_val) = sir_entries.get(key) {
@@ -468,10 +456,7 @@ fn detect_all_divergences(
             Err(err) => {
                 divergences.push(DivergenceKind::InvariantDivergence {
                     invariant_name: invariant.name.clone(),
-                    detail: format!(
-                        "invariant '{}' evaluation error: {}",
-                        invariant.name, err
-                    ),
+                    detail: format!("invariant '{}' evaluation error: {}", invariant.name, err),
                 });
             }
         }
@@ -519,7 +504,11 @@ mod tests {
             accounts: BTreeMap::new(),
             storage: BTreeMap::new(),
             system_data: SystemData {
-                protocol_version: ProtocolVersion { major: 0, minor: 1, patch: 0 },
+                protocol_version: ProtocolVersion {
+                    major: 0,
+                    minor: 1,
+                    patch: 0,
+                },
                 total_supply: 0,
                 parameters: BTreeMap::new(),
             },
@@ -545,7 +534,13 @@ mod tests {
             epoch: 0,
             timestamp: 1_000_000,
         };
-        State { canonical: c, derived: d, environment: env, economic: econ, metadata: meta }
+        State {
+            canonical: c,
+            derived: d,
+            environment: env,
+            economic: econ,
+            metadata: meta,
+        }
     }
 
     fn make_input(payload_type: &str, data: Vec<u8>) -> Input {
@@ -582,7 +577,9 @@ mod tests {
                 class: transition_name.to_string(),
                 preconditions: vec![],
                 postconditions: vec![],
-                body: SirExpr::Var { name: "state".into() },
+                body: SirExpr::Var {
+                    name: "state".into(),
+                },
                 allowed_mutations: vec![],
             }],
             invariants: vec![],
@@ -600,7 +597,10 @@ mod tests {
 
         let result = run_differential(&state, &input, &program);
 
-        assert!(!result.sir_executed, "should skip when no SIR transition defined");
+        assert!(
+            !result.sir_executed,
+            "should skip when no SIR transition defined"
+        );
         assert!(result.agrees, "should agree when skipped");
         assert!(result.formal_post.is_none());
         assert!(result.divergences.is_empty());
@@ -654,7 +654,9 @@ mod tests {
                     value: SirValue::Bool { value: false },
                 }],
                 postconditions: vec![],
-                body: SirExpr::Var { name: "state".into() },
+                body: SirExpr::Var {
+                    name: "state".into(),
+                },
                 allowed_mutations: vec![],
             }],
             invariants: vec![],
@@ -666,7 +668,10 @@ mod tests {
         assert_eq!(result.transition_class, TransitionClass::Error);
         assert!(result.sir_executed);
         // Error transitions with SIR precondition failure are expected
-        assert!(result.agrees, "error transition with SIR error should be expected");
+        assert!(
+            result.agrees,
+            "error transition with SIR error should be expected"
+        );
         assert!(result.sir_error.is_some());
     }
 
@@ -894,7 +899,9 @@ mod tests {
                 class: "init".to_string(),
                 preconditions: vec![],
                 postconditions: vec![],
-                body: SirExpr::Var { name: "state".into() },
+                body: SirExpr::Var {
+                    name: "state".into(),
+                },
                 allowed_mutations: vec![],
             }],
             invariants: vec![SirInvariant {
@@ -915,7 +922,10 @@ mod tests {
             .iter()
             .filter(|d| matches!(d, DivergenceKind::InvariantDivergence { .. }))
             .collect();
-        assert!(inv_divergences.is_empty(), "always-true invariant should not diverge");
+        assert!(
+            inv_divergences.is_empty(),
+            "always-true invariant should not diverge"
+        );
     }
 
     #[test]
@@ -933,7 +943,9 @@ mod tests {
                 class: "init".to_string(),
                 preconditions: vec![],
                 postconditions: vec![],
-                body: SirExpr::Var { name: "state".into() },
+                body: SirExpr::Var {
+                    name: "state".into(),
+                },
                 allowed_mutations: vec![],
             }],
             invariants: vec![SirInvariant {
@@ -953,18 +965,33 @@ mod tests {
             .iter()
             .filter(|d| matches!(d, DivergenceKind::InvariantDivergence { .. }))
             .collect();
-        assert!(!inv_divergences.is_empty(), "always-false invariant should produce divergence");
+        assert!(
+            !inv_divergences.is_empty(),
+            "always-false invariant should produce divergence"
+        );
     }
 
     // -- transition_class_to_sir_name tests --
 
     #[test]
     fn test_transition_class_to_sir_name_all_classes() {
-        assert_eq!(transition_class_to_sir_name(TransitionClass::Reject), "reject");
+        assert_eq!(
+            transition_class_to_sir_name(TransitionClass::Reject),
+            "reject"
+        );
         assert_eq!(transition_class_to_sir_name(TransitionClass::Init), "init");
-        assert_eq!(transition_class_to_sir_name(TransitionClass::Error), "error");
-        assert_eq!(transition_class_to_sir_name(TransitionClass::Batch), "batch");
-        assert_eq!(transition_class_to_sir_name(TransitionClass::Update), "update");
+        assert_eq!(
+            transition_class_to_sir_name(TransitionClass::Error),
+            "error"
+        );
+        assert_eq!(
+            transition_class_to_sir_name(TransitionClass::Batch),
+            "batch"
+        );
+        assert_eq!(
+            transition_class_to_sir_name(TransitionClass::Update),
+            "update"
+        );
         assert_eq!(transition_class_to_sir_name(TransitionClass::Noop), "noop");
     }
 }

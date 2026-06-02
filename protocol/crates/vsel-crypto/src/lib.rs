@@ -12,41 +12,35 @@ pub mod migration;
 pub mod poseidon_goldilocks;
 pub mod signatures;
 
-pub use goldilocks::GoldilocksField;
 pub use goldilocks::reduce128;
+pub use goldilocks::GoldilocksField;
 
 pub use domain::{
-    create_domain_tag, domain_hash, domain_hash_blake3, verify_domain_separation,
-    state_commitment_tag, trace_commitment_tag, proof_tag, signature_tag,
-    DOMAIN_KEY_DERIVATION, DOMAIN_PROOF, DOMAIN_SIGNATURE,
-    DOMAIN_STATE_COMMITMENT, DOMAIN_TRACE_COMMITMENT, DOMAIN_WITNESS,
+    create_domain_tag, domain_hash, domain_hash_blake3, proof_tag, signature_tag,
+    state_commitment_tag, trace_commitment_tag, verify_domain_separation, DOMAIN_KEY_DERIVATION,
+    DOMAIN_PROOF, DOMAIN_SIGNATURE, DOMAIN_STATE_COMMITMENT, DOMAIN_TRACE_COMMITMENT,
+    DOMAIN_WITNESS,
 };
 
 pub use hash::{
+    commit_canonical_state, domain_hash_with_algorithm, hash_with_algorithm, recommended_algorithm,
     HashAlgorithm, TemporalClass,
-    hash_with_algorithm, domain_hash_with_algorithm,
-    commit_canonical_state, recommended_algorithm,
 };
 
 pub use signatures::{
-    SignatureError, PqcSigner, HmacSha3PqcSigner, HybridSigner,
-    HybridSharedSecret,
-    sign_classical, verify_classical,
-    hybrid_sign, hybrid_verify,
-    hybrid_sign_with_pqc, hybrid_verify_with_pqc,
-    generate_hybrid_keypair, generate_hybrid_keypair_with_pqc,
-    combine_shared_secrets, hybrid_key_exchange,
+    combine_shared_secrets, generate_hybrid_keypair, generate_hybrid_keypair_with_pqc,
+    hybrid_key_exchange, hybrid_sign, hybrid_sign_with_pqc, hybrid_verify, hybrid_verify_with_pqc,
+    sign_classical, verify_classical, HmacSha3PqcSigner, HybridSharedSecret, HybridSigner,
+    PqcSigner, SignatureError,
 };
 
 pub use keys::{
-    KeyId, KeyStatus, KeyMetadata, ManagedKey, KeyError, KeyStore,
-    derive_key_id, is_expired, generate_managed_key,
+    derive_key_id, generate_managed_key, is_expired, KeyError, KeyId, KeyMetadata, KeyStatus,
+    KeyStore, ManagedKey,
 };
 
 pub use migration::{
-    MigrationError, MigrationPolicy, CommitmentMigration,
+    migrate_commitment, migrate_proof_commitment, migrate_signature, verify_commitment_migration,
+    CommitmentMigration, CryptoAgility, MigrationError, MigrationPolicy, ProofMigration,
     SignatureMigration, WitnessArchive, WitnessArchiveStore,
-    ProofMigration, CryptoAgility,
-    migrate_commitment, verify_commitment_migration,
-    migrate_signature, migrate_proof_commitment,
 };

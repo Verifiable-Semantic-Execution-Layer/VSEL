@@ -64,8 +64,7 @@ pub fn standard_nist_controls() -> BTreeMap<String, NistControl> {
             id: "PO.1".to_string(),
             framework: NistFramework::Ssdf,
             title: "Security Requirements".to_string(),
-            description: "Define security requirements for software development"
-                .to_string(),
+            description: "Define security requirements for software development".to_string(),
             vsel_implementations: vec![
                 "Requirements document".to_string(),
                 "Threat model (docs/THREAT_MODEL.md)".to_string(),
@@ -112,8 +111,9 @@ pub fn standard_nist_controls() -> BTreeMap<String, NistControl> {
             id: "PW.4".to_string(),
             framework: NistFramework::Ssdf,
             title: "Review Design".to_string(),
-            description: "Review the software design to verify compliance with security requirements"
-                .to_string(),
+            description:
+                "Review the software design to verify compliance with security requirements"
+                    .to_string(),
             vsel_implementations: vec![
                 "Phase audit gates".to_string(),
                 "Lean 4 proof checking (lake build)".to_string(),
@@ -128,8 +128,7 @@ pub fn standard_nist_controls() -> BTreeMap<String, NistControl> {
             id: "PW.5".to_string(),
             framework: NistFramework::Ssdf,
             title: "Reuse Software".to_string(),
-            description: "Reuse existing well-secured software when feasible"
-                .to_string(),
+            description: "Reuse existing well-secured software when feasible".to_string(),
             vsel_implementations: vec![
                 "Rust crates: ed25519-dalek, sha3, blake3".to_string(),
                 "proptest for property-based testing".to_string(),
@@ -143,8 +142,7 @@ pub fn standard_nist_controls() -> BTreeMap<String, NistControl> {
             id: "PW.6".to_string(),
             framework: NistFramework::Ssdf,
             title: "Create Source Code".to_string(),
-            description: "Create source code by adhering to secure coding practices"
-                .to_string(),
+            description: "Create source code by adhering to secure coding practices".to_string(),
             vsel_implementations: vec![
                 "Rust Cargo workspace (protocol/)".to_string(),
                 "Lean 4 library (formal/VSEL/)".to_string(),
@@ -159,8 +157,7 @@ pub fn standard_nist_controls() -> BTreeMap<String, NistControl> {
             id: "PW.7".to_string(),
             framework: NistFramework::Ssdf,
             title: "Configure Software".to_string(),
-            description: "Configure software to have secure settings by default"
-                .to_string(),
+            description: "Configure software to have secure settings by default".to_string(),
             vsel_implementations: vec![
                 "Deterministic builds".to_string(),
                 "Version pinning (Cargo.lock)".to_string(),
@@ -175,8 +172,7 @@ pub fn standard_nist_controls() -> BTreeMap<String, NistControl> {
             id: "PW.8".to_string(),
             framework: NistFramework::Ssdf,
             title: "Test Software".to_string(),
-            description: "Test software for compliance with security requirements"
-                .to_string(),
+            description: "Test software for compliance with security requirements".to_string(),
             vsel_implementations: vec![
                 "proptest property-based testing".to_string(),
                 "Differential testing (Rust vs SIR)".to_string(),
@@ -193,8 +189,7 @@ pub fn standard_nist_controls() -> BTreeMap<String, NistControl> {
             id: "RV.1".to_string(),
             framework: NistFramework::Ssdf,
             title: "Identify Vulnerabilities".to_string(),
-            description: "Identify and confirm vulnerabilities on an ongoing basis"
-                .to_string(),
+            description: "Identify and confirm vulnerabilities on an ongoing basis".to_string(),
             vsel_implementations: vec![
                 "CodeQL SAST".to_string(),
                 "Dependency scanning".to_string(),
@@ -210,8 +205,7 @@ pub fn standard_nist_controls() -> BTreeMap<String, NistControl> {
             id: "RV.2".to_string(),
             framework: NistFramework::Ssdf,
             title: "Assess Vulnerabilities".to_string(),
-            description: "Assess, prioritize, and remediate vulnerabilities"
-                .to_string(),
+            description: "Assess, prioritize, and remediate vulnerabilities".to_string(),
             vsel_implementations: vec![
                 "Severity classification (Catastrophic→Informational)".to_string(),
                 "Audit evidence model (CAT-1 through CAT-6)".to_string(),
@@ -262,8 +256,7 @@ pub fn standard_nist_controls() -> BTreeMap<String, NistControl> {
             id: "PR".to_string(),
             framework: NistFramework::Csf,
             title: "Protect".to_string(),
-            description: "Develop and implement appropriate safeguards"
-                .to_string(),
+            description: "Develop and implement appropriate safeguards".to_string(),
             vsel_implementations: vec![
                 "Access control (authorization model)".to_string(),
                 "Data security (hybrid crypto)".to_string(),
@@ -295,8 +288,9 @@ pub fn standard_nist_controls() -> BTreeMap<String, NistControl> {
             id: "RS".to_string(),
             framework: NistFramework::Csf,
             title: "Respond".to_string(),
-            description: "Develop and implement activities to take action regarding detected events"
-                .to_string(),
+            description:
+                "Develop and implement activities to take action regarding detected events"
+                    .to_string(),
             vsel_implementations: vec![
                 "Incident response (error states)".to_string(),
                 "Halt on invariant violation".to_string(),
@@ -311,8 +305,9 @@ pub fn standard_nist_controls() -> BTreeMap<String, NistControl> {
             id: "RC".to_string(),
             framework: NistFramework::Csf,
             title: "Recover".to_string(),
-            description: "Develop and implement activities to maintain resilience and restore capabilities"
-                .to_string(),
+            description:
+                "Develop and implement activities to maintain resilience and restore capabilities"
+                    .to_string(),
             vsel_implementations: vec![
                 "Recovery planning (trace reconstruction)".to_string(),
                 "Cryptographic migration (vsel-crypto/migration.rs)".to_string(),

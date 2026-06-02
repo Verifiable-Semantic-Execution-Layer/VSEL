@@ -126,8 +126,12 @@ fn arb_trace_metadata() -> impl Strategy<Value = TraceMetadata> {
 }
 
 fn arb_valid_state() -> impl Strategy<Value = State> {
-    (arb_canonical_state(), arb_environment(), arb_trace_metadata()).prop_map(
-        |(canonical, environment, metadata)| {
+    (
+        arb_canonical_state(),
+        arb_environment(),
+        arb_trace_metadata(),
+    )
+        .prop_map(|(canonical, environment, metadata)| {
             let derived = derive(&canonical);
             let economic = derive_economic(&canonical, &environment);
             State {
@@ -137,8 +141,7 @@ fn arb_valid_state() -> impl Strategy<Value = State> {
                 economic,
                 metadata,
             }
-        },
-    )
+        })
 }
 
 // ---------------------------------------------------------------------------
@@ -154,8 +157,8 @@ fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
         any::<u64>(),
         arb_domain_tag(),
     )
-        .prop_map(|(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| {
-            Authorization {
+        .prop_map(
+            |(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| Authorization {
                 classical_sig,
                 pqc_sig,
                 public_key: HybridPublicKey {
@@ -164,8 +167,8 @@ fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
                 },
                 nonce,
                 domain,
-            }
-        })
+            },
+        )
 }
 
 fn arb_valid_input() -> impl Strategy<Value = Input> {
@@ -176,10 +179,7 @@ fn arb_valid_input() -> impl Strategy<Value = Input> {
         prop::collection::vec(any::<u8>(), 0..64),
     )
         .prop_map(|(payload_type, data, auth, aux_data)| Input {
-            payload: Payload {
-                payload_type,
-                data,
-            },
+            payload: Payload { payload_type, data },
             auth,
             aux: AuxiliaryData { data: aux_data },
         })
@@ -216,10 +216,7 @@ fn arb_invalid_input() -> impl Strategy<Value = Input> {
             arb_domain_tag(),
         )
             .prop_map(|(payload_type, data, domain)| Input {
-                payload: Payload {
-                    payload_type,
-                    data,
-                },
+                payload: Payload { payload_type, data },
                 auth: Authorization {
                     classical_sig: vec![],
                     pqc_sig: vec![1, 2, 3],
@@ -239,10 +236,7 @@ fn arb_invalid_input() -> impl Strategy<Value = Input> {
             arb_domain_tag(),
         )
             .prop_map(|(payload_type, data, domain)| Input {
-                payload: Payload {
-                    payload_type,
-                    data,
-                },
+                payload: Payload { payload_type, data },
                 auth: Authorization {
                     classical_sig: vec![1, 2, 3],
                     pqc_sig: vec![],
@@ -256,15 +250,9 @@ fn arb_invalid_input() -> impl Strategy<Value = Input> {
                 aux: AuxiliaryData { data: vec![] },
             }),
         // Zero domain tag
-        (
-            "[a-z]{1,20}",
-            prop::collection::vec(any::<u8>(), 1..64),
-        )
-            .prop_map(|(payload_type, data)| Input {
-                payload: Payload {
-                    payload_type,
-                    data,
-                },
+        ("[a-z]{1,20}", prop::collection::vec(any::<u8>(), 1..64),).prop_map(
+            |(payload_type, data)| Input {
+                payload: Payload { payload_type, data },
                 auth: Authorization {
                     classical_sig: vec![1, 2, 3],
                     pqc_sig: vec![4, 5, 6],
@@ -276,7 +264,8 @@ fn arb_invalid_input() -> impl Strategy<Value = Input> {
                     domain: DomainTag(Hash([0u8; 32])),
                 },
                 aux: AuxiliaryData { data: vec![] },
-            }),
+            }
+        ),
     ]
 }
 

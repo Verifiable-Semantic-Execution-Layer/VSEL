@@ -129,7 +129,13 @@ pub fn t_cons(trace: &Trace) -> InvariantResult {
     let mut violations = Vec::new();
 
     for (i, step) in trace.steps.iter().enumerate() {
-        let pre_sum: u128 = step.pre.canonical.accounts.values().map(|a| a.balance).sum();
+        let pre_sum: u128 = step
+            .pre
+            .canonical
+            .accounts
+            .values()
+            .map(|a| a.balance)
+            .sum();
         if pre_sum != step.pre.canonical.system_data.total_supply {
             violations.push(InvariantViolation {
                 invariant_id: "T_cons".to_string(),
@@ -142,7 +148,13 @@ pub fn t_cons(trace: &Trace) -> InvariantResult {
             });
         }
 
-        let post_sum: u128 = step.post.canonical.accounts.values().map(|a| a.balance).sum();
+        let post_sum: u128 = step
+            .post
+            .canonical
+            .accounts
+            .values()
+            .map(|a| a.balance)
+            .sum();
         if post_sum != step.post.canonical.system_data.total_supply {
             violations.push(InvariantViolation {
                 invariant_id: "T_cons".to_string(),
@@ -625,7 +637,11 @@ pub fn te_velocity_trace(trace: &Trace) -> InvariantResult {
                     category: InvariantCategory::Temporal,
                     description: format!(
                         "Account {:?} transacted {} times in window [{}, {}] (threshold={})",
-                        account_id, count, start, end - 1, TE_VELOCITY_THRESHOLD
+                        account_id,
+                        count,
+                        start,
+                        end - 1,
+                        TE_VELOCITY_THRESHOLD
                     ),
                     severity: Severity::Medium,
                 });
@@ -650,12 +666,7 @@ fn accounts_with_nonce_change(
 ) -> Vec<AccountId> {
     let mut changed = Vec::new();
     for (id, post_account) in &post.canonical.accounts {
-        let pre_nonce = pre
-            .canonical
-            .accounts
-            .get(id)
-            .map(|a| a.nonce)
-            .unwrap_or(0);
+        let pre_nonce = pre.canonical.accounts.get(id).map(|a| a.nonce).unwrap_or(0);
         if post_account.nonce > pre_nonce {
             changed.push(id.clone());
         }

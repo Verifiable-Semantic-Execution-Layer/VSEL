@@ -239,8 +239,7 @@ fn make_input(payload_type: &str, data: Vec<u8>) -> Input {
 /// - Error traces (with invalid operations)
 ///
 /// Each variant is weighted to ensure boundary coverage.
-pub fn arb_trace_entries(
-) -> impl Strategy<Value = (CanonicalState, Environment, Vec<Input>)> {
+pub fn arb_trace_entries() -> impl Strategy<Value = (CanonicalState, Environment, Vec<Input>)> {
     let empty = (arb_canonical_state(), arb_environment()).prop_map(|(c, e)| (c, e, vec![]));
 
     let single = (arb_canonical_state(), arb_environment()).prop_map(|(c, e)| {
@@ -251,12 +250,8 @@ pub fn arb_trace_entries(
         (c, e, vec![input])
     });
 
-    let multi = (
-        arb_canonical_state(),
-        arb_environment(),
-        2usize..=10,
-    )
-        .prop_flat_map(|(c, e, count)| {
+    let multi =
+        (arb_canonical_state(), arb_environment(), 2usize..=10).prop_flat_map(|(c, e, count)| {
             let inputs = prop::collection::vec(
                 (arb_bytes32(), 1u128..=10_000u128).prop_map(|(account, amount)| {
                     let mut data = Vec::new();

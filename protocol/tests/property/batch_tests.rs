@@ -132,8 +132,8 @@ fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
         any::<u64>(),
         arb_domain_tag(),
     )
-        .prop_map(|(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| {
-            Authorization {
+        .prop_map(
+            |(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| Authorization {
                 classical_sig,
                 pqc_sig,
                 public_key: HybridPublicKey {
@@ -142,8 +142,8 @@ fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
                 },
                 nonce,
                 domain,
-            }
-        })
+            },
+        )
 }
 
 /// Generate a deposit input for a given account ID and amount.
@@ -165,8 +165,7 @@ fn make_deposit_input(account_id: [u8; 32], amount: u128, auth: Authorization) -
 /// Strategy for a small batch of deposit inputs (1-3 deposits).
 /// Deposits are chosen because they always succeed on valid states,
 /// ensuring both batch and sequential execution complete without errors.
-fn arb_deposit_batch(
-) -> impl Strategy<Value = (Vec<[u8; 32]>, Vec<u128>, Vec<Authorization>)> {
+fn arb_deposit_batch() -> impl Strategy<Value = (Vec<[u8; 32]>, Vec<u128>, Vec<Authorization>)> {
     let size = 1usize..=3;
     size.prop_flat_map(|n| {
         (

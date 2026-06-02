@@ -22,7 +22,7 @@ use vsel_trace::engine::Trace;
 /// Contains intermediate arithmetic results, Merkle paths, and other
 /// non-semantic data needed by the proof backend. Auxiliary data must
 /// NOT influence semantic outcome (THM-4, Requirement 12.6).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct AuxiliaryComputation {
     /// Named auxiliary values produced during witness construction.
     /// Each entry is (name, value_bytes).
@@ -121,10 +121,7 @@ impl WitnessEncoding {
             })
             .collect();
 
-        let encoded_aux: Vec<(String, Vec<u8>)> = witness
-            .aux_computation
-            .values
-            .clone();
+        let encoded_aux: Vec<(String, Vec<u8>)> = witness.aux_computation.values.clone();
 
         WitnessEncoding {
             intermediate_state_count: witness.intermediate_states.len(),
@@ -238,10 +235,7 @@ pub fn construct_witness(trace: &Trace) -> Witness {
         );
 
         // Chain hash for trace integrity.
-        aux.add(
-            format!("chain_hash_{}", i),
-            entry.chain_hash.0.to_vec(),
-        );
+        aux.add(format!("chain_hash_{}", i), entry.chain_hash.0.to_vec());
     }
 
     // Intermediate states: for a trace with n entries, there are n-1
@@ -298,14 +292,8 @@ pub fn classify_variables(witness: &Witness) -> Vec<(String, WitnessVariableKind
             format!("input_payload_{}", i),
             WitnessVariableKind::Semantic,
         ));
-        classified.push((
-            format!("input_auth_{}", i),
-            WitnessVariableKind::Semantic,
-        ));
-        classified.push((
-            format!("input_aux_{}", i),
-            WitnessVariableKind::Auxiliary,
-        ));
+        classified.push((format!("input_auth_{}", i), WitnessVariableKind::Semantic));
+        classified.push((format!("input_aux_{}", i), WitnessVariableKind::Auxiliary));
     }
 
     // Intermediate states are derived — computed from applying inputs to initial state.
@@ -794,8 +782,14 @@ mod tests {
             aux_computation: aux,
         };
         let results = check_non_malleability(&witness);
-        let mal1 = results.iter().find(|r| r.attack_type == MalleabilityType::MAL1).unwrap();
-        assert!(mal1.detected, "MAL-1 should detect auxiliary-semantic name collision");
+        let mal1 = results
+            .iter()
+            .find(|r| r.attack_type == MalleabilityType::MAL1)
+            .unwrap();
+        assert!(
+            mal1.detected,
+            "MAL-1 should detect auxiliary-semantic name collision"
+        );
     }
 
     #[test]
@@ -812,7 +806,10 @@ mod tests {
             aux_computation: AuxiliaryComputation::empty(),
         };
         let results = check_non_malleability(&witness);
-        let mal2 = results.iter().find(|r| r.attack_type == MalleabilityType::MAL2).unwrap();
+        let mal2 = results
+            .iter()
+            .find(|r| r.attack_type == MalleabilityType::MAL2)
+            .unwrap();
         assert!(mal2.detected, "MAL-2 should detect duplicate nonces");
     }
 
@@ -829,7 +826,10 @@ mod tests {
             aux_computation: AuxiliaryComputation::empty(),
         };
         let results = check_non_malleability(&witness);
-        let mal2 = results.iter().find(|r| r.attack_type == MalleabilityType::MAL2).unwrap();
+        let mal2 = results
+            .iter()
+            .find(|r| r.attack_type == MalleabilityType::MAL2)
+            .unwrap();
         assert!(!mal2.detected, "MAL-2 should pass with unique nonces");
     }
 
@@ -843,8 +843,14 @@ mod tests {
             aux_computation: AuxiliaryComputation::empty(),
         };
         let results = check_non_malleability(&witness);
-        let mal3 = results.iter().find(|r| r.attack_type == MalleabilityType::MAL3).unwrap();
-        assert!(mal3.detected, "MAL-3 should detect duplicate state commitments");
+        let mal3 = results
+            .iter()
+            .find(|r| r.attack_type == MalleabilityType::MAL3)
+            .unwrap();
+        assert!(
+            mal3.detected,
+            "MAL-3 should detect duplicate state commitments"
+        );
     }
 
     #[test]
@@ -859,8 +865,14 @@ mod tests {
             aux_computation: aux,
         };
         let results = check_non_malleability(&witness);
-        let mal4 = results.iter().find(|r| r.attack_type == MalleabilityType::MAL4).unwrap();
-        assert!(mal4.detected, "MAL-4 should detect non-32-byte commitment values");
+        let mal4 = results
+            .iter()
+            .find(|r| r.attack_type == MalleabilityType::MAL4)
+            .unwrap();
+        assert!(
+            mal4.detected,
+            "MAL-4 should detect non-32-byte commitment values"
+        );
     }
 
     #[test]
@@ -875,8 +887,14 @@ mod tests {
             aux_computation: aux,
         };
         let results = check_non_malleability(&witness);
-        let mal4 = results.iter().find(|r| r.attack_type == MalleabilityType::MAL4).unwrap();
-        assert!(!mal4.detected, "MAL-4 should pass with valid 32-byte commitments");
+        let mal4 = results
+            .iter()
+            .find(|r| r.attack_type == MalleabilityType::MAL4)
+            .unwrap();
+        assert!(
+            !mal4.detected,
+            "MAL-4 should pass with valid 32-byte commitments"
+        );
     }
 
     #[test]
@@ -888,7 +906,10 @@ mod tests {
             aux_computation: AuxiliaryComputation::empty(),
         };
         let results = check_non_malleability(&witness);
-        let mal5 = results.iter().find(|r| r.attack_type == MalleabilityType::MAL5).unwrap();
+        let mal5 = results
+            .iter()
+            .find(|r| r.attack_type == MalleabilityType::MAL5)
+            .unwrap();
         assert!(mal5.detected, "MAL-5 should detect duplicate inputs");
     }
 
@@ -904,8 +925,14 @@ mod tests {
             aux_computation: aux,
         };
         let results = check_non_malleability(&witness);
-        let mal6 = results.iter().find(|r| r.attack_type == MalleabilityType::MAL6).unwrap();
-        assert!(mal6.detected, "MAL-6 should detect semantic name in auxiliary value");
+        let mal6 = results
+            .iter()
+            .find(|r| r.attack_type == MalleabilityType::MAL6)
+            .unwrap();
+        assert!(
+            mal6.detected,
+            "MAL-6 should detect semantic name in auxiliary value"
+        );
     }
 
     #[test]
@@ -918,7 +945,10 @@ mod tests {
         let results = check_non_malleability(&witness);
         assert_eq!(results.len(), 6);
         for result in &results {
-            assert!(!result.detected, "Empty witness should have no vulnerabilities");
+            assert!(
+                !result.detected,
+                "Empty witness should have no vulnerabilities"
+            );
         }
     }
 
@@ -936,7 +966,11 @@ mod tests {
             input.payload.data = vec![(i + 1) as u8];
         }
         let result = search_alternate_witness(&witness);
-        assert!(result.is_none(), "Clean witness should have no alternate: {:?}", result);
+        assert!(
+            result.is_none(),
+            "Clean witness should have no alternate: {:?}",
+            result
+        );
     }
 
     #[test]
@@ -950,7 +984,10 @@ mod tests {
             aux_computation: aux,
         };
         let result = search_alternate_witness(&witness);
-        assert!(result.is_some(), "Should detect alternate witness vulnerability");
+        assert!(
+            result.is_some(),
+            "Should detect alternate witness vulnerability"
+        );
     }
 
     #[test]
@@ -964,7 +1001,10 @@ mod tests {
             aux_computation: aux,
         };
         let result = search_alternate_witness(&witness);
-        assert!(result.is_some(), "Should detect semantic reference in aux value");
+        assert!(
+            result.is_some(),
+            "Should detect semantic reference in aux value"
+        );
     }
 
     #[test]
@@ -989,13 +1029,19 @@ mod tests {
         let report = analyze_constraint_coupling(&witness);
 
         assert!(report.semantic_count > 0, "Should have semantic variables");
-        assert!(report.auxiliary_count > 0, "Should have auxiliary variables");
+        assert!(
+            report.auxiliary_count > 0,
+            "Should have auxiliary variables"
+        );
         assert!(report.derived_count > 0, "Should have derived variables");
         assert_eq!(
             report.total_count,
             report.semantic_count + report.auxiliary_count + report.derived_count
         );
-        assert!(report.warnings.is_empty(), "Full witness should have no warnings");
+        assert!(
+            report.warnings.is_empty(),
+            "Full witness should have no warnings"
+        );
     }
 
     #[test]
@@ -1009,7 +1055,10 @@ mod tests {
 
         assert_eq!(report.total_count, 0);
         assert_eq!(report.constrained_ratio, 0.0);
-        assert!(report.warnings.is_empty(), "Empty witness should have no warnings");
+        assert!(
+            report.warnings.is_empty(),
+            "Empty witness should have no warnings"
+        );
     }
 
     #[test]
@@ -1079,20 +1128,41 @@ mod tests {
         // Should have entries for all three variable kinds.
         assert_eq!(threats.len(), 3);
 
-        let semantic_entry = threats.iter().find(|t| t.template_name == "semantic_inputs").unwrap();
+        let semantic_entry = threats
+            .iter()
+            .find(|t| t.template_name == "semantic_inputs")
+            .unwrap();
         assert_eq!(semantic_entry.variable_kind, WitnessVariableKind::Semantic);
-        assert!(semantic_entry.applicable_threats.contains(&MalleabilityType::MAL2));
-        assert!(semantic_entry.applicable_threats.contains(&MalleabilityType::MAL5));
+        assert!(semantic_entry
+            .applicable_threats
+            .contains(&MalleabilityType::MAL2));
+        assert!(semantic_entry
+            .applicable_threats
+            .contains(&MalleabilityType::MAL5));
 
-        let aux_entry = threats.iter().find(|t| t.template_name == "auxiliary_computation").unwrap();
+        let aux_entry = threats
+            .iter()
+            .find(|t| t.template_name == "auxiliary_computation")
+            .unwrap();
         assert_eq!(aux_entry.variable_kind, WitnessVariableKind::Auxiliary);
-        assert!(aux_entry.applicable_threats.contains(&MalleabilityType::MAL1));
-        assert!(aux_entry.applicable_threats.contains(&MalleabilityType::MAL4));
-        assert!(aux_entry.applicable_threats.contains(&MalleabilityType::MAL6));
+        assert!(aux_entry
+            .applicable_threats
+            .contains(&MalleabilityType::MAL1));
+        assert!(aux_entry
+            .applicable_threats
+            .contains(&MalleabilityType::MAL4));
+        assert!(aux_entry
+            .applicable_threats
+            .contains(&MalleabilityType::MAL6));
 
-        let derived_entry = threats.iter().find(|t| t.template_name == "derived_states").unwrap();
+        let derived_entry = threats
+            .iter()
+            .find(|t| t.template_name == "derived_states")
+            .unwrap();
         assert_eq!(derived_entry.variable_kind, WitnessVariableKind::Derived);
-        assert!(derived_entry.applicable_threats.contains(&MalleabilityType::MAL3));
+        assert!(derived_entry
+            .applicable_threats
+            .contains(&MalleabilityType::MAL3));
     }
 
     #[test]
@@ -1103,7 +1173,10 @@ mod tests {
             aux_computation: AuxiliaryComputation::empty(),
         };
         let threats = analyze_template_threats(&witness);
-        assert!(threats.is_empty(), "Empty witness should have no threat entries");
+        assert!(
+            threats.is_empty(),
+            "Empty witness should have no threat entries"
+        );
     }
 
     #[test]
@@ -1525,19 +1598,16 @@ pub fn analyze_constraint_coupling(witness: &Witness) -> ConstraintCouplingRepor
     let mut warnings = Vec::new();
 
     if total_count > 0 && semantic_count == 0 {
-        warnings.push(
-            "No semantic variables — witness has no semantic content to protect".to_string(),
-        );
+        warnings
+            .push("No semantic variables — witness has no semantic content to protect".to_string());
     }
     if total_count > 0 && auxiliary_count == 0 {
-        warnings.push(
-            "No auxiliary variables — witness may lack proof-supporting data".to_string(),
-        );
+        warnings
+            .push("No auxiliary variables — witness may lack proof-supporting data".to_string());
     }
     if total_count > 0 && derived_count == 0 {
-        warnings.push(
-            "No derived variables — witness may lack intermediate state data".to_string(),
-        );
+        warnings
+            .push("No derived variables — witness may lack intermediate state data".to_string());
     }
 
     ConstraintCouplingReport {
@@ -1607,10 +1677,9 @@ pub fn analyze_template_threats(witness: &Witness) -> Vec<TemplateThreatEntry> {
                 MalleabilityType::MAL2, // Reordering
                 MalleabilityType::MAL5, // Duplication
             ],
-            threat_description:
-                "Semantic variables determine execution meaning. \
+            threat_description: "Semantic variables determine execution meaning. \
                  Vulnerable to reordering (MAL-2) and duplication (MAL-5) attacks."
-                    .to_string(),
+                .to_string(),
         });
     }
 
@@ -1624,11 +1693,10 @@ pub fn analyze_template_threats(witness: &Witness) -> Vec<TemplateThreatEntry> {
                 MalleabilityType::MAL4, // Commitment forgery
                 MalleabilityType::MAL6, // Masquerading
             ],
-            threat_description:
-                "Auxiliary variables support proof generation. \
+            threat_description: "Auxiliary variables support proof generation. \
                  Vulnerable to substitution (MAL-1), commitment forgery (MAL-4), \
                  and semantic masquerading (MAL-6) attacks."
-                    .to_string(),
+                .to_string(),
         });
     }
 
@@ -1640,10 +1708,9 @@ pub fn analyze_template_threats(witness: &Witness) -> Vec<TemplateThreatEntry> {
             applicable_threats: vec![
                 MalleabilityType::MAL3, // State injection
             ],
-            threat_description:
-                "Derived variables are intermediate states computed from semantic \
+            threat_description: "Derived variables are intermediate states computed from semantic \
                  variables. Vulnerable to state injection (MAL-3) attacks."
-                    .to_string(),
+                .to_string(),
         });
     }
 

@@ -15,16 +15,16 @@
 
 use std::collections::BTreeMap;
 
-use proptest::prelude::*;
 use proptest::collection::btree_map;
+use proptest::prelude::*;
 
 use vsel_core::state::{AccountData, CanonicalState};
 use vsel_core::types::*;
 use vsel_crypto::domain::{create_domain_tag, domain_hash, domain_hash_blake3};
 use vsel_crypto::hash::{commit_canonical_state, domain_hash_with_algorithm, HashAlgorithm};
 use vsel_crypto::signatures::{
-    generate_hybrid_keypair, hybrid_key_exchange, hybrid_sign, hybrid_verify,
-    combine_shared_secrets,
+    combine_shared_secrets, generate_hybrid_keypair, hybrid_key_exchange, hybrid_sign,
+    hybrid_verify,
 };
 
 // ---------------------------------------------------------------------------

@@ -7,11 +7,11 @@
 //! deterministic IR, Rust deserialization is faithful.
 //! **Validates: Requirements 9.7**
 
-use proptest::prelude::*;
 use proptest::collection::{btree_map, vec as arb_vec};
+use proptest::prelude::*;
 
-use vsel_sir::types::*;
 use vsel_sir::deserialize::*;
+use vsel_sir::types::*;
 
 // ---------------------------------------------------------------------------
 // Arbitrary strategies for SIR types
@@ -62,7 +62,10 @@ fn arb_sir_expr(depth: u32) -> BoxedStrategy<SirExpr> {
             arb_sir_value(1).prop_map(|value| SirExpr::Literal { value }),
             "[a-z_]{1,12}".prop_map(|name| SirExpr::Var { name }),
             // Recursive variants
-            (arb_sir_expr(depth - 1), arb_vec(arb_sir_expr(depth - 1), 0..3))
+            (
+                arb_sir_expr(depth - 1),
+                arb_vec(arb_sir_expr(depth - 1), 0..3)
+            )
                 .prop_map(|(func, args)| SirExpr::Apply {
                     func: Box::new(func),
                     args,
@@ -87,11 +90,12 @@ fn arb_sir_expr(depth: u32) -> BoxedStrategy<SirExpr> {
                     then_: Box::new(then_),
                     else_: Box::new(else_),
                 }),
-            (arb_sir_expr(depth - 1), "[a-z_]{1,12}")
-                .prop_map(|(expr, field)| SirExpr::FieldAccess {
+            (arb_sir_expr(depth - 1), "[a-z_]{1,12}").prop_map(|(expr, field)| {
+                SirExpr::FieldAccess {
                     expr: Box::new(expr),
                     field,
-                }),
+                }
+            }),
             (
                 prop_oneof!["add", "sub", "mul", "eq", "gt", "ge", "lt", "le"],
                 arb_sir_expr(depth - 1),
@@ -133,7 +137,10 @@ fn arb_sir_pattern() -> BoxedStrategy<SirPattern> {
 
 /// Generate an arbitrary SirFieldSchema.
 fn arb_sir_field_schema() -> impl Strategy<Value = SirFieldSchema> {
-    ("[a-z_]{1,12}", prop_oneof!["Int", "Bool", "Bytes", "Map", "List"])
+    (
+        "[a-z_]{1,12}",
+        prop_oneof!["Int", "Bool", "Bytes", "Map", "List"],
+    )
         .prop_map(|(name, field_type)| SirFieldSchema {
             name,
             field_type: field_type.to_string(),
@@ -151,15 +158,13 @@ fn arb_sir_transition() -> impl Strategy<Value = SirTransition> {
         arb_vec("[a-z_]{1,12}".prop_map(|s| s.to_string()), 0..4),
     )
         .prop_map(
-            |(name, class, preconditions, postconditions, body, allowed_mutations)| {
-                SirTransition {
-                    name: name.to_string(),
-                    class: class.to_string(),
-                    preconditions,
-                    postconditions,
-                    body,
-                    allowed_mutations,
-                }
+            |(name, class, preconditions, postconditions, body, allowed_mutations)| SirTransition {
+                name: name.to_string(),
+                class: class.to_string(),
+                preconditions,
+                postconditions,
+                body,
+                allowed_mutations,
             },
         )
 }
@@ -415,8 +420,7 @@ proptest! {
 /// CARGO_MANIFEST_DIR points to the crate root (protocol/crates/vsel-sir/),
 /// so we go up three levels to reach the workspace root.
 fn sir_example_path(filename: &str) -> std::path::PathBuf {
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
-        .expect("CARGO_MANIFEST_DIR must be set");
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR must be set");
     std::path::Path::new(&manifest_dir)
         .join("../../..") // up from protocol/crates/vsel-sir/ to workspace root
         .join("sir/examples")
@@ -436,8 +440,14 @@ fn test_example_full_program_deserializes() {
     assert_eq!(program.version, "0.1.0");
     assert!(!program.transitions.is_empty(), "must have transitions");
     assert!(!program.invariants.is_empty(), "must have invariants");
-    assert!(!program.state_schema.fields.is_empty(), "must have state fields");
-    assert!(!program.input_schema.fields.is_empty(), "must have input fields");
+    assert!(
+        !program.state_schema.fields.is_empty(),
+        "must have state fields"
+    );
+    assert!(
+        !program.input_schema.fields.is_empty(),
+        "must have input fields"
+    );
 }
 
 #[test]
@@ -447,8 +457,14 @@ fn test_example_update_transition_deserializes() {
         serde_json::from_str(&json).expect("update_transition.json must deserialize");
     assert_eq!(transition.name, "deposit");
     assert_eq!(transition.class, "Update");
-    assert!(!transition.preconditions.is_empty(), "must have preconditions");
-    assert!(!transition.postconditions.is_empty(), "must have postconditions");
+    assert!(
+        !transition.preconditions.is_empty(),
+        "must have preconditions"
+    );
+    assert!(
+        !transition.postconditions.is_empty(),
+        "must have postconditions"
+    );
 }
 
 #[test]
@@ -458,8 +474,14 @@ fn test_example_init_transition_deserializes() {
         serde_json::from_str(&json).expect("init_transition.json must deserialize");
     assert_eq!(transition.name, "genesis");
     assert_eq!(transition.class, "Init");
-    assert!(transition.preconditions.is_empty(), "init has no preconditions");
-    assert!(!transition.postconditions.is_empty(), "must have postconditions");
+    assert!(
+        transition.preconditions.is_empty(),
+        "init has no preconditions"
+    );
+    assert!(
+        !transition.postconditions.is_empty(),
+        "must have postconditions"
+    );
 }
 
 #[test]
@@ -472,7 +494,10 @@ fn test_example_invariants_deserializes() {
     let categories: Vec<&str> = invariants.iter().map(|i| i.category.as_str()).collect();
     assert!(categories.contains(&"local"), "must have local invariant");
     assert!(categories.contains(&"global"), "must have global invariant");
-    assert!(categories.contains(&"economic"), "must have economic invariant");
+    assert!(
+        categories.contains(&"economic"),
+        "must have economic invariant"
+    );
 }
 
 #[test]
@@ -502,8 +527,11 @@ fn test_all_example_artifacts_consistent() {
     let init: SirTransition = serde_json::from_str(&init_json).unwrap();
 
     // The full program must contain transitions matching the individual examples
-    let program_transition_names: Vec<&str> =
-        program.transitions.iter().map(|t| t.name.as_str()).collect();
+    let program_transition_names: Vec<&str> = program
+        .transitions
+        .iter()
+        .map(|t| t.name.as_str())
+        .collect();
     assert!(
         program_transition_names.contains(&update.name.as_str()),
         "full program must contain the update transition '{}'",

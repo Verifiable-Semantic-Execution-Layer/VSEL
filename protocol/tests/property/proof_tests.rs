@@ -24,7 +24,9 @@ use std::collections::BTreeMap;
 
 use proptest::prelude::*;
 
-use vsel_constraints::{Constraint, ConstraintCategory, ConstraintExpr, ConstraintId, ConstraintSystem};
+use vsel_constraints::{
+    Constraint, ConstraintCategory, ConstraintExpr, ConstraintId, ConstraintSystem,
+};
 use vsel_core::input::*;
 use vsel_core::observable::{Observable, TransitionStatus};
 use vsel_core::state::*;
@@ -125,8 +127,12 @@ fn arb_trace_metadata() -> impl Strategy<Value = TraceMetadata> {
 }
 
 fn arb_valid_state() -> impl Strategy<Value = State> {
-    (arb_canonical_state(), arb_environment(), arb_trace_metadata()).prop_map(
-        |(canonical, environment, metadata)| {
+    (
+        arb_canonical_state(),
+        arb_environment(),
+        arb_trace_metadata(),
+    )
+        .prop_map(|(canonical, environment, metadata)| {
             let derived = derive(&canonical);
             let economic = derive_economic(&canonical, &environment);
             State {
@@ -136,8 +142,7 @@ fn arb_valid_state() -> impl Strategy<Value = State> {
                 economic,
                 metadata,
             }
-        },
-    )
+        })
 }
 
 fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
@@ -149,8 +154,8 @@ fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
         any::<u64>(),
         arb_domain_tag(),
     )
-        .prop_map(|(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| {
-            Authorization {
+        .prop_map(
+            |(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| Authorization {
                 classical_sig,
                 pqc_sig,
                 public_key: HybridPublicKey {
@@ -159,8 +164,8 @@ fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
                 },
                 nonce,
                 domain,
-            }
-        })
+            },
+        )
 }
 
 fn arb_valid_input() -> impl Strategy<Value = Input> {
@@ -171,10 +176,7 @@ fn arb_valid_input() -> impl Strategy<Value = Input> {
         prop::collection::vec(any::<u8>(), 0..64),
     )
         .prop_map(|(payload_type, data, auth, aux_data)| Input {
-            payload: Payload {
-                payload_type,
-                data,
-            },
+            payload: Payload { payload_type, data },
             auth,
             aux: AuxiliaryData { data: aux_data },
         })
@@ -293,7 +295,6 @@ fn arb_valid_trace() -> impl Strategy<Value = Trace> {
         })
         .prop_map(|(state, inputs, observables)| build_trace(state, inputs, observables))
 }
-
 
 // ---------------------------------------------------------------------------
 // Property 33: Full Trace Binding (PROOF-1)
@@ -544,7 +545,6 @@ proptest! {
     }
 }
 
-
 // ---------------------------------------------------------------------------
 // Property 36: Witness Semantic Uniqueness (LEM-6)
 // All valid witnesses for the same public inputs represent identical
@@ -661,7 +661,6 @@ proptest! {
     }
 }
 
-
 // ---------------------------------------------------------------------------
 // Imports for Properties 37-38 (proof composition and recursive proofs)
 // ---------------------------------------------------------------------------
@@ -719,7 +718,8 @@ fn build_proof_chain(
         current_state = base_state.clone();
         current_state.canonical.system_data.protocol_version.patch += (proofs.len() as u32) + 1;
         current_state.derived = derive(&current_state.canonical);
-        current_state.economic = derive_economic(&current_state.canonical, &current_state.environment);
+        current_state.economic =
+            derive_economic(&current_state.canonical, &current_state.environment);
     }
 
     // Now fix up the chain: set proof[i].root_final = proof[i+1].root_init
@@ -739,7 +739,6 @@ fn build_proof_chain(
 
     proofs
 }
-
 
 // ---------------------------------------------------------------------------
 // Property 37: Proof Composition Correctness (THM-10)
@@ -861,7 +860,6 @@ proptest! {
         );
     }
 }
-
 
 // ---------------------------------------------------------------------------
 // Property 38: Recursive Proof Validity (THM-13)
@@ -995,14 +993,12 @@ proptest! {
     }
 }
 
-
 // ---------------------------------------------------------------------------
 // Imports for Property 53 (Witness Non-Malleability)
 // ---------------------------------------------------------------------------
 
 use vsel_proof::witness::{
-    check_non_malleability, search_alternate_witness, analyze_constraint_coupling,
-    MalleabilityType,
+    analyze_constraint_coupling, check_non_malleability, search_alternate_witness, MalleabilityType,
 };
 
 // ---------------------------------------------------------------------------
@@ -1203,7 +1199,6 @@ proptest! {
     }
 }
 
-
 // ---------------------------------------------------------------------------
 // Property 1: Prove-Verify Round Trip (Completeness) — Plonky3Backend
 //
@@ -1327,8 +1322,12 @@ mod plonky3_prove_verify_round_trip {
     }
 
     fn arb_valid_state() -> impl Strategy<Value = State> {
-        (arb_canonical_state(), arb_environment(), arb_trace_metadata()).prop_map(
-            |(canonical, environment, metadata)| {
+        (
+            arb_canonical_state(),
+            arb_environment(),
+            arb_trace_metadata(),
+        )
+            .prop_map(|(canonical, environment, metadata)| {
                 let derived = derive(&canonical);
                 let economic = derive_economic(&canonical, &environment);
                 State {
@@ -1338,8 +1337,7 @@ mod plonky3_prove_verify_round_trip {
                     economic,
                     metadata,
                 }
-            },
-        )
+            })
     }
 
     fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
@@ -1351,8 +1349,8 @@ mod plonky3_prove_verify_round_trip {
             any::<u64>(),
             arb_domain_tag(),
         )
-            .prop_map(|(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| {
-                Authorization {
+            .prop_map(
+                |(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| Authorization {
                     classical_sig,
                     pqc_sig,
                     public_key: HybridPublicKey {
@@ -1361,8 +1359,8 @@ mod plonky3_prove_verify_round_trip {
                     },
                     nonce,
                     domain,
-                }
-            })
+                },
+            )
     }
 
     fn arb_valid_input() -> impl Strategy<Value = Input> {
@@ -1373,10 +1371,7 @@ mod plonky3_prove_verify_round_trip {
             prop::collection::vec(any::<u8>(), 0..64),
         )
             .prop_map(|(payload_type, data, auth, aux_data)| Input {
-                payload: Payload {
-                    payload_type,
-                    data,
-                },
+                payload: Payload { payload_type, data },
                 auth,
                 aux: AuxiliaryData { data: aux_data },
             })
@@ -1409,7 +1404,11 @@ mod plonky3_prove_verify_round_trip {
     // Trace construction helper
     // -----------------------------------------------------------------------
 
-    fn build_trace(initial_state: State, inputs: Vec<Input>, observables: Vec<Observable>) -> Trace {
+    fn build_trace(
+        initial_state: State,
+        inputs: Vec<Input>,
+        observables: Vec<Observable>,
+    ) -> Trace {
         let init_commit = commit(&initial_state.canonical);
         let mut entries = Vec::new();
         let mut prev_chain = Hash([0u8; 32]);
@@ -1566,7 +1565,6 @@ mod plonky3_prove_verify_round_trip {
     }
 }
 
-
 // ---------------------------------------------------------------------------
 // Property 2: Proof Determinism — Plonky3Backend
 //
@@ -1688,8 +1686,12 @@ mod plonky3_proof_determinism {
     }
 
     fn arb_valid_state() -> impl Strategy<Value = State> {
-        (arb_canonical_state(), arb_environment(), arb_trace_metadata()).prop_map(
-            |(canonical, environment, metadata)| {
+        (
+            arb_canonical_state(),
+            arb_environment(),
+            arb_trace_metadata(),
+        )
+            .prop_map(|(canonical, environment, metadata)| {
                 let derived = derive(&canonical);
                 let economic = derive_economic(&canonical, &environment);
                 State {
@@ -1699,8 +1701,7 @@ mod plonky3_proof_determinism {
                     economic,
                     metadata,
                 }
-            },
-        )
+            })
     }
 
     fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
@@ -1712,8 +1713,8 @@ mod plonky3_proof_determinism {
             any::<u64>(),
             arb_domain_tag(),
         )
-            .prop_map(|(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| {
-                Authorization {
+            .prop_map(
+                |(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| Authorization {
                     classical_sig,
                     pqc_sig,
                     public_key: HybridPublicKey {
@@ -1722,8 +1723,8 @@ mod plonky3_proof_determinism {
                     },
                     nonce,
                     domain,
-                }
-            })
+                },
+            )
     }
 
     fn arb_valid_input() -> impl Strategy<Value = Input> {
@@ -1734,10 +1735,7 @@ mod plonky3_proof_determinism {
             prop::collection::vec(any::<u8>(), 0..64),
         )
             .prop_map(|(payload_type, data, auth, aux_data)| Input {
-                payload: Payload {
-                    payload_type,
-                    data,
-                },
+                payload: Payload { payload_type, data },
                 auth,
                 aux: AuxiliaryData { data: aux_data },
             })
@@ -1770,7 +1768,11 @@ mod plonky3_proof_determinism {
     // Trace construction helper
     // -----------------------------------------------------------------------
 
-    fn build_trace(initial_state: State, inputs: Vec<Input>, observables: Vec<Observable>) -> Trace {
+    fn build_trace(
+        initial_state: State,
+        inputs: Vec<Input>,
+        observables: Vec<Observable>,
+    ) -> Trace {
         let init_commit = commit(&initial_state.canonical);
         let mut entries = Vec::new();
         let mut prev_chain = Hash([0u8; 32]);
@@ -1950,7 +1952,6 @@ mod plonky3_proof_determinism {
     }
 }
 
-
 // ---------------------------------------------------------------------------
 // Property 3: N-Proof Composition with State Chaining — Plonky3Backend
 //
@@ -1983,7 +1984,7 @@ mod plonky3_n_proof_composition {
     use vsel_proof::backend::ZkBackend;
     use vsel_proof::plonky3_backend::Plonky3Backend;
     use vsel_proof::public_inputs::PublicInputs;
-    use vsel_proof::witness::{Witness, AuxiliaryComputation};
+    use vsel_proof::witness::{AuxiliaryComputation, Witness};
 
     // -----------------------------------------------------------------------
     // Constraint system builder — uses Eq(WitnessRef("x"), WitnessRef("x"))
@@ -2022,7 +2023,10 @@ mod plonky3_n_proof_composition {
         domain: &DomainTag,
         version: &ProtocolVersion,
         seed: u8,
-    ) -> (Vec<vsel_proof::plonky3_backend::StarkProof>, Vec<PublicInputs>) {
+    ) -> (
+        Vec<vsel_proof::plonky3_backend::StarkProof>,
+        Vec<PublicInputs>,
+    ) {
         let cs = plonky3_constraint_system();
 
         // Build N public inputs with valid state chaining:
@@ -2059,7 +2063,11 @@ mod plonky3_n_proof_composition {
 
         let proofs = pub_inputs_list
             .iter()
-            .map(|pi| backend.prove(&witness, &cs, pi).expect("prove must succeed"))
+            .map(|pi| {
+                backend
+                    .prove(&witness, &cs, pi)
+                    .expect("prove must succeed")
+            })
             .collect();
 
         (proofs, pub_inputs_list)
@@ -2070,7 +2078,11 @@ mod plonky3_n_proof_composition {
             accounts: BTreeMap::new(),
             storage: BTreeMap::new(),
             system_data: SystemData {
-                protocol_version: ProtocolVersion { major: 1, minor: 0, patch: 0 },
+                protocol_version: ProtocolVersion {
+                    major: 1,
+                    minor: 0,
+                    patch: 0,
+                },
                 total_supply: seed as u128 * 1000,
                 parameters: BTreeMap::new(),
             },
@@ -2229,7 +2241,6 @@ mod plonky3_n_proof_composition {
     }
 }
 
-
 // ---------------------------------------------------------------------------
 // Property 4: Incremental Composition Equivalence — Plonky3Backend
 //
@@ -2259,7 +2270,7 @@ mod plonky3_incremental_composition_equivalence {
     use vsel_proof::backend::ZkBackend;
     use vsel_proof::plonky3_backend::Plonky3Backend;
     use vsel_proof::public_inputs::PublicInputs;
-    use vsel_proof::witness::{Witness, AuxiliaryComputation};
+    use vsel_proof::witness::{AuxiliaryComputation, Witness};
 
     // -----------------------------------------------------------------------
     // Constraint system builder
@@ -2294,7 +2305,10 @@ mod plonky3_incremental_composition_equivalence {
         domain: &DomainTag,
         version: &ProtocolVersion,
         seed: u8,
-    ) -> (Vec<vsel_proof::plonky3_backend::StarkProof>, Vec<PublicInputs>) {
+    ) -> (
+        Vec<vsel_proof::plonky3_backend::StarkProof>,
+        Vec<PublicInputs>,
+    ) {
         let cs = plonky3_constraint_system();
 
         let pub_inputs_list: Vec<PublicInputs> = (0..n)
@@ -2330,7 +2344,11 @@ mod plonky3_incremental_composition_equivalence {
 
         let proofs = pub_inputs_list
             .iter()
-            .map(|pi| backend.prove(&witness, &cs, pi).expect("prove must succeed"))
+            .map(|pi| {
+                backend
+                    .prove(&witness, &cs, pi)
+                    .expect("prove must succeed")
+            })
             .collect();
 
         (proofs, pub_inputs_list)
@@ -2341,7 +2359,11 @@ mod plonky3_incremental_composition_equivalence {
             accounts: BTreeMap::new(),
             storage: BTreeMap::new(),
             system_data: SystemData {
-                protocol_version: ProtocolVersion { major: 1, minor: 0, patch: 0 },
+                protocol_version: ProtocolVersion {
+                    major: 1,
+                    minor: 0,
+                    patch: 0,
+                },
                 total_supply: seed as u128 * 1000,
                 parameters: BTreeMap::new(),
             },
@@ -2561,8 +2583,8 @@ mod resource_bound_enforcement {
     use vsel_core::types::*;
     use vsel_proof::backend::ZkBackend;
     use vsel_proof::plonky3_backend::{
-        Plonky3Backend, MAX_CONSTRAINT_SYSTEM_SIZE, MAX_PROOF_SIZE_BYTES,
-        MAX_RECURSION_DEPTH, MAX_WITNESS_INTERMEDIATE_STATES,
+        Plonky3Backend, MAX_CONSTRAINT_SYSTEM_SIZE, MAX_PROOF_SIZE_BYTES, MAX_RECURSION_DEPTH,
+        MAX_WITNESS_INTERMEDIATE_STATES,
     };
     use vsel_proof::public_inputs::PublicInputs;
     use vsel_proof::witness::{AuxiliaryComputation, Witness};
@@ -2826,8 +2848,8 @@ mod resource_bound_enforcement {
     /// **Validates: Requirements 7.4**
     #[test]
     fn test_reject_excessive_recursion_depth() {
-        use vsel_proof::plonky3_backend::StarkProof;
         use vsel_crypto::goldilocks::GoldilocksField;
+        use vsel_proof::plonky3_backend::StarkProof;
 
         let backend = Plonky3Backend::new();
 

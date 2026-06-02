@@ -30,11 +30,11 @@ use crate::types::*;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TransitionClass {
     Reject = 0, // Malformed input/state (highest priority)
-    Init   = 1, // Initialization
-    Error  = 2, // Explicit error condition
-    Batch  = 3, // Batch processing
+    Init = 1,   // Initialization
+    Error = 2,  // Explicit error condition
+    Batch = 3,  // Batch processing
     Update = 4, // Standard state update
-    Noop   = 5, // No-op / rejection (lowest priority)
+    Noop = 5,   // No-op / rejection (lowest priority)
 }
 
 // ---------------------------------------------------------------------------
@@ -704,11 +704,7 @@ mod tests {
         let sigma = make_input("init", vec![0xFF]);
         let s_prime = apply(&s, &sigma);
         assert_eq!(
-            s_prime
-                .canonical
-                .system_data
-                .parameters
-                .get("initialized"),
+            s_prime.canonical.system_data.parameters.get("initialized"),
             Some(&vec![1u8])
         );
     }
@@ -773,8 +769,14 @@ mod tests {
             s_prime.canonical.system_data.total_supply, 1500,
             "transfer must conserve total supply (L_cons)"
         );
-        assert_eq!(s_prime.canonical.accounts[&AccountId([1u8; 32])].balance, 900);
-        assert_eq!(s_prime.canonical.accounts[&AccountId([2u8; 32])].balance, 600);
+        assert_eq!(
+            s_prime.canonical.accounts[&AccountId([1u8; 32])].balance,
+            900
+        );
+        assert_eq!(
+            s_prime.canonical.accounts[&AccountId([2u8; 32])].balance,
+            600
+        );
     }
 
     #[test]
@@ -789,7 +791,10 @@ mod tests {
 
         let s_prime = apply(&s, &sigma);
         assert_eq!(s_prime.canonical.system_data.total_supply, 500);
-        assert_eq!(s_prime.canonical.accounts[&AccountId([1u8; 32])].balance, 500);
+        assert_eq!(
+            s_prime.canonical.accounts[&AccountId([1u8; 32])].balance,
+            500
+        );
     }
 
     #[test]
@@ -814,7 +819,10 @@ mod tests {
 
         let s_prime = apply(&s, &sigma);
         assert_eq!(s_prime.canonical.system_data.total_supply, 700);
-        assert_eq!(s_prime.canonical.accounts[&AccountId([1u8; 32])].balance, 700);
+        assert_eq!(
+            s_prime.canonical.accounts[&AccountId([1u8; 32])].balance,
+            700
+        );
     }
 
     #[test]

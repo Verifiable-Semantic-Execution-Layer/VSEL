@@ -62,7 +62,11 @@ fn minimal_canonical() -> CanonicalState {
         accounts: BTreeMap::new(),
         storage: BTreeMap::new(),
         system_data: SystemData {
-            protocol_version: ProtocolVersion { major: 0, minor: 1, patch: 0 },
+            protocol_version: ProtocolVersion {
+                major: 0,
+                minor: 1,
+                patch: 0,
+            },
             total_supply: 0,
             parameters: BTreeMap::new(),
         },
@@ -77,14 +81,24 @@ fn build_state_at_seq(c: CanonicalState, seq: u64) -> State {
         execution_domain: test_domain_tag(),
     };
     let econ = derive_economic(&c, &env);
-    let commitment = if seq == 0 { Hash([0u8; 32]) } else { Hash([0xABu8; 32]) };
+    let commitment = if seq == 0 {
+        Hash([0u8; 32])
+    } else {
+        Hash([0xABu8; 32])
+    };
     let meta = TraceMetadata {
         sequence_index: seq,
         previous_commitment: commitment,
         epoch: 0,
         timestamp: 1_000_000,
     };
-    State { canonical: c, derived: d, environment: env, economic: econ, metadata: meta }
+    State {
+        canonical: c,
+        derived: d,
+        environment: env,
+        economic: econ,
+        metadata: meta,
+    }
 }
 
 fn build_genesis_state(c: CanonicalState) -> State {
@@ -93,7 +107,10 @@ fn build_genesis_state(c: CanonicalState) -> State {
 
 fn make_input(payload_type: &str, data: Vec<u8>) -> Input {
     Input {
-        payload: Payload { payload_type: payload_type.to_string(), data },
+        payload: Payload {
+            payload_type: payload_type.to_string(),
+            data,
+        },
         auth: valid_auth(),
         aux: AuxiliaryData { data: vec![] },
     }
@@ -123,15 +140,41 @@ fn make_withdraw_input(account_id: [u8; 32], amount: u128) -> Input {
 
 fn canonical_with_account(id: [u8; 32], balance: u128) -> CanonicalState {
     let mut c = minimal_canonical();
-    c.accounts.insert(AccountId(id), AccountData { balance, nonce: 0, data: vec![] });
+    c.accounts.insert(
+        AccountId(id),
+        AccountData {
+            balance,
+            nonce: 0,
+            data: vec![],
+        },
+    );
     c.system_data.total_supply = balance;
     c
 }
 
-fn canonical_with_two_accounts(id1: [u8; 32], bal1: u128, id2: [u8; 32], bal2: u128) -> CanonicalState {
+fn canonical_with_two_accounts(
+    id1: [u8; 32],
+    bal1: u128,
+    id2: [u8; 32],
+    bal2: u128,
+) -> CanonicalState {
     let mut c = minimal_canonical();
-    c.accounts.insert(AccountId(id1), AccountData { balance: bal1, nonce: 0, data: vec![] });
-    c.accounts.insert(AccountId(id2), AccountData { balance: bal2, nonce: 0, data: vec![] });
+    c.accounts.insert(
+        AccountId(id1),
+        AccountData {
+            balance: bal1,
+            nonce: 0,
+            data: vec![],
+        },
+    );
+    c.accounts.insert(
+        AccountId(id2),
+        AccountData {
+            balance: bal2,
+            nonce: 0,
+            data: vec![],
+        },
+    );
     c.system_data.total_supply = bal1 + bal2;
     c
 }
@@ -158,9 +201,12 @@ fn build_valid_trace() -> Trace {
     let e2 = engine.record_transition(&s2, &sigma2, &s3, &obs2);
     let commitment = engine.current_chain_hash().clone();
 
-    Trace { entries: vec![e0, e1, e2], initial_state: s0, commitment }
+    Trace {
+        entries: vec![e0, e1, e2],
+        initial_state: s0,
+        commitment,
+    }
 }
-
 
 // ===========================================================================
 // EC-1: Canonical/Derived State Boundary Edge Cases
@@ -179,13 +225,24 @@ fn ec_1_1_stale_derived_state_rejected() {
 
     // Simulate stale derived: modify canonical without recomputing derived
     let mut stale = s.clone();
-    stale.canonical.accounts.get_mut(&AccountId([1u8; 32])).unwrap().balance = 999;
+    stale
+        .canonical
+        .accounts
+        .get_mut(&AccountId([1u8; 32]))
+        .unwrap()
+        .balance = 999;
     stale.canonical.system_data.total_supply = 999;
     // derived is still from the old canonical
 
-    assert!(!valid_state(&stale), "EC-1.1: Stale derived state must fail valid_state");
+    assert!(
+        !valid_state(&stale),
+        "EC-1.1: Stale derived state must fail valid_state"
+    );
     let result = g_commit(&stale);
-    assert!(!result.valid, "EC-1.1: G_commit must reject stale derived state");
+    assert!(
+        !result.valid,
+        "EC-1.1: G_commit must reject stale derived state"
+    );
 }
 
 /// EC-1.2: Canonical state at arithmetic boundary — u128::MAX balance.
@@ -199,15 +256,24 @@ fn ec_1_2_max_balance_boundary() {
     let c = canonical_with_account([1u8; 32], max_bal);
     let s = build_state_at_seq(c, 1);
 
-    assert!(valid_state(&s), "EC-1.2: State with large balance should be structurally valid");
+    assert!(
+        valid_state(&s),
+        "EC-1.2: State with large balance should be structurally valid"
+    );
     let g_result = g_valid(&s);
-    assert!(g_result.valid, "EC-1.2: G_valid should accept large balance state");
+    assert!(
+        g_result.valid,
+        "EC-1.2: G_valid should accept large balance state"
+    );
 
     // Deposit that would overflow — apply should handle gracefully
     let deposit = make_deposit_input([1u8; 32], max_bal);
     let post = apply(&s, &deposit);
     // The system should still produce a valid state (AX-2)
-    assert!(valid_state(&post), "EC-1.2: Post-state must be valid even with large deposit");
+    assert!(
+        valid_state(&post),
+        "EC-1.2: Post-state must be valid even with large deposit"
+    );
 }
 
 /// EC-1.3: Commitment binding — distinct canonical states produce distinct commitments.
@@ -218,13 +284,18 @@ fn ec_1_2_max_balance_boundary() {
 fn ec_1_3_commitment_binding_to_canonical() {
     // Two states differing only in storage (not accounts)
     let mut c1 = minimal_canonical();
-    c1.storage.insert(StorageKey(vec![1, 2, 3]), StorageValue(vec![10]));
+    c1.storage
+        .insert(StorageKey(vec![1, 2, 3]), StorageValue(vec![10]));
     let mut c2 = minimal_canonical();
-    c2.storage.insert(StorageKey(vec![1, 2, 3]), StorageValue(vec![20]));
+    c2.storage
+        .insert(StorageKey(vec![1, 2, 3]), StorageValue(vec![20]));
 
     let h1 = commit(&c1);
     let h2 = commit(&c2);
-    assert_ne!(h1, h2, "EC-1.3: Different storage values must produce different commitments");
+    assert_ne!(
+        h1, h2,
+        "EC-1.3: Different storage values must produce different commitments"
+    );
 
     // States differing only in parameters
     let mut c3 = minimal_canonical();
@@ -234,7 +305,10 @@ fn ec_1_3_commitment_binding_to_canonical() {
 
     let h3 = commit(&c3);
     let h4 = commit(&c4);
-    assert_ne!(h3, h4, "EC-1.3: Different parameters must produce different commitments");
+    assert_ne!(
+        h3, h4,
+        "EC-1.3: Different parameters must produce different commitments"
+    );
 }
 
 /// EC-1.4: Empty canonical state — no accounts, no storage, no data.
@@ -246,17 +320,27 @@ fn ec_1_4_empty_canonical_state() {
     let c = minimal_canonical();
     let s = build_genesis_state(c.clone());
 
-    assert!(valid_state(&s), "EC-1.4: Empty canonical state should be valid");
+    assert!(
+        valid_state(&s),
+        "EC-1.4: Empty canonical state should be valid"
+    );
     let g_result = g_valid(&s);
     assert!(g_result.valid, "EC-1.4: G_valid should accept empty state");
     let g_struct_result = g_struct(&s);
-    assert!(g_struct_result.valid, "EC-1.4: G_struct should accept empty state (0 == 0)");
+    assert!(
+        g_struct_result.valid,
+        "EC-1.4: G_struct should accept empty state (0 == 0)"
+    );
     let g_solv = g_solvency(&s);
     assert!(g_solv.valid, "EC-1.4: G_solvency should accept empty state");
 
     // Commitment of empty state should be deterministic and non-zero
     let h = commit(&c);
-    assert_ne!(h, Hash([0u8; 32]), "EC-1.4: Commitment of empty state should not be zero hash");
+    assert_ne!(
+        h,
+        Hash([0u8; 32]),
+        "EC-1.4: Commitment of empty state should not be zero hash"
+    );
 }
 
 /// EC-1.5: Derived aggregates boundary — many accounts summing to exact total.
@@ -272,12 +356,22 @@ fn ec_1_5_many_accounts_exact_sum() {
         let mut id = [0u8; 32];
         id[0] = i as u8;
         id[1] = (i >> 8) as u8;
-        c.accounts.insert(AccountId(id), AccountData { balance: balance_each, nonce: 0, data: vec![] });
+        c.accounts.insert(
+            AccountId(id),
+            AccountData {
+                balance: balance_each,
+                nonce: 0,
+                data: vec![],
+            },
+        );
     }
     c.system_data.total_supply = num_accounts * balance_each;
 
     let s = build_state_at_seq(c, 1);
-    assert!(valid_state(&s), "EC-1.5: State with many accounts should be valid");
+    assert!(
+        valid_state(&s),
+        "EC-1.5: State with many accounts should be valid"
+    );
 
     let d = derive(&s.canonical);
     assert_eq!(
@@ -291,7 +385,6 @@ fn ec_1_5_many_accounts_exact_sum() {
         "EC-1.5: Aggregate account_count must match"
     );
 }
-
 
 // ===========================================================================
 // EC-2: Input Payload vs Authorization Edge Cases
@@ -316,8 +409,7 @@ fn ec_2_1_valid_auth_minimal_payload() {
     assert!(valid_state(&post), "EC-2.1: Post-state must be valid");
     // Canonical state should be unchanged except metadata
     assert_eq!(
-        post.canonical.system_data.total_supply,
-        s.canonical.system_data.total_supply,
+        post.canonical.system_data.total_supply, s.canonical.system_data.total_supply,
         "EC-2.1: Insufficient deposit data should not change supply"
     );
 }
@@ -335,7 +427,10 @@ fn ec_2_2_authorized_but_precondition_fails() {
     // Transfer more than balance
     let sigma = make_transfer_input([1u8; 32], [2u8; 32], 200);
     let result = engine.execute(&s, &sigma);
-    assert!(result.is_ok(), "EC-2.2: Authorized over-transfer should not error at engine level");
+    assert!(
+        result.is_ok(),
+        "EC-2.2: Authorized over-transfer should not error at engine level"
+    );
 
     // The transfer should be a no-op (insufficient balance)
     let exec_result = result.unwrap();
@@ -357,13 +452,22 @@ fn ec_2_3_minimal_valid_authorization() {
     let s = build_state_at_seq(c, 1);
 
     let sigma = Input {
-        payload: Payload { payload_type: "deposit".to_string(), data: {
-            let mut d = vec![]; d.extend_from_slice(&[1u8; 32]); d.extend_from_slice(&100u128.to_le_bytes()); d
-        }},
+        payload: Payload {
+            payload_type: "deposit".to_string(),
+            data: {
+                let mut d = vec![];
+                d.extend_from_slice(&[1u8; 32]);
+                d.extend_from_slice(&100u128.to_le_bytes());
+                d
+            },
+        },
         auth: Authorization {
-            classical_sig: vec![0xFF],  // minimal 1-byte sig
-            pqc_sig: vec![0xFE],        // minimal 1-byte sig
-            public_key: HybridPublicKey { classical: vec![0x01], pqc: vec![0x02] },
+            classical_sig: vec![0xFF], // minimal 1-byte sig
+            pqc_sig: vec![0xFE],       // minimal 1-byte sig
+            public_key: HybridPublicKey {
+                classical: vec![0x01],
+                pqc: vec![0x02],
+            },
             nonce: 0,
             domain: test_domain_tag(),
         },
@@ -371,7 +475,10 @@ fn ec_2_3_minimal_valid_authorization() {
     };
 
     let result = engine.execute(&s, &sigma);
-    assert!(result.is_ok(), "EC-2.3: Minimal valid auth should be accepted");
+    assert!(
+        result.is_ok(),
+        "EC-2.3: Minimal valid auth should be accepted"
+    );
 }
 
 /// EC-2.4: Auxiliary data does not influence outcome (THM-4 at boundary).
@@ -383,9 +490,15 @@ fn ec_2_4_auxiliary_data_exclusion_extreme() {
     let c = canonical_with_account([1u8; 32], 1000);
     let s = build_state_at_seq(c, 1);
 
-    let payload = Payload { payload_type: "deposit".to_string(), data: {
-        let mut d = vec![]; d.extend_from_slice(&[2u8; 32]); d.extend_from_slice(&500u128.to_le_bytes()); d
-    }};
+    let payload = Payload {
+        payload_type: "deposit".to_string(),
+        data: {
+            let mut d = vec![];
+            d.extend_from_slice(&[2u8; 32]);
+            d.extend_from_slice(&500u128.to_le_bytes());
+            d
+        },
+    };
 
     let sigma_empty_aux = Input {
         payload: payload.clone(),
@@ -395,7 +508,9 @@ fn ec_2_4_auxiliary_data_exclusion_extreme() {
     let sigma_large_aux = Input {
         payload: payload.clone(),
         auth: valid_auth(),
-        aux: AuxiliaryData { data: vec![0xFF; 10_000] },
+        aux: AuxiliaryData {
+            data: vec![0xFF; 10_000],
+        },
     };
 
     let post1 = apply(&s, &sigma_empty_aux);
@@ -420,17 +535,26 @@ fn ec_2_5_empty_payload_type_rejected() {
     let s = build_state_at_seq(c, 1);
 
     let sigma = Input {
-        payload: Payload { payload_type: String::new(), data: vec![0x01] },
+        payload: Payload {
+            payload_type: String::new(),
+            data: vec![0x01],
+        },
         auth: valid_auth(),
         aux: AuxiliaryData { data: vec![] },
     };
 
-    assert_eq!(classify(&s, &sigma), TransitionClass::Reject, "EC-2.5: Empty payload type must be Reject");
+    assert_eq!(
+        classify(&s, &sigma),
+        TransitionClass::Reject,
+        "EC-2.5: Empty payload type must be Reject"
+    );
     let engine = DefaultExecutionEngine;
     let result = engine.execute(&s, &sigma);
-    assert!(result.is_err(), "EC-2.5: Engine must reject empty payload type");
+    assert!(
+        result.is_err(),
+        "EC-2.5: Engine must reject empty payload type"
+    );
 }
-
 
 // ===========================================================================
 // EC-3: Error/No-Op Transition Edge Cases
@@ -474,14 +598,20 @@ fn ec_3_2_cascading_errors_in_batch() {
 
     // First: invalid input (empty payload type)
     let invalid = Input {
-        payload: Payload { payload_type: String::new(), data: vec![] },
+        payload: Payload {
+            payload_type: String::new(),
+            data: vec![],
+        },
         auth: valid_auth(),
         aux: AuxiliaryData { data: vec![] },
     };
     let valid_deposit = make_deposit_input([1u8; 32], 500);
 
     let result = execute_batch(&s, &[invalid, valid_deposit]);
-    assert!(result.is_err(), "EC-3.2: Batch must halt on first invalid input");
+    assert!(
+        result.is_err(),
+        "EC-3.2: Batch must halt on first invalid input"
+    );
 }
 
 /// EC-3.3: Error produces distinguishable observable.
@@ -498,8 +628,15 @@ fn ec_3_3_error_produces_distinguishable_observable() {
     let post_error = apply(&s, &sigma_error);
     let obs_error = obs(&s, &sigma_error, &post_error);
 
-    assert_eq!(obs_error.status, TransitionStatus::Error, "EC-3.3: Error observable must have Error status");
-    assert!(obs_error.outputs.is_empty(), "EC-3.3: Error should produce no output events");
+    assert_eq!(
+        obs_error.status,
+        TransitionStatus::Error,
+        "EC-3.3: Error observable must have Error status"
+    );
+    assert!(
+        obs_error.outputs.is_empty(),
+        "EC-3.3: Error should produce no output events"
+    );
 }
 
 /// EC-3.4: Noop transition — unrecognized payload type.
@@ -515,11 +652,21 @@ fn ec_3_4_noop_unrecognized_payload() {
     assert_eq!(classify(&s, &sigma), TransitionClass::Noop);
 
     let post = apply(&s, &sigma);
-    assert_eq!(post.canonical, s.canonical, "EC-3.4: Noop must not change canonical state");
+    assert_eq!(
+        post.canonical, s.canonical,
+        "EC-3.4: Noop must not change canonical state"
+    );
 
     let observable = obs(&s, &sigma, &post);
-    assert_eq!(observable.status, TransitionStatus::Rejected, "EC-3.4: Noop status must be Rejected");
-    assert!(observable.outputs.is_empty(), "EC-3.4: Noop should produce no output events");
+    assert_eq!(
+        observable.status,
+        TransitionStatus::Rejected,
+        "EC-3.4: Noop status must be Rejected"
+    );
+    assert!(
+        observable.outputs.is_empty(),
+        "EC-3.4: Noop should produce no output events"
+    );
 }
 
 /// EC-3.5: Multiple consecutive noops preserve state.
@@ -538,7 +685,10 @@ fn ec_3_5_consecutive_noops_preserve_state() {
             post.canonical, current.canonical,
             "EC-3.5: Consecutive noops must not change canonical state"
         );
-        assert!(valid_state(&post), "EC-3.5: State must remain valid through noops");
+        assert!(
+            valid_state(&post),
+            "EC-3.5: State must remain valid through noops"
+        );
         current = post;
     }
 
@@ -549,7 +699,6 @@ fn ec_3_5_consecutive_noops_preserve_state() {
         "EC-3.5: Balance must be unchanged after 10 noops"
     );
 }
-
 
 // ===========================================================================
 // EC-4: Batching Edge Cases
@@ -569,11 +718,17 @@ fn ec_4_1_order_dependent_batch() {
 
     // Correct order: deposit first, then transfer
     let result_correct = execute_batch(&s, &[deposit.clone(), transfer.clone()]);
-    assert!(result_correct.is_ok(), "EC-4.1: Deposit-then-transfer should succeed");
+    assert!(
+        result_correct.is_ok(),
+        "EC-4.1: Deposit-then-transfer should succeed"
+    );
 
     // Reversed order: transfer first (no balance) — should fail
     let result_reversed = execute_batch(&s, &[transfer, deposit]);
-    assert!(result_reversed.is_err(), "EC-4.1: Transfer-then-deposit must fail (no balance)");
+    assert!(
+        result_reversed.is_err(),
+        "EC-4.1: Transfer-then-deposit must fail (no balance)"
+    );
 }
 
 /// EC-4.2: Batch where intermediate state has invariant tension.
@@ -595,7 +750,10 @@ fn ec_4_2_intermediate_state_validity() {
     let batch = result.unwrap();
     // Verify intermediate state after withdraw is valid
     let intermediate = &batch.intermediate_results[0].post_state;
-    assert!(valid_state(intermediate), "EC-4.2: Intermediate state must be valid");
+    assert!(
+        valid_state(intermediate),
+        "EC-4.2: Intermediate state must be valid"
+    );
     assert_eq!(
         intermediate.canonical.accounts[&AccountId([1u8; 32])].balance,
         200,
@@ -622,8 +780,7 @@ fn ec_4_3_batch_of_one_equals_single() {
     let batch_result = execute_batch(&s, &[deposit]).unwrap();
 
     assert_eq!(
-        single_result.post_state.canonical,
-        batch_result.post_state.canonical,
+        single_result.post_state.canonical, batch_result.post_state.canonical,
         "EC-4.3: Batch([σ]) must produce identical canonical state as single σ"
     );
 }
@@ -641,10 +798,14 @@ fn ec_4_4_empty_batch() {
     assert!(result.is_ok(), "EC-4.4: Empty batch should succeed");
 
     let batch = result.unwrap();
-    assert_eq!(batch.pre_state.canonical, batch.post_state.canonical,
-        "EC-4.4: Empty batch must not change canonical state");
-    assert!(batch.intermediate_results.is_empty(),
-        "EC-4.4: Empty batch should have no intermediate results");
+    assert_eq!(
+        batch.pre_state.canonical, batch.post_state.canonical,
+        "EC-4.4: Empty batch must not change canonical state"
+    );
+    assert!(
+        batch.intermediate_results.is_empty(),
+        "EC-4.4: Empty batch should have no intermediate results"
+    );
 }
 
 /// EC-4.5: Batch with duplicate operations.
@@ -665,8 +826,7 @@ fn ec_4_5_batch_with_duplicates() {
         "EC-4.5: Duplicate deposits should both execute (200 total)"
     );
     assert_eq!(
-        result.post_state.canonical.system_data.total_supply,
-        200,
+        result.post_state.canonical.system_data.total_supply, 200,
         "EC-4.5: Total supply should reflect both deposits"
     );
 }
@@ -697,7 +857,6 @@ fn ec_4_6_batch_sequential_equivalence_mixed() {
     );
 }
 
-
 // ===========================================================================
 // EC-5: Trace Compression/Aggregation Edge Cases
 // ===========================================================================
@@ -720,7 +879,12 @@ fn ec_5_1_compression_preserves_observables() {
         "EC-5.1: Decompressed trace must have same number of entries"
     );
 
-    for (i, (orig, decomp)) in trace.entries.iter().zip(decompressed.entries.iter()).enumerate() {
+    for (i, (orig, decomp)) in trace
+        .entries
+        .iter()
+        .zip(decompressed.entries.iter())
+        .enumerate()
+    {
         assert_eq!(
             orig.observable, decomp.observable,
             "EC-5.1: Observable at entry {} must be preserved through compression",
@@ -740,7 +904,10 @@ fn ec_5_2_compression_roundtrip_valid_trace() {
 
     let compressed = compress(&trace);
     let decompressed = decompress(&compressed);
-    assert!(verify_trace(&decompressed), "EC-5.2: Decompressed trace must be valid");
+    assert!(
+        verify_trace(&decompressed),
+        "EC-5.2: Decompressed trace must be valid"
+    );
 }
 
 /// EC-5.3: Compress single-entry trace.
@@ -758,16 +925,26 @@ fn ec_5_3_compress_single_entry_trace() {
     let mut engine = TraceEngine::new();
     let e0 = engine.record_transition(&s0, &sigma0, &s1, &obs0);
     let commitment = engine.current_chain_hash().clone();
-    let trace = Trace { entries: vec![e0], initial_state: s0, commitment };
+    let trace = Trace {
+        entries: vec![e0],
+        initial_state: s0,
+        commitment,
+    };
 
-    assert!(verify_trace(&trace), "EC-5.3: Single-entry trace must be valid");
+    assert!(
+        verify_trace(&trace),
+        "EC-5.3: Single-entry trace must be valid"
+    );
 
     let compressed = compress(&trace);
     let decompressed = decompress(&compressed);
-    assert_eq!(decompressed.entries.len(), 1, "EC-5.3: Decompressed must have 1 entry");
     assert_eq!(
-        trace.entries[0].observable,
-        decompressed.entries[0].observable,
+        decompressed.entries.len(),
+        1,
+        "EC-5.3: Decompressed must have 1 entry"
+    );
+    assert_eq!(
+        trace.entries[0].observable, decompressed.entries[0].observable,
         "EC-5.3: Observable must be preserved"
     );
 }
@@ -791,7 +968,6 @@ fn ec_5_4_compressed_preserves_initial_state() {
         "EC-5.4: Initial state commitment must match"
     );
 }
-
 
 // ===========================================================================
 // EC-6: Composition/Cross-Version Edge Cases
@@ -818,7 +994,10 @@ fn ec_6_1_cross_system_resource_double_count() {
 
     // Cross-system total is 2000 but should be 1000 — double-count
     let total = s_a.canonical.system_data.total_supply + s_b.canonical.system_data.total_supply;
-    assert_eq!(total, 2000, "EC-6.1: Cross-system total shows double-counting");
+    assert_eq!(
+        total, 2000,
+        "EC-6.1: Cross-system total shows double-counting"
+    );
 }
 
 /// EC-6.2: Version mismatch — different protocol versions.
@@ -828,11 +1007,19 @@ fn ec_6_1_cross_system_resource_double_count() {
 #[test]
 fn ec_6_2_version_mismatch() {
     let mut c_v1 = canonical_with_account([1u8; 32], 1000);
-    c_v1.system_data.protocol_version = ProtocolVersion { major: 0, minor: 1, patch: 0 };
+    c_v1.system_data.protocol_version = ProtocolVersion {
+        major: 0,
+        minor: 1,
+        patch: 0,
+    };
     let s_v1 = build_state_at_seq(c_v1, 1);
 
     let mut c_v2 = canonical_with_account([1u8; 32], 1000);
-    c_v2.system_data.protocol_version = ProtocolVersion { major: 1, minor: 0, patch: 0 };
+    c_v2.system_data.protocol_version = ProtocolVersion {
+        major: 1,
+        minor: 0,
+        patch: 0,
+    };
     let s_v2 = build_state_at_seq(c_v2, 1);
 
     // Both individually valid
@@ -841,8 +1028,7 @@ fn ec_6_2_version_mismatch() {
 
     // Version mismatch is detectable
     assert_ne!(
-        s_v1.canonical.system_data.protocol_version,
-        s_v2.canonical.system_data.protocol_version,
+        s_v1.canonical.system_data.protocol_version, s_v2.canonical.system_data.protocol_version,
         "EC-6.2: Version mismatch must be detectable"
     );
 }
@@ -863,13 +1049,22 @@ fn ec_6_3_cross_system_authorization_domain_separation() {
     let mut different_domain = [0u8; 32];
     different_domain[0] = 0xCD;
     let sigma = Input {
-        payload: Payload { payload_type: "deposit".to_string(), data: {
-            let mut d = vec![]; d.extend_from_slice(&[1u8; 32]); d.extend_from_slice(&100u128.to_le_bytes()); d
-        }},
+        payload: Payload {
+            payload_type: "deposit".to_string(),
+            data: {
+                let mut d = vec![];
+                d.extend_from_slice(&[1u8; 32]);
+                d.extend_from_slice(&100u128.to_le_bytes());
+                d
+            },
+        },
         auth: Authorization {
             classical_sig: vec![1, 2, 3],
             pqc_sig: vec![4, 5, 6],
-            public_key: HybridPublicKey { classical: vec![10, 11], pqc: vec![20, 21] },
+            public_key: HybridPublicKey {
+                classical: vec![10, 11],
+                pqc: vec![20, 21],
+            },
             nonce: 42,
             domain: DomainTag(Hash(different_domain)),
         },
@@ -878,7 +1073,10 @@ fn ec_6_3_cross_system_authorization_domain_separation() {
 
     // Engine accepts at execution level — domain matching is at verification level
     let result = engine.execute(&s, &sigma);
-    assert!(result.is_ok(), "EC-6.3: Engine accepts cross-domain auth (verification-level check)");
+    assert!(
+        result.is_ok(),
+        "EC-6.3: Engine accepts cross-domain auth (verification-level check)"
+    );
 
     // But the domain mismatch is detectable
     assert_ne!(
@@ -903,14 +1101,19 @@ fn ec_6_4_cross_system_conservation() {
     let c_b_post = canonical_with_account([2u8; 32], 800);
     let total_post = c_a_post.system_data.total_supply + c_b_post.system_data.total_supply;
 
-    assert_eq!(total_pre, total_post, "EC-6.4: Cross-system total must be conserved");
+    assert_eq!(
+        total_pre, total_post,
+        "EC-6.4: Cross-system total must be conserved"
+    );
 
     // Non-conserving case: A has 700, B has 900 (created 100)
     let c_b_bad = canonical_with_account([2u8; 32], 900);
     let total_bad = c_a_post.system_data.total_supply + c_b_bad.system_data.total_supply;
-    assert_ne!(total_pre, total_bad, "EC-6.4: Non-conserving cross-system transfer detected");
+    assert_ne!(
+        total_pre, total_bad,
+        "EC-6.4: Non-conserving cross-system transfer detected"
+    );
 }
-
 
 // ===========================================================================
 // EC-7: Temporal/Replay Edge Cases
@@ -976,14 +1179,20 @@ fn ec_7_3_sequence_near_max() {
     // Fix metadata for non-genesis
     s.metadata.previous_commitment = Hash([0xABu8; 32]);
 
-    assert!(valid_state(&s), "EC-7.3: State near max sequence should be valid");
+    assert!(
+        valid_state(&s),
+        "EC-7.3: State near max sequence should be valid"
+    );
 
     let sigma = make_input("unknown_op", vec![0x01]);
     let post = apply(&s, &sigma);
 
     // sequence_index should advance (may wrap on overflow)
     // The important thing is the state remains valid
-    assert!(valid_state(&post), "EC-7.3: Post-state near max sequence must be valid");
+    assert!(
+        valid_state(&post),
+        "EC-7.3: Post-state near max sequence must be valid"
+    );
 }
 
 /// EC-7.4: Timestamp consistency across trace.
@@ -1022,16 +1231,21 @@ fn ec_7_5_tampered_trace_entry_detected() {
     // Tamper with the observable of the second entry
     trace.entries[1].observable = Observable {
         transition_class: TransitionClass::Update,
-        outputs: vec![OutputEvent { event_type: "tampered".to_string(), data: vec![0xDE, 0xAD] }],
+        outputs: vec![OutputEvent {
+            event_type: "tampered".to_string(),
+            data: vec![0xDE, 0xAD],
+        }],
         gas_used: 0,
         status: TransitionStatus::Success,
     };
 
     // The chain hash won't match because the entry was recorded with different data
     // verify_trace checks commitment chain integrity
-    assert!(!verify_trace(&trace), "EC-7.5: Tampered trace entry must be detected");
+    assert!(
+        !verify_trace(&trace),
+        "EC-7.5: Tampered trace entry must be detected"
+    );
 }
-
 
 // ===========================================================================
 // EC-8: Economically Absurd but Formally Valid Edge Cases
@@ -1064,7 +1278,10 @@ fn ec_8_1_zero_value_transfer() {
 
     // Resource conservation must hold
     let l_cons_result = l_cons(&s, &sigma, &post);
-    assert!(l_cons_result.valid, "EC-8.1: L_cons must hold for zero transfer");
+    assert!(
+        l_cons_result.valid,
+        "EC-8.1: L_cons must hold for zero transfer"
+    );
 }
 
 /// EC-8.2: Self-transfer — account transfers to itself.
@@ -1086,8 +1303,7 @@ fn ec_8_2_self_transfer() {
         "EC-8.2: Self-transfer should not change balance"
     );
     assert_eq!(
-        post.canonical.system_data.total_supply,
-        1000,
+        post.canonical.system_data.total_supply, 1000,
         "EC-8.2: Total supply must be conserved"
     );
     assert!(valid_state(&post), "EC-8.2: Post-state must be valid");
@@ -1100,25 +1316,41 @@ fn ec_8_2_self_transfer() {
 #[test]
 fn ec_8_3_dust_accumulation() {
     let mut c = minimal_canonical();
-    c.system_data.parameters.insert(
-        "dust_threshold".to_string(),
-        100u128.to_le_bytes().to_vec(),
-    );
+    c.system_data
+        .parameters
+        .insert("dust_threshold".to_string(), 100u128.to_le_bytes().to_vec());
 
     // Create 10 dust accounts with balance 1 each
     for i in 0..10u8 {
         let mut id = [0u8; 32];
         id[0] = i;
-        c.accounts.insert(AccountId(id), AccountData { balance: 1, nonce: 0, data: vec![] });
+        c.accounts.insert(
+            AccountId(id),
+            AccountData {
+                balance: 1,
+                nonce: 0,
+                data: vec![],
+            },
+        );
     }
     c.system_data.total_supply = 10;
 
     let s = build_state_at_seq(c, 1);
-    assert!(valid_state(&s), "EC-8.3: State with dust accounts is structurally valid");
+    assert!(
+        valid_state(&s),
+        "EC-8.3: State with dust accounts is structurally valid"
+    );
 
     let result = g_dust(&s);
-    assert!(!result.valid, "EC-8.3: G_dust must flag accounts below dust threshold");
-    assert_eq!(result.violations.len(), 10, "EC-8.3: All 10 dust accounts should be flagged");
+    assert!(
+        !result.valid,
+        "EC-8.3: G_dust must flag accounts below dust threshold"
+    );
+    assert_eq!(
+        result.violations.len(),
+        10,
+        "EC-8.3: All 10 dust accounts should be flagged"
+    );
 }
 
 /// EC-8.4: Fee exceeding transfer value.
@@ -1136,7 +1368,10 @@ fn ec_8_4_high_fee_rate() {
     let s = build_state_at_seq(c, 1);
 
     let result = e_cost(&s);
-    assert!(result.valid, "EC-8.4: Fee rate at exactly 100% should be valid (boundary)");
+    assert!(
+        result.valid,
+        "EC-8.4: Fee rate at exactly 100% should be valid (boundary)"
+    );
 
     // Just over 100% should fail
     let mut c2 = canonical_with_account([1u8; 32], 1000);
@@ -1146,7 +1381,10 @@ fn ec_8_4_high_fee_rate() {
     );
     let s2 = build_state_at_seq(c2, 1);
     let result2 = e_cost(&s2);
-    assert!(!result2.valid, "EC-8.4: Fee rate over 100% must be rejected");
+    assert!(
+        !result2.valid,
+        "EC-8.4: Fee rate over 100% must be rejected"
+    );
 }
 
 /// EC-8.5: Maximum value operations — u128::MAX / 2 deposit.
@@ -1162,15 +1400,17 @@ fn ec_8_5_maximum_value_deposit() {
     let sigma = make_deposit_input([1u8; 32], large_amount);
     let post = apply(&s, &sigma);
 
-    assert!(valid_state(&post), "EC-8.5: Post-state with large deposit must be valid");
+    assert!(
+        valid_state(&post),
+        "EC-8.5: Post-state with large deposit must be valid"
+    );
     assert_eq!(
         post.canonical.accounts[&AccountId([1u8; 32])].balance,
         large_amount,
         "EC-8.5: Large deposit must be recorded correctly"
     );
     assert_eq!(
-        post.canonical.system_data.total_supply,
-        large_amount,
+        post.canonical.system_data.total_supply, large_amount,
         "EC-8.5: Total supply must reflect large deposit"
     );
 }
@@ -1187,19 +1427,20 @@ fn ec_8_6_zero_value_deposit() {
     let sigma = make_deposit_input([1u8; 32], 0);
     let post = apply(&s, &sigma);
 
-    assert!(valid_state(&post), "EC-8.6: Post-state with zero deposit must be valid");
+    assert!(
+        valid_state(&post),
+        "EC-8.6: Post-state with zero deposit must be valid"
+    );
     assert_eq!(
         post.canonical.accounts[&AccountId([1u8; 32])].balance,
         0,
         "EC-8.6: Zero deposit creates account with zero balance"
     );
     assert_eq!(
-        post.canonical.system_data.total_supply,
-        0,
+        post.canonical.system_data.total_supply, 0,
         "EC-8.6: Total supply unchanged by zero deposit"
     );
 }
-
 
 // ===========================================================================
 // EC-9: Cryptographic Edge Cases
@@ -1225,7 +1466,10 @@ fn ec_9_1_domain_tag_uniqueness() {
     let mut h3 = h1;
     h3[31] = 0x01;
     let tag3 = DomainTag(Hash(h3));
-    assert_ne!(tag1, tag3, "EC-9.1: Tags differing by one bit must be distinct");
+    assert_ne!(
+        tag1, tag3,
+        "EC-9.1: Tags differing by one bit must be distinct"
+    );
 }
 
 /// EC-9.2: Signature over empty message — rejected by input validation.
@@ -1240,14 +1484,23 @@ fn ec_9_2_signature_over_empty_payload_data() {
 
     // Valid payload type but empty data
     let sigma = Input {
-        payload: Payload { payload_type: "deposit".to_string(), data: vec![] },
+        payload: Payload {
+            payload_type: "deposit".to_string(),
+            data: vec![],
+        },
         auth: valid_auth(),
         aux: AuxiliaryData { data: vec![] },
     };
 
     let result = engine.execute(&s, &sigma);
-    assert!(result.is_err(), "EC-9.2: Empty payload data must be rejected");
-    assert!(matches!(result.unwrap_err(), ExecutionError::MalformedInput(_)));
+    assert!(
+        result.is_err(),
+        "EC-9.2: Empty payload data must be rejected"
+    );
+    assert!(matches!(
+        result.unwrap_err(),
+        ExecutionError::MalformedInput(_)
+    ));
 }
 
 /// EC-9.3: Commitment to empty state — must be deterministic and non-trivial.
@@ -1260,7 +1513,11 @@ fn ec_9_3_commitment_to_empty_state() {
     let h = commit(&empty);
 
     // Must not be the zero hash
-    assert_ne!(h, Hash([0u8; 32]), "EC-9.3: Commit(∅) must not be zero hash");
+    assert_ne!(
+        h,
+        Hash([0u8; 32]),
+        "EC-9.3: Commit(∅) must not be zero hash"
+    );
 
     // Must be deterministic
     let h2 = commit(&empty);
@@ -1269,7 +1526,10 @@ fn ec_9_3_commitment_to_empty_state() {
     // Must differ from commitment of non-empty state
     let non_empty = canonical_with_account([1u8; 32], 100);
     let h3 = commit(&non_empty);
-    assert_ne!(h, h3, "EC-9.3: Commit(∅) must differ from Commit(non-empty)");
+    assert_ne!(
+        h, h3,
+        "EC-9.3: Commit(∅) must differ from Commit(non-empty)"
+    );
 }
 
 /// EC-9.4: Chain hash integrity — incremental commitment chaining.
@@ -1288,17 +1548,29 @@ fn ec_9_4_chain_hash_incremental_integrity() {
     let h3 = compute_chain_hash(&h2, &e3);
 
     // Valid chain
-    assert!(verify_chain(&[e1.clone(), e2.clone(), e3.clone()], &[h1.clone(), h2.clone(), h3.clone()]),
-        "EC-9.4: Valid chain must verify");
+    assert!(
+        verify_chain(
+            &[e1.clone(), e2.clone(), e3.clone()],
+            &[h1.clone(), h2.clone(), h3.clone()]
+        ),
+        "EC-9.4: Valid chain must verify"
+    );
 
     // Tampered entry
     let e2_tampered = Hash([0xFFu8; 32]);
-    assert!(!verify_chain(&[e1.clone(), e2_tampered, e3.clone()], &[h1.clone(), h2.clone(), h3.clone()]),
-        "EC-9.4: Tampered entry must be detected");
+    assert!(
+        !verify_chain(
+            &[e1.clone(), e2_tampered, e3.clone()],
+            &[h1.clone(), h2.clone(), h3.clone()]
+        ),
+        "EC-9.4: Tampered entry must be detected"
+    );
 
     // Swapped entries
-    assert!(!verify_chain(&[e2.clone(), e1.clone(), e3], &[h1, h2, h3]),
-        "EC-9.4: Swapped entries must be detected");
+    assert!(
+        !verify_chain(&[e2.clone(), e1.clone(), e3], &[h1, h2, h3]),
+        "EC-9.4: Swapped entries must be detected"
+    );
 }
 
 /// EC-9.5: Zero domain tag rejected at state and input level.
@@ -1313,26 +1585,41 @@ fn ec_9_5_zero_domain_tag_rejected() {
     s.environment.execution_domain = DomainTag(Hash([0u8; 32]));
     let result = g_env(&s);
     assert!(!result.valid, "EC-9.5: G_env must reject zero domain tag");
-    assert!(!valid_state(&s), "EC-9.5: valid_state must reject zero domain tag");
+    assert!(
+        !valid_state(&s),
+        "EC-9.5: valid_state must reject zero domain tag"
+    );
 
     // Input-level: zero domain tag in auth
     let engine = DefaultExecutionEngine;
     let c2 = canonical_with_account([1u8; 32], 1000);
     let s2 = build_state_at_seq(c2, 1);
     let sigma = Input {
-        payload: Payload { payload_type: "deposit".to_string(), data: {
-            let mut d = vec![]; d.extend_from_slice(&[1u8; 32]); d.extend_from_slice(&100u128.to_le_bytes()); d
-        }},
+        payload: Payload {
+            payload_type: "deposit".to_string(),
+            data: {
+                let mut d = vec![];
+                d.extend_from_slice(&[1u8; 32]);
+                d.extend_from_slice(&100u128.to_le_bytes());
+                d
+            },
+        },
         auth: Authorization {
             classical_sig: vec![1, 2, 3],
             pqc_sig: vec![4, 5, 6],
-            public_key: HybridPublicKey { classical: vec![10, 11], pqc: vec![20, 21] },
+            public_key: HybridPublicKey {
+                classical: vec![10, 11],
+                pqc: vec![20, 21],
+            },
             nonce: 42,
             domain: DomainTag(Hash([0u8; 32])),
         },
         aux: AuxiliaryData { data: vec![] },
     };
-    assert!(engine.execute(&s2, &sigma).is_err(), "EC-9.5: Zero domain in auth must be rejected");
+    assert!(
+        engine.execute(&s2, &sigma).is_err(),
+        "EC-9.5: Zero domain in auth must be rejected"
+    );
 }
 
 /// EC-9.6: Hybrid signature — both components required.
@@ -1345,9 +1632,15 @@ fn ec_9_6_hybrid_signature_both_required() {
     let c = canonical_with_account([1u8; 32], 1000);
     let s = build_state_at_seq(c, 1);
 
-    let payload = Payload { payload_type: "deposit".to_string(), data: {
-        let mut d = vec![]; d.extend_from_slice(&[1u8; 32]); d.extend_from_slice(&100u128.to_le_bytes()); d
-    }};
+    let payload = Payload {
+        payload_type: "deposit".to_string(),
+        data: {
+            let mut d = vec![];
+            d.extend_from_slice(&[1u8; 32]);
+            d.extend_from_slice(&100u128.to_le_bytes());
+            d
+        },
+    };
 
     // Missing classical sig
     let sigma_no_classical = Input {
@@ -1355,14 +1648,19 @@ fn ec_9_6_hybrid_signature_both_required() {
         auth: Authorization {
             classical_sig: vec![],
             pqc_sig: vec![4, 5, 6],
-            public_key: HybridPublicKey { classical: vec![10, 11], pqc: vec![20, 21] },
+            public_key: HybridPublicKey {
+                classical: vec![10, 11],
+                pqc: vec![20, 21],
+            },
             nonce: 42,
             domain: test_domain_tag(),
         },
         aux: AuxiliaryData { data: vec![] },
     };
-    assert!(engine.execute(&s, &sigma_no_classical).is_err(),
-        "EC-9.6: Missing classical sig must be rejected");
+    assert!(
+        engine.execute(&s, &sigma_no_classical).is_err(),
+        "EC-9.6: Missing classical sig must be rejected"
+    );
 
     // Missing PQC sig
     let sigma_no_pqc = Input {
@@ -1370,14 +1668,19 @@ fn ec_9_6_hybrid_signature_both_required() {
         auth: Authorization {
             classical_sig: vec![1, 2, 3],
             pqc_sig: vec![],
-            public_key: HybridPublicKey { classical: vec![10, 11], pqc: vec![20, 21] },
+            public_key: HybridPublicKey {
+                classical: vec![10, 11],
+                pqc: vec![20, 21],
+            },
             nonce: 42,
             domain: test_domain_tag(),
         },
         aux: AuxiliaryData { data: vec![] },
     };
-    assert!(engine.execute(&s, &sigma_no_pqc).is_err(),
-        "EC-9.6: Missing PQC sig must be rejected");
+    assert!(
+        engine.execute(&s, &sigma_no_pqc).is_err(),
+        "EC-9.6: Missing PQC sig must be rejected"
+    );
 
     // Missing classical public key
     let sigma_no_classical_key = Input {
@@ -1385,14 +1688,19 @@ fn ec_9_6_hybrid_signature_both_required() {
         auth: Authorization {
             classical_sig: vec![1, 2, 3],
             pqc_sig: vec![4, 5, 6],
-            public_key: HybridPublicKey { classical: vec![], pqc: vec![20, 21] },
+            public_key: HybridPublicKey {
+                classical: vec![],
+                pqc: vec![20, 21],
+            },
             nonce: 42,
             domain: test_domain_tag(),
         },
         aux: AuxiliaryData { data: vec![] },
     };
-    assert!(engine.execute(&s, &sigma_no_classical_key).is_err(),
-        "EC-9.6: Missing classical public key must be rejected");
+    assert!(
+        engine.execute(&s, &sigma_no_classical_key).is_err(),
+        "EC-9.6: Missing classical public key must be rejected"
+    );
 
     // Missing PQC public key
     let sigma_no_pqc_key = Input {
@@ -1400,12 +1708,17 @@ fn ec_9_6_hybrid_signature_both_required() {
         auth: Authorization {
             classical_sig: vec![1, 2, 3],
             pqc_sig: vec![4, 5, 6],
-            public_key: HybridPublicKey { classical: vec![10, 11], pqc: vec![] },
+            public_key: HybridPublicKey {
+                classical: vec![10, 11],
+                pqc: vec![],
+            },
             nonce: 42,
             domain: test_domain_tag(),
         },
         aux: AuxiliaryData { data: vec![] },
     };
-    assert!(engine.execute(&s, &sigma_no_pqc_key).is_err(),
-        "EC-9.6: Missing PQC public key must be rejected");
+    assert!(
+        engine.execute(&s, &sigma_no_pqc_key).is_err(),
+        "EC-9.6: Missing PQC public key must be rejected"
+    );
 }

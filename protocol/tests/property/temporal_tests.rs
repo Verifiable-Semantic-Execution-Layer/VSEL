@@ -18,18 +18,18 @@
 
 use std::collections::BTreeMap;
 
-use proptest::prelude::*;
 use proptest::collection::btree_map;
+use proptest::prelude::*;
 
 use vsel_core::input::*;
 use vsel_core::state::*;
 use vsel_core::types::*;
 
-use vsel_invariants::{Trace, TraceStep};
 use vsel_invariants::temporal::{
-    check_all_temporal, t_causal, t_no_revert,
-    te_extraction_trace, te_flash_trace, te_velocity_trace,
+    check_all_temporal, t_causal, t_no_revert, te_extraction_trace, te_flash_trace,
+    te_velocity_trace,
 };
+use vsel_invariants::{Trace, TraceStep};
 
 use vsel_proof::prover::{DefaultProver, Prover};
 use vsel_proof::replay::{ReplayGuard, ReplayRejection};
@@ -115,8 +115,8 @@ fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
         any::<u64>(),
         arb_domain_tag(),
     )
-        .prop_map(|(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| {
-            Authorization {
+        .prop_map(
+            |(classical_sig, pqc_sig, classical_pk, pqc_pk, nonce, domain)| Authorization {
                 classical_sig,
                 pqc_sig,
                 public_key: HybridPublicKey {
@@ -125,8 +125,8 @@ fn arb_valid_authorization() -> impl Strategy<Value = Authorization> {
                 },
                 nonce,
                 domain,
-            }
-        })
+            },
+        )
 }
 
 fn arb_valid_input() -> impl Strategy<Value = Input> {
@@ -137,10 +137,7 @@ fn arb_valid_input() -> impl Strategy<Value = Input> {
         prop::collection::vec(any::<u8>(), 0..64),
     )
         .prop_map(|(payload_type, data, auth, aux_data)| Input {
-            payload: Payload {
-                payload_type,
-                data,
-            },
+            payload: Payload { payload_type, data },
             auth,
             aux: AuxiliaryData { data: aux_data },
         })

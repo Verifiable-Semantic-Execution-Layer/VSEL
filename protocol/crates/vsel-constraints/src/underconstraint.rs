@@ -18,9 +18,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::compiler::{
-    Constraint, ConstraintCategory, ConstraintExpr, ConstraintSystem,
-};
+use crate::compiler::{Constraint, ConstraintCategory, ConstraintExpr, ConstraintSystem};
 use vsel_sir::types::{SirExpr, SirProgram};
 
 // ---------------------------------------------------------------------------
@@ -138,10 +136,7 @@ fn build_constraint_graph(system: &ConstraintSystem) -> (VarToConstraints, Const
         constraint_to_vars.insert(idx, ref_set.clone());
 
         for var_name in refs {
-            var_to_constraints
-                .entry(var_name)
-                .or_default()
-                .insert(idx);
+            var_to_constraints.entry(var_name).or_default().insert(idx);
         }
     }
 
@@ -161,10 +156,7 @@ fn build_constraint_graph(system: &ConstraintSystem) -> (VarToConstraints, Const
 /// A witness variable `parent.field` is considered referenced if any
 /// constraint references `parent.field` directly, or references `parent`
 /// (since `parent` is accessed via FieldAccess to reach `parent.field`).
-pub fn detect_u1_free_variables(
-    system: &ConstraintSystem,
-    _program: &SirProgram,
-) -> Vec<String> {
+pub fn detect_u1_free_variables(system: &ConstraintSystem, _program: &SirProgram) -> Vec<String> {
     let (var_to_constraints, _) = build_constraint_graph(system);
 
     let mut free = Vec::new();
@@ -220,10 +212,7 @@ pub fn detect_u2_weakly_constrained(system: &ConstraintSystem) -> Vec<String> {
 /// Walks the SIR program's transitions looking for `If` and `Match`
 /// expressions, then checks that the constraint system contains
 /// corresponding `Branch` category constraints.
-pub fn detect_u3_missing_branches(
-    system: &ConstraintSystem,
-    program: &SirProgram,
-) -> Vec<String> {
+pub fn detect_u3_missing_branches(system: &ConstraintSystem, program: &SirProgram) -> Vec<String> {
     let mut findings = Vec::new();
 
     // Count branch constraints in the system.
@@ -292,24 +281,20 @@ pub fn detect_u3_missing_branches(
 fn count_conditionals(expr: &SirExpr) -> usize {
     match expr {
         SirExpr::If { cond, then_, else_ } => {
-            1 + count_conditionals(cond)
-                + count_conditionals(then_)
-                + count_conditionals(else_)
+            1 + count_conditionals(cond) + count_conditionals(then_) + count_conditionals(else_)
         }
         SirExpr::Match { scrutinee, arms } => {
             1 + count_conditionals(scrutinee)
-                + arms.iter().map(|a| count_conditionals(&a.body)).sum::<usize>()
+                + arms
+                    .iter()
+                    .map(|a| count_conditionals(&a.body))
+                    .sum::<usize>()
         }
-        SirExpr::BinOp { left, right, .. } => {
-            count_conditionals(left) + count_conditionals(right)
-        }
-        SirExpr::Let { value, body, .. } => {
-            count_conditionals(value) + count_conditionals(body)
-        }
+        SirExpr::BinOp { left, right, .. } => count_conditionals(left) + count_conditionals(right),
+        SirExpr::Let { value, body, .. } => count_conditionals(value) + count_conditionals(body),
         SirExpr::FieldAccess { expr, .. } => count_conditionals(expr),
         SirExpr::Apply { func, args } => {
-            count_conditionals(func)
-                + args.iter().map(|a| count_conditionals(a)).sum::<usize>()
+            count_conditionals(func) + args.iter().map(|a| count_conditionals(a)).sum::<usize>()
         }
         SirExpr::Literal { .. } | SirExpr::Var { .. } => 0,
     }
@@ -471,10 +456,7 @@ fn is_range_constraint(expr: &ConstraintExpr) -> bool {
 /// in the constraint system. If the program defines temporal invariants
 /// but the constraint system lacks corresponding invariant constraints,
 /// this is a temporal gap.
-pub fn detect_u7_temporal(
-    system: &ConstraintSystem,
-    program: &SirProgram,
-) -> Vec<String> {
+pub fn detect_u7_temporal(system: &ConstraintSystem, program: &SirProgram) -> Vec<String> {
     let mut findings = Vec::new();
 
     // Collect temporal invariants from the program.
@@ -533,10 +515,7 @@ pub fn detect_u7_temporal(
 /// Checks that the constraint system accounts for cross-system interactions.
 /// If the SIR program defines observables (external interfaces) but the
 /// constraint system has no constraints binding them, this is a composition gap.
-pub fn detect_u8_composition(
-    system: &ConstraintSystem,
-    program: &SirProgram,
-) -> Vec<String> {
+pub fn detect_u8_composition(system: &ConstraintSystem, program: &SirProgram) -> Vec<String> {
     let mut findings = Vec::new();
 
     // Check observables are constrained.
@@ -557,9 +536,10 @@ pub fn detect_u8_composition(
 
     // Check public inputs are referenced by at least one constraint.
     for pi in &system.public_inputs {
-        let pi_referenced = system.constraints.iter().any(|c| {
-            has_public_input_ref(&c.expr, &pi.name)
-        });
+        let pi_referenced = system
+            .constraints
+            .iter()
+            .any(|c| has_public_input_ref(&c.expr, &pi.name));
         if !pi_referenced {
             findings.push(format!(
                 "public input '{}' not referenced by any constraint — potential composition gap",
@@ -647,8 +627,8 @@ pub fn analyze(system: &ConstraintSystem, program: &SirProgram) -> Underconstrai
 mod tests {
     use super::*;
     use crate::compiler::{
-        compile, reset_constraint_id_counter, WitnessVariable, WitnessVariableKind,
-        Constraint, ConstraintId,
+        compile, reset_constraint_id_counter, Constraint, ConstraintId, WitnessVariable,
+        WitnessVariableKind,
     };
     use vsel_sir::types::*;
 
@@ -658,12 +638,21 @@ mod tests {
             version: "0.1.0".into(),
             state_schema: SirStateSchema {
                 fields: vec![
-                    SirFieldSchema { name: "balance".into(), field_type: "Int".into() },
-                    SirFieldSchema { name: "nonce".into(), field_type: "Int".into() },
+                    SirFieldSchema {
+                        name: "balance".into(),
+                        field_type: "Int".into(),
+                    },
+                    SirFieldSchema {
+                        name: "nonce".into(),
+                        field_type: "Int".into(),
+                    },
                 ],
             },
             input_schema: SirInputSchema {
-                fields: vec![SirFieldSchema { name: "amount".into(), field_type: "Int".into() }],
+                fields: vec![SirFieldSchema {
+                    name: "amount".into(),
+                    field_type: "Int".into(),
+                }],
             },
             transitions: vec![SirTransition {
                 name: "deposit".into(),
@@ -671,20 +660,28 @@ mod tests {
                 preconditions: vec![SirExpr::BinOp {
                     op: "gt".into(),
                     left: Box::new(SirExpr::FieldAccess {
-                        expr: Box::new(SirExpr::Var { name: "input".into() }),
+                        expr: Box::new(SirExpr::Var {
+                            name: "input".into(),
+                        }),
                         field: "amount".into(),
                     }),
-                    right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                    right: Box::new(SirExpr::Literal {
+                        value: SirValue::Int { value: 0 },
+                    }),
                 }],
                 postconditions: vec![],
                 body: SirExpr::BinOp {
                     op: "add".into(),
                     left: Box::new(SirExpr::FieldAccess {
-                        expr: Box::new(SirExpr::Var { name: "state".into() }),
+                        expr: Box::new(SirExpr::Var {
+                            name: "state".into(),
+                        }),
                         field: "balance".into(),
                     }),
                     right: Box::new(SirExpr::FieldAccess {
-                        expr: Box::new(SirExpr::Var { name: "input".into() }),
+                        expr: Box::new(SirExpr::Var {
+                            name: "input".into(),
+                        }),
                         field: "amount".into(),
                     }),
                 },
@@ -696,10 +693,14 @@ mod tests {
                 expr: SirExpr::BinOp {
                     op: "ge".into(),
                     left: Box::new(SirExpr::FieldAccess {
-                        expr: Box::new(SirExpr::Var { name: "state".into() }),
+                        expr: Box::new(SirExpr::Var {
+                            name: "state".into(),
+                        }),
                         field: "balance".into(),
                     }),
-                    right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                    right: Box::new(SirExpr::Literal {
+                        value: SirValue::Int { value: 0 },
+                    }),
                 },
             }],
             observables: vec![],
@@ -726,7 +727,11 @@ mod tests {
         let system = compile(&program);
         let u1 = detect_u1_free_variables(&system, &program);
         // A well-compiled system should have no free variables.
-        assert!(u1.is_empty(), "compiled system should have no free variables, got: {:?}", u1);
+        assert!(
+            u1.is_empty(),
+            "compiled system should have no free variables, got: {:?}",
+            u1
+        );
     }
 
     #[test]
@@ -790,8 +795,14 @@ mod tests {
         });
 
         let u2 = detect_u2_weakly_constrained(&system);
-        assert!(u2.contains(&"x".to_string()), "x should be weakly constrained");
-        assert!(!u2.contains(&"y".to_string()), "y should not be weakly constrained");
+        assert!(
+            u2.contains(&"x".to_string()),
+            "x should be weakly constrained"
+        );
+        assert!(
+            !u2.contains(&"y".to_string()),
+            "y should not be weakly constrained"
+        );
     }
 
     // -- U3: Missing branch tests --
@@ -802,7 +813,11 @@ mod tests {
         let system = compile(&program);
         let u3 = detect_u3_missing_branches(&system, &program);
         // The test program has no conditionals in transitions.
-        assert!(u3.is_empty(), "no conditionals means no missing branches: {:?}", u3);
+        assert!(
+            u3.is_empty(),
+            "no conditionals means no missing branches: {:?}",
+            u3
+        );
     }
 
     #[test]
@@ -811,10 +826,16 @@ mod tests {
         let program = SirProgram {
             version: "0.1.0".into(),
             state_schema: SirStateSchema {
-                fields: vec![SirFieldSchema { name: "x".into(), field_type: "Int".into() }],
+                fields: vec![SirFieldSchema {
+                    name: "x".into(),
+                    field_type: "Int".into(),
+                }],
             },
             input_schema: SirInputSchema {
-                fields: vec![SirFieldSchema { name: "v".into(), field_type: "Int".into() }],
+                fields: vec![SirFieldSchema {
+                    name: "v".into(),
+                    field_type: "Int".into(),
+                }],
             },
             transitions: vec![SirTransition {
                 name: "cond_update".into(),
@@ -824,11 +845,19 @@ mod tests {
                 body: SirExpr::If {
                     cond: Box::new(SirExpr::BinOp {
                         op: "gt".into(),
-                        left: Box::new(SirExpr::Var { name: "input.v".into() }),
-                        right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                        left: Box::new(SirExpr::Var {
+                            name: "input.v".into(),
+                        }),
+                        right: Box::new(SirExpr::Literal {
+                            value: SirValue::Int { value: 0 },
+                        }),
                     }),
-                    then_: Box::new(SirExpr::Var { name: "input.v".into() }),
-                    else_: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                    then_: Box::new(SirExpr::Var {
+                        name: "input.v".into(),
+                    }),
+                    else_: Box::new(SirExpr::Literal {
+                        value: SirValue::Int { value: 0 },
+                    }),
                 },
                 allowed_mutations: vec!["x".to_string()],
             }],
@@ -841,7 +870,11 @@ mod tests {
         // so this should be empty for a well-compiled system.
         // This test validates the detection mechanism works.
         // If the compiler is correct, u3 should be empty.
-        assert!(u3.is_empty(), "well-compiled conditional should have branch constraints: {:?}", u3);
+        assert!(
+            u3.is_empty(),
+            "well-compiled conditional should have branch constraints: {:?}",
+            u3
+        );
     }
 
     // -- U4: Structural-only tests --
@@ -914,7 +947,10 @@ mod tests {
         });
 
         let u5 = detect_u5_orphan(&system);
-        assert!(!u5.is_empty(), "should detect orphan constraint referencing non-witness var");
+        assert!(
+            !u5.is_empty(),
+            "should detect orphan constraint referencing non-witness var"
+        );
     }
 
     #[test]
@@ -988,7 +1024,11 @@ mod tests {
         let system = compile(&program);
         let u7 = detect_u7_temporal(&system, &program);
         // No temporal invariants in the test program.
-        assert!(u7.is_empty(), "no temporal invariants means no temporal gaps: {:?}", u7);
+        assert!(
+            u7.is_empty(),
+            "no temporal invariants means no temporal gaps: {:?}",
+            u7
+        );
     }
 
     #[test]
@@ -997,13 +1037,19 @@ mod tests {
         program.invariants.push(SirInvariant {
             name: "T_no_revert".into(),
             category: "temporal".into(),
-            expr: SirExpr::Literal { value: SirValue::Bool { value: true } },
+            expr: SirExpr::Literal {
+                value: SirValue::Bool { value: true },
+            },
         });
         // Compile — the compiler will generate an invariant constraint for T_no_revert.
         let system = compile(&program);
         let u7 = detect_u7_temporal(&system, &program);
         // The compiler generates invariant constraints, so T_no_revert should be covered.
-        assert!(u7.is_empty(), "compiled temporal invariant should have constraint: {:?}", u7);
+        assert!(
+            u7.is_empty(),
+            "compiled temporal invariant should have constraint: {:?}",
+            u7
+        );
     }
 
     // -- U8: Composition tests --
@@ -1016,7 +1062,10 @@ mod tests {
         // Public inputs are not referenced by constraints in the current compiler,
         // so we expect findings for those. But no observable gaps.
         let obs_findings: Vec<_> = u8.iter().filter(|f| f.contains("observable")).collect();
-        assert!(obs_findings.is_empty(), "no observables means no observable gaps");
+        assert!(
+            obs_findings.is_empty(),
+            "no observables means no observable gaps"
+        );
     }
 
     #[test]
@@ -1025,7 +1074,9 @@ mod tests {
         program.observables.push(SirObservable {
             name: "total_balance".into(),
             expr: SirExpr::FieldAccess {
-                expr: Box::new(SirExpr::Var { name: "state".into() }),
+                expr: Box::new(SirExpr::Var {
+                    name: "state".into(),
+                }),
                 field: "balance".into(),
             },
         });

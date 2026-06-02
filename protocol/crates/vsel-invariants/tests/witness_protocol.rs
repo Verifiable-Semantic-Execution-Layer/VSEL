@@ -84,7 +84,11 @@ fn minimal_canonical() -> CanonicalState {
         accounts: BTreeMap::new(),
         storage: BTreeMap::new(),
         system_data: SystemData {
-            protocol_version: ProtocolVersion { major: 0, minor: 1, patch: 0 },
+            protocol_version: ProtocolVersion {
+                major: 0,
+                minor: 1,
+                patch: 0,
+            },
             total_supply: 0,
             parameters: BTreeMap::new(),
         },
@@ -99,14 +103,24 @@ fn build_state_at_seq(c: CanonicalState, seq: u64) -> State {
         execution_domain: test_domain_tag(),
     };
     let econ = derive_economic(&c, &env);
-    let commitment = if seq == 0 { Hash([0u8; 32]) } else { Hash([0xABu8; 32]) };
+    let commitment = if seq == 0 {
+        Hash([0u8; 32])
+    } else {
+        Hash([0xABu8; 32])
+    };
     let meta = TraceMetadata {
         sequence_index: seq,
         previous_commitment: commitment,
         epoch: 0,
         timestamp: 1_000_000,
     };
-    State { canonical: c, derived: d, environment: env, economic: econ, metadata: meta }
+    State {
+        canonical: c,
+        derived: d,
+        environment: env,
+        economic: econ,
+        metadata: meta,
+    }
 }
 
 fn build_genesis_state(c: CanonicalState) -> State {
@@ -115,7 +129,10 @@ fn build_genesis_state(c: CanonicalState) -> State {
 
 fn make_input(payload_type: &str, data: Vec<u8>) -> Input {
     Input {
-        payload: Payload { payload_type: payload_type.to_string(), data },
+        payload: Payload {
+            payload_type: payload_type.to_string(),
+            data,
+        },
         auth: valid_auth(),
         aux: AuxiliaryData { data: vec![] },
     }
@@ -130,18 +147,41 @@ fn make_deposit_input(account_id: [u8; 32], amount: u128) -> Input {
 
 fn canonical_with_account(id: [u8; 32], balance: u128) -> CanonicalState {
     let mut c = minimal_canonical();
-    c.accounts.insert(AccountId(id), AccountData { balance, nonce: 0, data: vec![] });
+    c.accounts.insert(
+        AccountId(id),
+        AccountData {
+            balance,
+            nonce: 0,
+            data: vec![],
+        },
+    );
     c.system_data.total_supply = balance;
     c
 }
 
 fn canonical_with_two_accounts(
-    id1: [u8; 32], bal1: u128,
-    id2: [u8; 32], bal2: u128,
+    id1: [u8; 32],
+    bal1: u128,
+    id2: [u8; 32],
+    bal2: u128,
 ) -> CanonicalState {
     let mut c = minimal_canonical();
-    c.accounts.insert(AccountId(id1), AccountData { balance: bal1, nonce: 0, data: vec![] });
-    c.accounts.insert(AccountId(id2), AccountData { balance: bal2, nonce: 0, data: vec![] });
+    c.accounts.insert(
+        AccountId(id1),
+        AccountData {
+            balance: bal1,
+            nonce: 0,
+            data: vec![],
+        },
+    );
+    c.accounts.insert(
+        AccountId(id2),
+        AccountData {
+            balance: bal2,
+            nonce: 0,
+            data: vec![],
+        },
+    );
     c.system_data.total_supply = bal1 + bal2;
     c
 }
@@ -162,7 +202,11 @@ fn build_valid_trace() -> Trace {
     let e1 = engine.record_transition(&s1, &sigma1, &s2, &obs1);
     let commitment = engine.current_chain_hash().clone();
 
-    Trace { entries: vec![e0, e1], initial_state: s0, commitment }
+    Trace {
+        entries: vec![e0, e1],
+        initial_state: s0,
+        commitment,
+    }
 }
 
 // ===========================================================================
@@ -178,7 +222,9 @@ fn protocol_w1_1() -> ProtocolResult {
     c.system_data.total_supply = 999; // Mismatch
     let s = build_state_at_seq(c, 1);
     steps.push(StepResult {
-        step: 1, name: "construct", passed: true,
+        step: 1,
+        name: "construct",
+        passed: true,
         detail: "total_supply=999, balance_sum=500".into(),
     });
 
@@ -187,16 +233,27 @@ fn protocol_w1_1() -> ProtocolResult {
     let g_struct_result = g_struct(&s);
     let rejected = !g_valid_result.valid || !g_struct_result.valid;
     steps.push(StepResult {
-        step: 2, name: "verify_rejection", passed: rejected,
-        detail: format!("G_valid={}, G_struct={}", !g_valid_result.valid, !g_struct_result.valid),
+        step: 2,
+        name: "verify_rejection",
+        passed: rejected,
+        detail: format!(
+            "G_valid={}, G_struct={}",
+            !g_valid_result.valid, !g_struct_result.valid
+        ),
     });
 
     // Step 3: Identify rejecting constraint
     let mut rejecting = Vec::new();
-    if !g_valid_result.valid { rejecting.push("G_valid"); }
-    if !g_struct_result.valid { rejecting.push("G_struct"); }
+    if !g_valid_result.valid {
+        rejecting.push("G_valid");
+    }
+    if !g_struct_result.valid {
+        rejecting.push("G_struct");
+    }
     steps.push(StepResult {
-        step: 3, name: "identify_constraint", passed: !rejecting.is_empty(),
+        step: 3,
+        name: "identify_constraint",
+        passed: !rejecting.is_empty(),
         detail: format!("Rejecting: {:?}", rejecting),
     });
 
@@ -206,19 +263,26 @@ fn protocol_w1_1() -> ProtocolResult {
     let s_fixed = build_state_at_seq(c_fixed, 1);
     let accepts_when_fixed = g_valid(&s_fixed).valid && g_struct(&s_fixed).valid;
     steps.push(StepResult {
-        step: 4, name: "confirm_necessity", passed: accepts_when_fixed,
+        step: 4,
+        name: "confirm_necessity",
+        passed: accepts_when_fixed,
         detail: format!("Fixed witness accepted: {}", accepts_when_fixed),
     });
 
     // Step 5: Document
     steps.push(StepResult {
-        step: 5, name: "document", passed: true,
+        step: 5,
+        name: "document",
+        passed: true,
         detail: "W1.1: total_supply mismatch rejected by G_valid, G_struct".into(),
     });
 
     ProtocolResult {
-        family: "W1.1", name: "negative_balance_total_supply_mismatch",
-        steps, rejecting_constraints: rejecting, necessity_confirmed: accepts_when_fixed,
+        family: "W1.1",
+        name: "negative_balance_total_supply_mismatch",
+        steps,
+        rejecting_constraints: rejecting,
+        necessity_confirmed: accepts_when_fixed,
     }
 }
 
@@ -230,38 +294,55 @@ fn protocol_w1_2() -> ProtocolResult {
     let mut s = build_state_at_seq(c, 1);
     s.derived.state_root = Hash([0xFFu8; 32]);
     steps.push(StepResult {
-        step: 1, name: "construct", passed: true,
+        step: 1,
+        name: "construct",
+        passed: true,
         detail: "Corrupted derived state root".into(),
     });
 
     let g_commit_result = g_commit(&s);
     let rejected = !g_commit_result.valid;
     steps.push(StepResult {
-        step: 2, name: "verify_rejection", passed: rejected,
+        step: 2,
+        name: "verify_rejection",
+        passed: rejected,
         detail: format!("G_commit rejected: {}", rejected),
     });
 
-    let rejecting: Vec<&str> = if rejected { vec!["G_commit", "L_bounded"] } else { vec![] };
+    let rejecting: Vec<&str> = if rejected {
+        vec!["G_commit", "L_bounded"]
+    } else {
+        vec![]
+    };
     steps.push(StepResult {
-        step: 3, name: "identify_constraint", passed: !rejecting.is_empty(),
+        step: 3,
+        name: "identify_constraint",
+        passed: !rejecting.is_empty(),
         detail: format!("Rejecting: {:?}", rejecting),
     });
 
     let s_fixed = build_state_at_seq(canonical_with_account([1u8; 32], 1000), 1);
     let accepts = g_commit(&s_fixed).valid;
     steps.push(StepResult {
-        step: 4, name: "confirm_necessity", passed: accepts,
+        step: 4,
+        name: "confirm_necessity",
+        passed: accepts,
         detail: format!("Fixed witness accepted: {}", accepts),
     });
 
     steps.push(StepResult {
-        step: 5, name: "document", passed: true,
+        step: 5,
+        name: "document",
+        passed: true,
         detail: "W1.2: corrupted derived state rejected by G_commit".into(),
     });
 
     ProtocolResult {
-        family: "W1.2", name: "inconsistent_derived",
-        steps, rejecting_constraints: rejecting, necessity_confirmed: accepts,
+        family: "W1.2",
+        name: "inconsistent_derived",
+        steps,
+        rejecting_constraints: rejecting,
+        necessity_confirmed: accepts,
     }
 }
 
@@ -273,38 +354,51 @@ fn protocol_w1_3() -> ProtocolResult {
     let mut s = build_genesis_state(c);
     s.environment.execution_domain = DomainTag(Hash([0u8; 32]));
     steps.push(StepResult {
-        step: 1, name: "construct", passed: true,
+        step: 1,
+        name: "construct",
+        passed: true,
         detail: "Zero domain tag".into(),
     });
 
     let g_env_result = g_env(&s);
     let rejected = !g_env_result.valid;
     steps.push(StepResult {
-        step: 2, name: "verify_rejection", passed: rejected,
+        step: 2,
+        name: "verify_rejection",
+        passed: rejected,
         detail: format!("G_env rejected: {}", rejected),
     });
 
     let rejecting: Vec<&str> = if rejected { vec!["G_env"] } else { vec![] };
     steps.push(StepResult {
-        step: 3, name: "identify_constraint", passed: !rejecting.is_empty(),
+        step: 3,
+        name: "identify_constraint",
+        passed: !rejecting.is_empty(),
         detail: format!("Rejecting: {:?}", rejecting),
     });
 
     let s_fixed = build_genesis_state(minimal_canonical());
     let accepts = g_env(&s_fixed).valid;
     steps.push(StepResult {
-        step: 4, name: "confirm_necessity", passed: accepts,
+        step: 4,
+        name: "confirm_necessity",
+        passed: accepts,
         detail: format!("Fixed witness accepted: {}", accepts),
     });
 
     steps.push(StepResult {
-        step: 5, name: "document", passed: true,
+        step: 5,
+        name: "document",
+        passed: true,
         detail: "W1.3: zero domain tag rejected by G_env".into(),
     });
 
     ProtocolResult {
-        family: "W1.3", name: "invalid_environment",
-        steps, rejecting_constraints: rejecting, necessity_confirmed: accepts,
+        family: "W1.3",
+        name: "invalid_environment",
+        steps,
+        rejecting_constraints: rejecting,
+        necessity_confirmed: accepts,
     }
 }
 
@@ -316,38 +410,51 @@ fn protocol_w1_4() -> ProtocolResult {
     let mut s = build_genesis_state(c);
     s.metadata.previous_commitment = Hash([0xABu8; 32]);
     steps.push(StepResult {
-        step: 1, name: "construct", passed: true,
+        step: 1,
+        name: "construct",
+        passed: true,
         detail: "Non-zero commitment at genesis".into(),
     });
 
     let g_mono_result = g_mono(&s);
     let rejected = !g_mono_result.valid;
     steps.push(StepResult {
-        step: 2, name: "verify_rejection", passed: rejected,
+        step: 2,
+        name: "verify_rejection",
+        passed: rejected,
         detail: format!("G_mono rejected: {}", rejected),
     });
 
     let rejecting: Vec<&str> = if rejected { vec!["G_mono"] } else { vec![] };
     steps.push(StepResult {
-        step: 3, name: "identify_constraint", passed: !rejecting.is_empty(),
+        step: 3,
+        name: "identify_constraint",
+        passed: !rejecting.is_empty(),
         detail: format!("Rejecting: {:?}", rejecting),
     });
 
     let s_fixed = build_genesis_state(minimal_canonical());
     let accepts = g_mono(&s_fixed).valid;
     steps.push(StepResult {
-        step: 4, name: "confirm_necessity", passed: accepts,
+        step: 4,
+        name: "confirm_necessity",
+        passed: accepts,
         detail: format!("Fixed witness accepted: {}", accepts),
     });
 
     steps.push(StepResult {
-        step: 5, name: "document", passed: true,
+        step: 5,
+        name: "document",
+        passed: true,
         detail: "W1.4: non-zero commitment at genesis rejected by G_mono".into(),
     });
 
     ProtocolResult {
-        family: "W1.4", name: "metadata_regression",
-        steps, rejecting_constraints: rejecting, necessity_confirmed: accepts,
+        family: "W1.4",
+        name: "metadata_regression",
+        steps,
+        rejecting_constraints: rejecting,
+        necessity_confirmed: accepts,
     }
 }
 
@@ -360,42 +467,59 @@ fn protocol_w1_5() -> ProtocolResult {
     let sigma = make_input("init", vec![0xFF]);
     let real_post = apply(&s, &sigma);
     let mut fake_post = real_post.clone();
-    fake_post.canonical.system_data.parameters.insert("rogue".into(), vec![0xDE, 0xAD]);
+    fake_post
+        .canonical
+        .system_data
+        .parameters
+        .insert("rogue".into(), vec![0xDE, 0xAD]);
     fake_post.derived = derive(&fake_post.canonical);
     fake_post.economic = derive_economic(&fake_post.canonical, &fake_post.environment);
     steps.push(StepResult {
-        step: 1, name: "construct", passed: true,
+        step: 1,
+        name: "construct",
+        passed: true,
         detail: "Unreachable state with rogue parameter".into(),
     });
 
     let l_valid_result = l_valid(&s, &sigma, &fake_post);
     let rejected = !l_valid_result.valid;
     steps.push(StepResult {
-        step: 2, name: "verify_rejection", passed: rejected,
+        step: 2,
+        name: "verify_rejection",
+        passed: rejected,
         detail: format!("L_valid rejected: {}", rejected),
     });
 
     let rejecting: Vec<&str> = if rejected { vec!["L_valid"] } else { vec![] };
     steps.push(StepResult {
-        step: 3, name: "identify_constraint", passed: !rejecting.is_empty(),
+        step: 3,
+        name: "identify_constraint",
+        passed: !rejecting.is_empty(),
         detail: format!("Rejecting: {:?}", rejecting),
     });
 
     let l_valid_fixed = l_valid(&s, &sigma, &real_post);
     let accepts = l_valid_fixed.valid;
     steps.push(StepResult {
-        step: 4, name: "confirm_necessity", passed: accepts,
+        step: 4,
+        name: "confirm_necessity",
+        passed: accepts,
         detail: format!("Fixed witness accepted: {}", accepts),
     });
 
     steps.push(StepResult {
-        step: 5, name: "document", passed: true,
+        step: 5,
+        name: "document",
+        passed: true,
         detail: "W1.5: unreachable state rejected by L_valid".into(),
     });
 
     ProtocolResult {
-        family: "W1.5", name: "unreachable_state",
-        steps, rejecting_constraints: rejecting, necessity_confirmed: accepts,
+        family: "W1.5",
+        name: "unreachable_state",
+        steps,
+        rejecting_constraints: rejecting,
+        necessity_confirmed: accepts,
     }
 }
 
@@ -412,38 +536,51 @@ fn protocol_w2_3() -> ProtocolResult {
     }
     fake_post.derived = derive(&fake_post.canonical);
     steps.push(StepResult {
-        step: 1, name: "construct", passed: true,
+        step: 1,
+        name: "construct",
+        passed: true,
         detail: "Balance increased by 500 without total_supply update".into(),
     });
 
     let l_cons_result = l_cons(&s, &sigma, &fake_post);
     let rejected = !l_cons_result.valid;
     steps.push(StepResult {
-        step: 2, name: "verify_rejection", passed: rejected,
+        step: 2,
+        name: "verify_rejection",
+        passed: rejected,
         detail: format!("L_cons rejected: {}", rejected),
     });
 
     let rejecting: Vec<&str> = if rejected { vec!["L_cons"] } else { vec![] };
     steps.push(StepResult {
-        step: 3, name: "identify_constraint", passed: !rejecting.is_empty(),
+        step: 3,
+        name: "identify_constraint",
+        passed: !rejecting.is_empty(),
         detail: format!("Rejecting: {:?}", rejecting),
     });
 
     let real_post = apply(&s, &sigma);
     let accepts = l_cons(&s, &sigma, &real_post).valid;
     steps.push(StepResult {
-        step: 4, name: "confirm_necessity", passed: accepts,
+        step: 4,
+        name: "confirm_necessity",
+        passed: accepts,
         detail: format!("Fixed witness accepted: {}", accepts),
     });
 
     steps.push(StepResult {
-        step: 5, name: "document", passed: true,
+        step: 5,
+        name: "document",
+        passed: true,
         detail: "W2.3: resource creation rejected by L_cons".into(),
     });
 
     ProtocolResult {
-        family: "W2.3", name: "resource_creation",
-        steps, rejecting_constraints: rejecting, necessity_confirmed: accepts,
+        family: "W2.3",
+        name: "resource_creation",
+        steps,
+        rejecting_constraints: rejecting,
+        necessity_confirmed: accepts,
     }
 }
 
@@ -454,37 +591,54 @@ fn protocol_w3_1() -> ProtocolResult {
     let mut trace = build_valid_trace();
     trace.entries[1].chain_hash = Hash([0xDEu8; 32]);
     steps.push(StepResult {
-        step: 1, name: "construct", passed: true,
+        step: 1,
+        name: "construct",
+        passed: true,
         detail: "Tampered chain hash in entry 1".into(),
     });
 
     let rejected = !verify_trace(&trace);
     steps.push(StepResult {
-        step: 2, name: "verify_rejection", passed: rejected,
+        step: 2,
+        name: "verify_rejection",
+        passed: rejected,
         detail: format!("verify_trace rejected: {}", rejected),
     });
 
-    let rejecting: Vec<&str> = if rejected { vec!["verify_trace", "verify_chain"] } else { vec![] };
+    let rejecting: Vec<&str> = if rejected {
+        vec!["verify_trace", "verify_chain"]
+    } else {
+        vec![]
+    };
     steps.push(StepResult {
-        step: 3, name: "identify_constraint", passed: !rejecting.is_empty(),
+        step: 3,
+        name: "identify_constraint",
+        passed: !rejecting.is_empty(),
         detail: format!("Rejecting: {:?}", rejecting),
     });
 
     let valid_trace = build_valid_trace();
     let accepts = verify_trace(&valid_trace);
     steps.push(StepResult {
-        step: 4, name: "confirm_necessity", passed: accepts,
+        step: 4,
+        name: "confirm_necessity",
+        passed: accepts,
         detail: format!("Fixed trace accepted: {}", accepts),
     });
 
     steps.push(StepResult {
-        step: 5, name: "document", passed: true,
+        step: 5,
+        name: "document",
+        passed: true,
         detail: "W3.1: broken chain hash rejected by verify_trace".into(),
     });
 
     ProtocolResult {
-        family: "W3.1", name: "broken_chain_hash",
-        steps, rejecting_constraints: rejecting, necessity_confirmed: accepts,
+        family: "W3.1",
+        name: "broken_chain_hash",
+        steps,
+        rejecting_constraints: rejecting,
+        necessity_confirmed: accepts,
     }
 }
 
@@ -499,42 +653,62 @@ fn protocol_w4_1() -> ProtocolResult {
     let real_obs = obs(&s, &sigma, &s_prime);
     let fake_obs = Observable {
         transition_class: real_obs.transition_class,
-        outputs: vec![OutputEvent { event_type: "fabricated".into(), data: vec![0xDE] }],
+        outputs: vec![OutputEvent {
+            event_type: "fabricated".into(),
+            data: vec![0xDE],
+        }],
         gas_used: real_obs.gas_used,
         status: real_obs.status,
     };
     steps.push(StepResult {
-        step: 1, name: "construct", passed: true,
+        step: 1,
+        name: "construct",
+        passed: true,
         detail: "Fabricated observable outputs".into(),
     });
 
     let rederived = obs(&s, &sigma, &s_prime);
     let rejected = rederived != fake_obs;
     steps.push(StepResult {
-        step: 2, name: "verify_rejection", passed: rejected,
+        step: 2,
+        name: "verify_rejection",
+        passed: rejected,
         detail: format!("obs() re-derivation detects fabrication: {}", rejected),
     });
 
-    let rejecting: Vec<&str> = if rejected { vec!["obs_determinism", "L_det"] } else { vec![] };
+    let rejecting: Vec<&str> = if rejected {
+        vec!["obs_determinism", "L_det"]
+    } else {
+        vec![]
+    };
     steps.push(StepResult {
-        step: 3, name: "identify_constraint", passed: !rejecting.is_empty(),
+        step: 3,
+        name: "identify_constraint",
+        passed: !rejecting.is_empty(),
         detail: format!("Rejecting: {:?}", rejecting),
     });
 
     let real_matches = rederived == real_obs;
     steps.push(StepResult {
-        step: 4, name: "confirm_necessity", passed: real_matches,
+        step: 4,
+        name: "confirm_necessity",
+        passed: real_matches,
         detail: format!("Real observable matches re-derivation: {}", real_matches),
     });
 
     steps.push(StepResult {
-        step: 5, name: "document", passed: true,
+        step: 5,
+        name: "document",
+        passed: true,
         detail: "W4.1: fabricated observable detected by obs() re-derivation".into(),
     });
 
     ProtocolResult {
-        family: "W4.1", name: "fabricated_observable",
-        steps, rejecting_constraints: rejecting, necessity_confirmed: real_matches,
+        family: "W4.1",
+        name: "fabricated_observable",
+        steps,
+        rejecting_constraints: rejecting,
+        necessity_confirmed: real_matches,
     }
 }
 
@@ -553,7 +727,9 @@ fn protocol_w6_1() -> ProtocolResult {
         d
     });
     steps.push(StepResult {
-        step: 1, name: "construct", passed: true,
+        step: 1,
+        name: "construct",
+        passed: true,
         detail: "Reversed batch: transfer before deposit".into(),
     });
 
@@ -561,7 +737,9 @@ fn protocol_w6_1() -> ProtocolResult {
     let reversed = execute_batch(&s, &[transfer, deposit]);
     let rejected = reversed.is_err();
     steps.push(StepResult {
-        step: 2, name: "verify_rejection", passed: rejected,
+        step: 2,
+        name: "verify_rejection",
+        passed: rejected,
         detail: format!("Reversed batch rejected: {}", rejected),
     });
 
@@ -571,24 +749,33 @@ fn protocol_w6_1() -> ProtocolResult {
         vec![]
     };
     steps.push(StepResult {
-        step: 3, name: "identify_constraint", passed: !rejecting.is_empty(),
+        step: 3,
+        name: "identify_constraint",
+        passed: !rejecting.is_empty(),
         detail: format!("Rejecting: {:?}", rejecting),
     });
 
     let correct_ok = correct.is_ok();
     steps.push(StepResult {
-        step: 4, name: "confirm_necessity", passed: correct_ok,
+        step: 4,
+        name: "confirm_necessity",
+        passed: correct_ok,
         detail: format!("Correct order accepted: {}", correct_ok),
     });
 
     steps.push(StepResult {
-        step: 5, name: "document", passed: true,
+        step: 5,
+        name: "document",
+        passed: true,
         detail: "W6.1: reordered batch rejected by batch ordering".into(),
     });
 
     ProtocolResult {
-        family: "W6.1", name: "reordered_batch",
-        steps, rejecting_constraints: rejecting, necessity_confirmed: correct_ok,
+        family: "W6.1",
+        name: "reordered_batch",
+        steps,
+        rejecting_constraints: rejecting,
+        necessity_confirmed: correct_ok,
     }
 }
 
@@ -599,37 +786,54 @@ fn protocol_w7_2() -> ProtocolResult {
     let mut trace = build_valid_trace();
     trace.entries[1].chain_hash = Hash([0xBBu8; 32]);
     steps.push(StepResult {
-        step: 1, name: "construct", passed: true,
+        step: 1,
+        name: "construct",
+        passed: true,
         detail: "Wrong chain hash in entry 1".into(),
     });
 
     let rejected = !verify_trace(&trace);
     steps.push(StepResult {
-        step: 2, name: "verify_rejection", passed: rejected,
+        step: 2,
+        name: "verify_rejection",
+        passed: rejected,
         detail: format!("verify_trace rejected: {}", rejected),
     });
 
-    let rejecting: Vec<&str> = if rejected { vec!["verify_trace", "verify_chain"] } else { vec![] };
+    let rejecting: Vec<&str> = if rejected {
+        vec!["verify_trace", "verify_chain"]
+    } else {
+        vec![]
+    };
     steps.push(StepResult {
-        step: 3, name: "identify_constraint", passed: !rejecting.is_empty(),
+        step: 3,
+        name: "identify_constraint",
+        passed: !rejecting.is_empty(),
         detail: format!("Rejecting: {:?}", rejecting),
     });
 
     let valid_trace = build_valid_trace();
     let accepts = verify_trace(&valid_trace);
     steps.push(StepResult {
-        step: 4, name: "confirm_necessity", passed: accepts,
+        step: 4,
+        name: "confirm_necessity",
+        passed: accepts,
         detail: format!("Fixed trace accepted: {}", accepts),
     });
 
     steps.push(StepResult {
-        step: 5, name: "document", passed: true,
+        step: 5,
+        name: "document",
+        passed: true,
         detail: "W7.2: wrong chain hash rejected by verify_trace/verify_chain".into(),
     });
 
     ProtocolResult {
-        family: "W7.2", name: "wrong_chain_hash",
-        steps, rejecting_constraints: rejecting, necessity_confirmed: accepts,
+        family: "W7.2",
+        name: "wrong_chain_hash",
+        steps,
+        rejecting_constraints: rejecting,
+        necessity_confirmed: accepts,
     }
 }
 
@@ -655,11 +859,18 @@ fn witness_protocol_all_families_pass_5_step() {
     let mut failures = Vec::new();
     for r in &results {
         if !r.all_passed() {
-            let failed_steps: Vec<_> = r.steps.iter()
+            let failed_steps: Vec<_> = r
+                .steps
+                .iter()
                 .filter(|s| !s.passed)
                 .map(|s| format!("step {} ({}): {}", s.step, s.name, s.detail))
                 .collect();
-            failures.push(format!("{} {}: {}", r.family, r.name, failed_steps.join("; ")));
+            failures.push(format!(
+                "{} {}: {}",
+                r.family,
+                r.name,
+                failed_steps.join("; ")
+            ));
         }
     }
 
@@ -699,9 +910,17 @@ fn witness_protocol_constraint_coverage() {
     // families tested above. The full set is verified by the Python
     // orchestration which covers all W1-W8 families.
     let expected_covered = vec![
-        "G_valid", "G_struct", "G_commit", "G_mono", "G_env",
-        "L_valid", "L_cons", "L_bounded", "L_det",
-        "verify_trace", "verify_chain",
+        "G_valid",
+        "G_struct",
+        "G_commit",
+        "G_mono",
+        "G_env",
+        "L_valid",
+        "L_cons",
+        "L_bounded",
+        "L_det",
+        "verify_trace",
+        "verify_chain",
         "obs_determinism",
         "batch_sequential_equivalence",
     ];

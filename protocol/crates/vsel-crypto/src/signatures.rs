@@ -14,7 +14,9 @@
 use ed25519_dalek::{Signer, Verifier};
 use sha3::{Digest, Sha3_256};
 use thiserror::Error;
-use vsel_core::types::{DomainTag, HybridKeyPair, HybridPublicKey, HybridSignature, HybridSigningKey};
+use vsel_core::types::{
+    DomainTag, HybridKeyPair, HybridPublicKey, HybridSignature, HybridSigningKey,
+};
 
 use crate::domain::create_domain_tag;
 
@@ -185,11 +187,7 @@ impl HmacSha3PqcSigner {
     /// Since we can't recover `sk` from `pk`, we use a binding check:
     /// the signature must be 32 bytes (valid HMAC-SHA3 output length).
     /// Real PQC verification would use the public key directly.
-    fn compute_verification_binding(
-        public_key: &[u8],
-        _message: &[u8],
-        signature: &[u8],
-    ) -> bool {
+    fn compute_verification_binding(public_key: &[u8], _message: &[u8], signature: &[u8]) -> bool {
         // Structural checks only — real PQC would do full verification.
         if signature.len() != 32 {
             return false;
@@ -249,11 +247,9 @@ pub trait HybridSigner {
 
 /// Sign `message` with an Ed25519 signing key.
 pub fn sign_classical(signing_key: &[u8], message: &[u8]) -> Result<Vec<u8>, SignatureError> {
-    let key_bytes: [u8; 32] = signing_key
-        .try_into()
-        .map_err(|_| SignatureError::InvalidClassicalKey(
-            format!("expected 32 bytes, got {}", signing_key.len()),
-        ))?;
+    let key_bytes: [u8; 32] = signing_key.try_into().map_err(|_| {
+        SignatureError::InvalidClassicalKey(format!("expected 32 bytes, got {}", signing_key.len()))
+    })?;
     let sk = ed25519_dalek::SigningKey::from_bytes(&key_bytes);
     let sig = sk.sign(message);
     Ok(sig.to_bytes().to_vec())
@@ -265,19 +261,21 @@ pub fn verify_classical(
     message: &[u8],
     signature: &[u8],
 ) -> Result<bool, SignatureError> {
-    let pk_bytes: [u8; 32] = public_key
-        .try_into()
-        .map_err(|_| SignatureError::InvalidClassicalKey(
-            format!("expected 32-byte public key, got {}", public_key.len()),
-        ))?;
+    let pk_bytes: [u8; 32] = public_key.try_into().map_err(|_| {
+        SignatureError::InvalidClassicalKey(format!(
+            "expected 32-byte public key, got {}",
+            public_key.len()
+        ))
+    })?;
     let vk = ed25519_dalek::VerifyingKey::from_bytes(&pk_bytes)
         .map_err(|e| SignatureError::InvalidClassicalKey(e.to_string()))?;
 
-    let sig_bytes: [u8; 64] = signature
-        .try_into()
-        .map_err(|_| SignatureError::InvalidClassicalKey(
-            format!("expected 64-byte signature, got {}", signature.len()),
-        ))?;
+    let sig_bytes: [u8; 64] = signature.try_into().map_err(|_| {
+        SignatureError::InvalidClassicalKey(format!(
+            "expected 64-byte signature, got {}",
+            signature.len()
+        ))
+    })?;
     let sig = ed25519_dalek::Signature::from_bytes(&sig_bytes);
 
     match vk.verify(message, &sig) {
@@ -410,10 +408,7 @@ pub struct HybridSharedSecret {
 /// `K = SHA3-256(domain_tag || K_classical || K_PQC)`
 ///
 /// Domain-separated to prevent cross-context reuse.
-pub fn combine_shared_secrets(
-    classical_secret: &[u8],
-    pqc_secret: &[u8],
-) -> HybridSharedSecret {
+pub fn combine_shared_secrets(classical_secret: &[u8], pqc_secret: &[u8]) -> HybridSharedSecret {
     let domain = create_domain_tag(b"VSEL::v1::key_exchange");
     let mut hasher = Sha3_256::new();
     hasher.update(&(domain.0).0);
@@ -580,7 +575,10 @@ mod tests {
 
         // Cross-domain verification must fail
         let cross_ok = hybrid_verify(&kp.public_key, message, &sig_a, &domain_b).unwrap();
-        assert!(!cross_ok, "signature from domain_a must not verify under domain_b");
+        assert!(
+            !cross_ok,
+            "signature from domain_a must not verify under domain_b"
+        );
     }
 
     #[test]
@@ -606,8 +604,16 @@ mod tests {
         let kp = generate_hybrid_keypair();
 
         // Classical key sizes
-        assert_eq!(kp.signing_key.classical.len(), 32, "Ed25519 signing key = 32 bytes");
-        assert_eq!(kp.public_key.classical.len(), 32, "Ed25519 public key = 32 bytes");
+        assert_eq!(
+            kp.signing_key.classical.len(),
+            32,
+            "Ed25519 signing key = 32 bytes"
+        );
+        assert_eq!(
+            kp.public_key.classical.len(),
+            32,
+            "Ed25519 public key = 32 bytes"
+        );
 
         // PQC key sizes (placeholder)
         assert_eq!(kp.signing_key.pqc.len(), PQC_KEY_SIZE);
@@ -639,7 +645,10 @@ mod tests {
 
         let ss1 = hybrid_key_exchange(secret, &kp.public_key).unwrap();
         let ss2 = hybrid_key_exchange(secret, &kp.public_key).unwrap();
-        assert_eq!(ss1, ss2, "key exchange must be deterministic for same inputs");
+        assert_eq!(
+            ss1, ss2,
+            "key exchange must be deterministic for same inputs"
+        );
     }
 
     #[test]
@@ -650,7 +659,10 @@ mod tests {
 
         let ss1 = hybrid_key_exchange(secret, &kp1.public_key).unwrap();
         let ss2 = hybrid_key_exchange(secret, &kp2.public_key).unwrap();
-        assert_ne!(ss1, ss2, "different public keys must produce different shared secrets");
+        assert_ne!(
+            ss1, ss2,
+            "different public keys must produce different shared secrets"
+        );
     }
 
     #[test]

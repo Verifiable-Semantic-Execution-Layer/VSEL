@@ -112,7 +112,8 @@ pub fn compose(proofs: &[Proof]) -> Result<Proof, ProverError> {
     let composed_commitments = compose_commitments(proofs);
 
     // Generate composed proof data.
-    let composed_proof_data = compose_proof_data(proofs, &composed_commitments, &composed_public_inputs);
+    let composed_proof_data =
+        compose_proof_data(proofs, &composed_commitments, &composed_public_inputs);
 
     // Metadata for the composed proof.
     let metadata = ProofMetadata {
@@ -129,7 +130,6 @@ pub fn compose(proofs: &[Proof]) -> Result<Proof, ProverError> {
         metadata,
     })
 }
-
 
 // ---------------------------------------------------------------------------
 // compose_commitments — hash all individual commitments together
@@ -332,7 +332,6 @@ pub fn create_recursive_proof(
     })
 }
 
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -371,7 +370,10 @@ pub mod plonky3_recursive {
             return false;
         }
         let left_len = u32::from_le_bytes([
-            bundle[pos], bundle[pos + 1], bundle[pos + 2], bundle[pos + 3],
+            bundle[pos],
+            bundle[pos + 1],
+            bundle[pos + 2],
+            bundle[pos + 3],
         ]) as usize;
         pos += 4;
 
@@ -386,7 +388,10 @@ pub mod plonky3_recursive {
             return false;
         }
         let right_len = u32::from_le_bytes([
-            bundle[pos], bundle[pos + 1], bundle[pos + 2], bundle[pos + 3],
+            bundle[pos],
+            bundle[pos + 1],
+            bundle[pos + 2],
+            bundle[pos + 3],
         ]) as usize;
         pos += 4;
 
@@ -418,9 +423,7 @@ pub mod plonky3_recursive {
     /// domain consistency, and version consistency.
     ///
     /// Requirement 2.6.
-    pub fn validate_proof_chain(
-        public_inputs: &[PublicInputs],
-    ) -> Result<(), Plonky3Error> {
+    pub fn validate_proof_chain(public_inputs: &[PublicInputs]) -> Result<(), Plonky3Error> {
         if public_inputs.len() < 2 {
             return Err(Plonky3Error::CompositionTooFewProofs);
         }
@@ -521,9 +524,15 @@ mod tests {
         let composed = compose(&proofs).expect("composition should succeed");
 
         // root_init from first proof.
-        assert_eq!(composed.public_inputs.root_init, proofs[0].public_inputs.root_init);
+        assert_eq!(
+            composed.public_inputs.root_init,
+            proofs[0].public_inputs.root_init
+        );
         // root_final from last proof.
-        assert_eq!(composed.public_inputs.root_final, proofs[1].public_inputs.root_final);
+        assert_eq!(
+            composed.public_inputs.root_final,
+            proofs[1].public_inputs.root_final
+        );
         // Observables combined.
         assert_eq!(composed.public_inputs.observables.len(), 2);
         // Domain preserved.
@@ -751,8 +760,8 @@ mod tests {
             constraint_commitment: make_hash(0x60),
         };
 
-        let outer = create_recursive_proof(&inner, outer_pub, outer_commitments)
-            .expect("should succeed");
+        let outer =
+            create_recursive_proof(&inner, outer_pub, outer_commitments).expect("should succeed");
 
         assert_eq!(outer.metadata.proof_system, "stark-placeholder-recursive");
         assert!(!outer.proof_data.is_empty());
@@ -769,7 +778,10 @@ mod tests {
 
         // Composed commitments should differ from any individual proof's commitments.
         for proof in &proofs {
-            assert_ne!(composed.commitments.trace_commitment, proof.commitments.trace_commitment);
+            assert_ne!(
+                composed.commitments.trace_commitment,
+                proof.commitments.trace_commitment
+            );
         }
     }
 
@@ -789,6 +801,9 @@ mod tests {
         alt_chain[0].public_inputs.root_final = alt_chain[1].public_inputs.root_init.clone();
 
         let c2 = compose(&alt_chain).expect("c2");
-        assert_ne!(c1.commitments.trace_commitment, c2.commitments.trace_commitment);
+        assert_ne!(
+            c1.commitments.trace_commitment,
+            c2.commitments.trace_commitment
+        );
     }
 }

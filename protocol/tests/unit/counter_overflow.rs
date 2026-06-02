@@ -232,7 +232,8 @@ fn epoch_at_max_does_not_panic() {
     let post = apply(&s, &sigma);
 
     assert_eq!(
-        post.metadata.epoch, u64::MAX,
+        post.metadata.epoch,
+        u64::MAX,
         "epoch must remain at u64::MAX (not incremented by advance_metadata)"
     );
     assert!(
@@ -245,10 +246,7 @@ fn epoch_at_max_does_not_panic() {
 #[test]
 fn state_valid_at_max_epoch() {
     let s = build_state(1, u64::MAX);
-    assert!(
-        valid_state(&s),
-        "State with epoch = u64::MAX must be valid"
-    );
+    assert!(valid_state(&s), "State with epoch = u64::MAX must be valid");
 }
 
 /// G_mono holds with epoch at u64::MAX.
@@ -256,10 +254,7 @@ fn state_valid_at_max_epoch() {
 fn g_mono_holds_at_max_epoch() {
     let s = build_state(1, u64::MAX);
     let result = g_mono(&s);
-    assert!(
-        result.valid,
-        "G_mono must hold with epoch = u64::MAX"
-    );
+    assert!(result.valid, "G_mono must hold with epoch = u64::MAX");
 }
 
 /// Both counters at u64::MAX simultaneously.
@@ -307,13 +302,11 @@ fn commitment_advances_at_saturation() {
 
     // But commitments differ because previous_commitment feeds into the hash
     assert_ne!(
-        post1.metadata.previous_commitment,
-        s.metadata.previous_commitment,
+        post1.metadata.previous_commitment, s.metadata.previous_commitment,
         "Commitment must change on first saturated transition"
     );
     assert_ne!(
-        post2.metadata.previous_commitment,
-        post1.metadata.previous_commitment,
+        post2.metadata.previous_commitment, post1.metadata.previous_commitment,
         "Commitment must change on second saturated transition"
     );
 }

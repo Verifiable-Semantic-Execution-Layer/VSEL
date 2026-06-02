@@ -167,11 +167,7 @@ fn deterministic_input(step: usize, accounts: &[([u8; 32], u128)]) -> Input {
                 let receiver_idx = (step + 1) % accounts.len();
                 if sender_idx != receiver_idx && accounts[sender_idx].1 > 1 {
                     let amount = 1; // small transfer to avoid exhaustion
-                    make_transfer(
-                        &accounts[sender_idx].0,
-                        &accounts[receiver_idx].0,
-                        amount,
-                    )
+                    make_transfer(&accounts[sender_idx].0, &accounts[receiver_idx].0, amount)
                 } else {
                     make_noop()
                 }
@@ -349,9 +345,7 @@ fn run_long_trace_simulation(num_steps: usize) {
     }
 
     // 5. Check temporal invariants over the accumulated trace
-    let trace = Trace {
-        steps: trace_steps,
-    };
+    let trace = Trace { steps: trace_steps };
     let temporal_result = check_all_temporal(&trace);
     assert!(
         temporal_result.valid,
@@ -505,9 +499,7 @@ fn test_no_delayed_invariant_failure() {
     }
 
     // Final temporal check over the full trace
-    let full_trace = Trace {
-        steps: trace_steps,
-    };
+    let full_trace = Trace { steps: trace_steps };
     let final_temporal = check_all_temporal(&full_trace);
     assert!(
         final_temporal.valid,
@@ -644,9 +636,7 @@ fn test_mixed_operations_trace() {
     }
 
     // Temporal invariants over the full mixed trace
-    let trace = Trace {
-        steps: trace_steps,
-    };
+    let trace = Trace { steps: trace_steps };
     let temporal_result = check_all_temporal(&trace);
     assert!(
         temporal_result.valid,

@@ -419,6 +419,9 @@ mod tests {
         assert_eq!(GoldilocksField::from_bytes(&one.to_bytes()), one);
 
         let p_minus_1 = GoldilocksField(GoldilocksField::MODULUS - 1);
-        assert_eq!(GoldilocksField::from_bytes(&p_minus_1.to_bytes()), p_minus_1);
+        assert_eq!(
+            GoldilocksField::from_bytes(&p_minus_1.to_bytes()),
+            p_minus_1
+        );
     }
 }

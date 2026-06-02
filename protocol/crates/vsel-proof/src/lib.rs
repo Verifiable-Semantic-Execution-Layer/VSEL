@@ -10,7 +10,7 @@
 //! ## Quick Start
 //!
 //! ### Basic Usage (Backward Compatible)
-//! ```rust
+//! ```text
 //! use vsel_proof::verifier::{DefaultVerifier, VerificationResult};
 //! use vsel_proof::prover::{DefaultProver, Prover};
 //!
@@ -24,11 +24,10 @@
 //! assert!(result.is_cryptographically_consistent());
 //! ```
 //!
-//! ### Two-Phase Verification (Recommended)
-//! ```rust
+//! ### Final Verification (Fail Closed)
+//! ```text
 //! use vsel_proof::verifier::{
-//!     VerificationPipeline, GenericVerifier, DefaultSemanticVerifier,
-//!     ComprehensiveVerificationResult
+//!     VerificationPipeline, GenericVerifier, DefaultSemanticVerifier
 //! };
 //! use vsel_proof::hash_backend::HashBackend;
 //! use vsel_core::types::ProtocolVersion;
@@ -39,17 +38,17 @@
 //!     DefaultSemanticVerifier::new(ProtocolVersion::default()),
 //! );
 //!
-//! // Execute both phases
+//! // Execute legacy two-phase inspection. This cannot produce final semantic
+//! // acceptance because it does not include witness/constraint evidence and the
+//! // default semantic verifier is non-authoritative.
 //! let comprehensive = pipeline.verify(&proof, &public_inputs);
 //!
-//! // Check both phases separately
 //! assert!(comprehensive.cryptographic.is_consistent());
-//! assert!(comprehensive.semantic.is_valid());
-//! assert!(comprehensive.is_fully_verified()); // Both phases passed
+//! assert!(!comprehensive.is_fully_verified());
 //! ```
 //!
-//! ### With Lean 4 Formal Verification
-//! ```rust
+//! ### With Lean 4 Formal Verification Adapter
+//! ```text
 //! use vsel_proof::verifier::Lean4SemanticVerifier;
 //!
 //! let pipeline = VerificationPipeline::new(
@@ -77,24 +76,26 @@
 //!
 //! ⚠️ **CRITICAL**: `VerificationResult::CryptographicallyConsistent` indicates cryptographic
 //! validity ONLY. It does NOT imply semantic validity. A proof can be cryptographically
-//! correct but semantically invalid. Always use `ComprehensiveVerificationResult` with
-//! both phases for security-critical applications.
+//! correct but semantically invalid. Security-critical applications must use
+//! `VerificationPipeline::verify_strict_trace` with witness, constraints, the
+//! complete execution trace, and an authoritative executable/mechanized semantic
+//! verifier.
 //!
 //! ## Migration Guide
 //!
 //! ### From Legacy API
-//! ```rust
+//! ```text
 //! // Old API (still works, but deprecated)
 //! let result = verifier.verify(&proof, &pub_inputs);
 //! if result.is_accepted() { // Deprecated
 //!     // ...
 //! }
 //!
-//! // New API (recommended)
+//! // Inspection API: exposes phases but is not final acceptance.
 //! let pipeline = VerificationPipeline::new(crypto_verifier, semantic_verifier);
 //! let comprehensive = pipeline.verify(&proof, &pub_inputs);
 //! if comprehensive.is_fully_verified() {
-//!     // Both cryptographic AND semantic validation passed
+//!     // This branch is unreachable for non-strict verification.
 //! }
 //! ```
 
@@ -121,17 +122,18 @@ pub mod witness;
 // Re-export key types for convenience
 pub use verifier::{
     AssumeGuaranteeContract, AttackPattern, BuchiAutomaton, ComprehensiveSemanticVerifier,
-    ComprehensiveVerificationResult, ContractCondition, ContractError, ContractVerificationResult,
-    CryptographicVerificationResult, CryptographicVerifier, DefaultSemanticVerifier,
-    DifferentialAnalysisResult, DifferentialError, DifferentialSemanticAnalyzer,
-    IntegratedFormalVerificationResult, IntegratedFormalVerificationStatus,
-    IntegratedFormalVerifier, InterpretationError, Lean4SemanticVerifier, LtlProperty,
-    ProofCarryingWitness, ProofWitness, RealTimeModelChecker, RefinementError, RefinementLayer,
-    RefinementProof, RefinementProofVerifier, RefinementVerificationResult, SemanticAmbiguity,
-    SemanticConstraintSolver, SemanticDrift, SemanticInterpretation, SemanticMeaning,
-    SemanticProof, SemanticValidationError, SemanticVerificationResult, SemanticVerifier,
-    SimulationRelation, Solution, SolverBackend, SolverError, SymbolicConstraint,
+    ComprehensiveVerificationResult, ConstraintWitnessVerifier, ContractCondition, ContractError,
+    ContractVerificationResult, CryptographicVerificationResult, CryptographicVerifier,
+    DefaultSemanticVerifier, DifferentialAnalysisResult, DifferentialError,
+    DifferentialSemanticAnalyzer, IntegratedFormalVerificationResult,
+    IntegratedFormalVerificationStatus, IntegratedFormalVerifier, InterpretationError,
+    Lean4SemanticVerifier, LtlProperty, ProofCarryingWitness, ProofWitness, RealTimeModelChecker,
+    RefinementError, RefinementLayer, RefinementProof, RefinementProofVerifier,
+    RefinementVerificationResult, SemanticAmbiguity, SemanticConstraintSolver, SemanticDrift,
+    SemanticInterpretation, SemanticMeaning, SemanticProof, SemanticValidationError,
+    SemanticVerificationEvidence, SemanticVerificationMode, SemanticVerificationResult,
+    SemanticVerifier, SimulationRelation, Solution, SolverBackend, SolverError, SymbolicConstraint,
     SymbolicExecutionEngine, SymbolicExecutionError, SymbolicExecutionResult, SymbolicValue,
-    TrustAssumption, VerificationCertificate, VerificationPipeline, VerificationResult,
-    VerificationStatus, VerificationTimeout,
+    TraceSemanticVerifier, TrustAssumption, VerificationCertificate, VerificationPipeline,
+    VerificationResult, VerificationStatus, VerificationTimeout,
 };

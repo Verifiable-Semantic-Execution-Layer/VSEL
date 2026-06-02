@@ -568,11 +568,9 @@ mod tests {
         for i in 0..composed.sync_points.len() {
             for j in (i + 1)..composed.sync_points.len() {
                 assert_ne!(
-                    composed.sync_points[i].commitment,
-                    composed.sync_points[j].commitment,
+                    composed.sync_points[i].commitment, composed.sync_points[j].commitment,
                     "sync points {} and {} should have different commitments",
-                    i,
-                    j
+                    i, j
                 );
             }
         }
@@ -609,7 +607,10 @@ mod tests {
                 assert_eq!(preceding_timestamp, 2000);
                 assert_eq!(violating_timestamp, 1000);
             }
-            other => panic!("Expected IntraTraceOrderingViolation for A, got {:?}", other),
+            other => panic!(
+                "Expected IntraTraceOrderingViolation for A, got {:?}",
+                other
+            ),
         }
     }
 
@@ -628,7 +629,10 @@ mod tests {
                 assert_eq!(system, "B");
                 assert_eq!(entry_index, 1);
             }
-            other => panic!("Expected IntraTraceOrderingViolation for B, got {:?}", other),
+            other => panic!(
+                "Expected IntraTraceOrderingViolation for B, got {:?}",
+                other
+            ),
         }
     }
 

@@ -12,9 +12,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::compiler::{
-    Constraint, ConstraintCategory, ConstraintId, ConstraintSystem,
-};
+use crate::compiler::{Constraint, ConstraintCategory, ConstraintId, ConstraintSystem};
 use vsel_sir::types::SirProgram;
 
 // ---------------------------------------------------------------------------
@@ -337,10 +335,7 @@ fn extract_transition_name(constraint: &Constraint) -> Option<String> {
 /// cell should be at Full coverage.
 ///
 /// Requirements: 5.9, 12.9, 12.10
-pub fn build_coverage_matrix(
-    program: &SirProgram,
-    system: &ConstraintSystem,
-) -> CoverageMatrix {
+pub fn build_coverage_matrix(program: &SirProgram, system: &ConstraintSystem) -> CoverageMatrix {
     // Collect all transition classes from the program.
     let transition_classes: Vec<String> = program
         .transitions
@@ -641,10 +636,7 @@ mod tests {
             CoverageLevel::Full,
             "L_cons × Update should be Full"
         );
-        assert!(
-            !cell.constraint_ids.is_empty(),
-            "must have constraint IDs"
-        );
+        assert!(!cell.constraint_ids.is_empty(), "must have constraint IDs");
     }
 
     #[test]
@@ -657,7 +649,10 @@ mod tests {
         let cell = matrix
             .field_coverage
             .get(&("nonce".to_string(), "Update".to_string()));
-        assert!(cell.is_some(), "field coverage cell must exist for nonce × Update");
+        assert!(
+            cell.is_some(),
+            "field coverage cell must exist for nonce × Update"
+        );
         let cell = cell.unwrap();
         assert_eq!(
             cell.level,
@@ -676,7 +671,10 @@ mod tests {
         let cell = matrix
             .field_coverage
             .get(&("balance".to_string(), "Update".to_string()));
-        assert!(cell.is_some(), "field coverage cell must exist for balance × Update");
+        assert!(
+            cell.is_some(),
+            "field coverage cell must exist for balance × Update"
+        );
         let cell = cell.unwrap();
         assert_eq!(
             cell.level,
@@ -716,10 +714,7 @@ mod tests {
 
         // Filter out CONST-3 findings — the test program has no conditionals
         // in transitions, so CONST-3 (branch completeness) may be a gap.
-        let non_const3_findings: Vec<_> = findings
-            .iter()
-            .filter(|f| f.key != "CONST-3")
-            .collect();
+        let non_const3_findings: Vec<_> = findings.iter().filter(|f| f.key != "CONST-3").collect();
 
         // All other cells should be Full.
         for finding in &non_const3_findings {

@@ -187,8 +187,7 @@ impl ComplianceReport {
     /// Check if all controls are compliant (or not applicable).
     pub fn fully_compliant(&self) -> bool {
         self.controls.values().all(|c| {
-            c.status == ComplianceStatus::Compliant
-                || c.status == ComplianceStatus::NotApplicable
+            c.status == ComplianceStatus::Compliant || c.status == ComplianceStatus::NotApplicable
         })
     }
 
@@ -196,7 +195,11 @@ impl ComplianceReport {
     pub fn all_gaps(&self) -> Vec<(&str, &str)> {
         self.controls
             .values()
-            .flat_map(|c| c.gaps.iter().map(move |g| (c.control_id.as_str(), g.as_str())))
+            .flat_map(|c| {
+                c.gaps
+                    .iter()
+                    .map(move |g| (c.control_id.as_str(), g.as_str()))
+            })
             .collect()
     }
 }
@@ -221,8 +224,7 @@ pub fn build_compliance_report(matrix: &TraceabilityMatrix) -> ComplianceReport 
     let mut controls = BTreeMap::new();
 
     for (control_id, control) in &nist_controls {
-        let (linked_invariants, linked_obligations) =
-            find_traceability_links(matrix, control_id);
+        let (linked_invariants, linked_obligations) = find_traceability_links(matrix, control_id);
 
         let evidence = build_evidence_for_control(control, &linked_invariants, &linked_obligations);
 
@@ -345,41 +347,57 @@ fn classify_implementation(impl_ref: &str) -> (EvidenceKind, String) {
             EvidenceKind::Test,
             format!("Testing evidence: {}", impl_ref),
         )
-    } else if impl_ref.contains("formal/") || impl_ref.contains("Lean") || impl_ref.contains("lean") {
+    } else if impl_ref.contains("formal/") || impl_ref.contains("Lean") || impl_ref.contains("lean")
+    {
         (
             EvidenceKind::FormalProof,
             format!("Formal verification: {}", impl_ref),
         )
-    } else if impl_ref.contains("TLA+") || impl_ref.contains("tlc") || impl_ref.contains("model checking") {
+    } else if impl_ref.contains("TLA+")
+        || impl_ref.contains("tlc")
+        || impl_ref.contains("model checking")
+    {
         (
             EvidenceKind::ModelCheck,
             format!("Model checking: {}", impl_ref),
         )
-    } else if impl_ref.contains("audit") || impl_ref.contains("Audit") || impl_ref.contains("evidence") {
+    } else if impl_ref.contains("audit")
+        || impl_ref.contains("Audit")
+        || impl_ref.contains("evidence")
+    {
         (
             EvidenceKind::AuditArtifact,
             format!("Audit evidence: {}", impl_ref),
         )
-    } else if impl_ref.contains("document") || impl_ref.contains("Document") || impl_ref.contains("docs/") || impl_ref.contains("model") || impl_ref.contains("specification") {
+    } else if impl_ref.contains("document")
+        || impl_ref.contains("Document")
+        || impl_ref.contains("docs/")
+        || impl_ref.contains("model")
+        || impl_ref.contains("specification")
+    {
         (
             EvidenceKind::Document,
             format!("Documentation: {}", impl_ref),
         )
-    } else if impl_ref.contains("Cargo") || impl_ref.contains("pinning") || impl_ref.contains("build") || impl_ref.contains("toolchain") {
+    } else if impl_ref.contains("Cargo")
+        || impl_ref.contains("pinning")
+        || impl_ref.contains("build")
+        || impl_ref.contains("toolchain")
+    {
         (
             EvidenceKind::Configuration,
             format!("Configuration: {}", impl_ref),
         )
-    } else if impl_ref.contains("vsel-") || impl_ref.contains(".rs") || impl_ref.contains("protocol/") {
+    } else if impl_ref.contains("vsel-")
+        || impl_ref.contains(".rs")
+        || impl_ref.contains("protocol/")
+    {
         (
             EvidenceKind::SourceFile,
             format!("Implementation: {}", impl_ref),
         )
     } else {
-        (
-            EvidenceKind::Document,
-            format!("Reference: {}", impl_ref),
-        )
+        (EvidenceKind::Document, format!("Reference: {}", impl_ref))
     }
 }
 
@@ -509,14 +527,13 @@ mod tests {
         let report = build_compliance_report(&matrix);
 
         let ssdf_ids = [
-            "PO.1", "PS.1", "PW.1", "PW.4", "PW.5", "PW.6", "PW.7",
-            "PW.8", "RV.1", "RV.2", "RV.3",
+            "PO.1", "PS.1", "PW.1", "PW.4", "PW.5", "PW.6", "PW.7", "PW.8", "RV.1", "RV.2", "RV.3",
         ];
 
         for id in &ssdf_ids {
-            let entry = report.get_control(id).unwrap_or_else(|| {
-                panic!("SSDF practice '{}' missing from compliance report", id)
-            });
+            let entry = report
+                .get_control(id)
+                .unwrap_or_else(|| panic!("SSDF practice '{}' missing from compliance report", id));
             assert_eq!(entry.framework, NistFramework::Ssdf);
         }
 
@@ -531,9 +548,9 @@ mod tests {
         let csf_ids = ["ID", "PR", "DE", "RS", "RC"];
 
         for id in &csf_ids {
-            let entry = report.get_control(id).unwrap_or_else(|| {
-                panic!("CSF function '{}' missing from compliance report", id)
-            });
+            let entry = report
+                .get_control(id)
+                .unwrap_or_else(|| panic!("CSF function '{}' missing from compliance report", id));
             assert_eq!(entry.framework, NistFramework::Csf);
         }
 
@@ -560,9 +577,8 @@ mod tests {
         let report = build_compliance_report(&matrix);
 
         // Controls that enforce invariants should have traceability links.
-        let controls_with_expected_links = [
-            "PW.1", "PW.4", "PW.8", "PS.1", "RV.1", "PR", "DE", "ID",
-        ];
+        let controls_with_expected_links =
+            ["PW.1", "PW.4", "PW.8", "PS.1", "RV.1", "PR", "DE", "ID"];
 
         for id in &controls_with_expected_links {
             let entry = report.get_control(id).unwrap();
@@ -671,14 +687,18 @@ mod tests {
         // PS.1 (Protect Software) should have SourceFile evidence.
         let ps1 = report.get_control("PS.1").unwrap();
         assert!(
-            ps1.evidence.iter().any(|e| e.kind == EvidenceKind::SourceFile),
+            ps1.evidence
+                .iter()
+                .any(|e| e.kind == EvidenceKind::SourceFile),
             "PS.1 should have SourceFile evidence"
         );
 
         // PW.1 (Design Software) should have FormalProof evidence.
         let pw1 = report.get_control("PW.1").unwrap();
         assert!(
-            pw1.evidence.iter().any(|e| e.kind == EvidenceKind::FormalProof),
+            pw1.evidence
+                .iter()
+                .any(|e| e.kind == EvidenceKind::FormalProof),
             "PW.1 should have FormalProof evidence"
         );
     }
@@ -726,7 +746,9 @@ mod tests {
         // RV.1 (Identify Vulnerabilities) should link to CONST obligations.
         let rv1 = report.get_control("RV.1").unwrap();
         assert!(
-            rv1.linked_obligations.iter().any(|o| o.starts_with("CONST")),
+            rv1.linked_obligations
+                .iter()
+                .any(|o| o.starts_with("CONST")),
             "RV.1 should link to CONST proof obligations"
         );
     }

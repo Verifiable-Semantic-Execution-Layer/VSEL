@@ -45,12 +45,21 @@ fn make_update_program() -> SirProgram {
         version: "0.1.0".to_string(),
         state_schema: SirStateSchema {
             fields: vec![
-                SirFieldSchema { name: "balance".into(), field_type: "Int".into() },
-                SirFieldSchema { name: "nonce".into(), field_type: "Int".into() },
+                SirFieldSchema {
+                    name: "balance".into(),
+                    field_type: "Int".into(),
+                },
+                SirFieldSchema {
+                    name: "nonce".into(),
+                    field_type: "Int".into(),
+                },
             ],
         },
         input_schema: SirInputSchema {
-            fields: vec![SirFieldSchema { name: "amount".into(), field_type: "Int".into() }],
+            fields: vec![SirFieldSchema {
+                name: "amount".into(),
+                field_type: "Int".into(),
+            }],
         },
         transitions: vec![SirTransition {
             name: "deposit".into(),
@@ -58,20 +67,28 @@ fn make_update_program() -> SirProgram {
             preconditions: vec![SirExpr::BinOp {
                 op: "gt".into(),
                 left: Box::new(SirExpr::FieldAccess {
-                    expr: Box::new(SirExpr::Var { name: "input".into() }),
+                    expr: Box::new(SirExpr::Var {
+                        name: "input".into(),
+                    }),
                     field: "amount".into(),
                 }),
-                right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                right: Box::new(SirExpr::Literal {
+                    value: SirValue::Int { value: 0 },
+                }),
             }],
             postconditions: vec![],
             body: SirExpr::BinOp {
                 op: "add".into(),
                 left: Box::new(SirExpr::FieldAccess {
-                    expr: Box::new(SirExpr::Var { name: "state".into() }),
+                    expr: Box::new(SirExpr::Var {
+                        name: "state".into(),
+                    }),
                     field: "balance".into(),
                 }),
                 right: Box::new(SirExpr::FieldAccess {
-                    expr: Box::new(SirExpr::Var { name: "input".into() }),
+                    expr: Box::new(SirExpr::Var {
+                        name: "input".into(),
+                    }),
                     field: "amount".into(),
                 }),
             },
@@ -83,10 +100,14 @@ fn make_update_program() -> SirProgram {
             expr: SirExpr::BinOp {
                 op: "ge".into(),
                 left: Box::new(SirExpr::FieldAccess {
-                    expr: Box::new(SirExpr::Var { name: "state".into() }),
+                    expr: Box::new(SirExpr::Var {
+                        name: "state".into(),
+                    }),
                     field: "balance".into(),
                 }),
-                right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                right: Box::new(SirExpr::Literal {
+                    value: SirValue::Int { value: 0 },
+                }),
             },
         }],
         observables: vec![],
@@ -101,19 +122,30 @@ fn make_noop_program() -> SirProgram {
         version: "0.1.0".to_string(),
         state_schema: SirStateSchema {
             fields: vec![
-                SirFieldSchema { name: "balance".into(), field_type: "Int".into() },
-                SirFieldSchema { name: "nonce".into(), field_type: "Int".into() },
+                SirFieldSchema {
+                    name: "balance".into(),
+                    field_type: "Int".into(),
+                },
+                SirFieldSchema {
+                    name: "nonce".into(),
+                    field_type: "Int".into(),
+                },
             ],
         },
         input_schema: SirInputSchema {
-            fields: vec![SirFieldSchema { name: "amount".into(), field_type: "Int".into() }],
+            fields: vec![SirFieldSchema {
+                name: "amount".into(),
+                field_type: "Int".into(),
+            }],
         },
         transitions: vec![SirTransition {
             name: "noop".into(),
             class: "Noop".into(),
             preconditions: vec![],
             postconditions: vec![],
-            body: SirExpr::Var { name: "state".into() },
+            body: SirExpr::Var {
+                name: "state".into(),
+            },
             allowed_mutations: vec![],
         }],
         invariants: vec![SirInvariant {
@@ -122,10 +154,14 @@ fn make_noop_program() -> SirProgram {
             expr: SirExpr::BinOp {
                 op: "ge".into(),
                 left: Box::new(SirExpr::FieldAccess {
-                    expr: Box::new(SirExpr::Var { name: "state".into() }),
+                    expr: Box::new(SirExpr::Var {
+                        name: "state".into(),
+                    }),
                     field: "balance".into(),
                 }),
-                right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                right: Box::new(SirExpr::Literal {
+                    value: SirValue::Int { value: 0 },
+                }),
             },
         }],
         observables: vec![],
@@ -139,12 +175,21 @@ fn make_error_program() -> SirProgram {
         version: "0.1.0".to_string(),
         state_schema: SirStateSchema {
             fields: vec![
-                SirFieldSchema { name: "balance".into(), field_type: "Int".into() },
-                SirFieldSchema { name: "nonce".into(), field_type: "Int".into() },
+                SirFieldSchema {
+                    name: "balance".into(),
+                    field_type: "Int".into(),
+                },
+                SirFieldSchema {
+                    name: "nonce".into(),
+                    field_type: "Int".into(),
+                },
             ],
         },
         input_schema: SirInputSchema {
-            fields: vec![SirFieldSchema { name: "amount".into(), field_type: "Int".into() }],
+            fields: vec![SirFieldSchema {
+                name: "amount".into(),
+                field_type: "Int".into(),
+            }],
         },
         transitions: vec![SirTransition {
             name: "error_transition".into(),
@@ -153,22 +198,32 @@ fn make_error_program() -> SirProgram {
                 SirExpr::BinOp {
                     op: "gt".into(),
                     left: Box::new(SirExpr::FieldAccess {
-                        expr: Box::new(SirExpr::Var { name: "input".into() }),
+                        expr: Box::new(SirExpr::Var {
+                            name: "input".into(),
+                        }),
                         field: "amount".into(),
                     }),
-                    right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                    right: Box::new(SirExpr::Literal {
+                        value: SirValue::Int { value: 0 },
+                    }),
                 },
                 SirExpr::BinOp {
                     op: "lt".into(),
                     left: Box::new(SirExpr::FieldAccess {
-                        expr: Box::new(SirExpr::Var { name: "input".into() }),
+                        expr: Box::new(SirExpr::Var {
+                            name: "input".into(),
+                        }),
                         field: "amount".into(),
                     }),
-                    right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                    right: Box::new(SirExpr::Literal {
+                        value: SirValue::Int { value: 0 },
+                    }),
                 },
             ],
             postconditions: vec![],
-            body: SirExpr::Var { name: "state".into() },
+            body: SirExpr::Var {
+                name: "state".into(),
+            },
             allowed_mutations: vec![],
         }],
         invariants: vec![],
@@ -185,19 +240,30 @@ fn make_multi_invariant_noop_program() -> SirProgram {
         version: "0.1.0".to_string(),
         state_schema: SirStateSchema {
             fields: vec![
-                SirFieldSchema { name: "balance".into(), field_type: "Int".into() },
-                SirFieldSchema { name: "nonce".into(), field_type: "Int".into() },
+                SirFieldSchema {
+                    name: "balance".into(),
+                    field_type: "Int".into(),
+                },
+                SirFieldSchema {
+                    name: "nonce".into(),
+                    field_type: "Int".into(),
+                },
             ],
         },
         input_schema: SirInputSchema {
-            fields: vec![SirFieldSchema { name: "amount".into(), field_type: "Int".into() }],
+            fields: vec![SirFieldSchema {
+                name: "amount".into(),
+                field_type: "Int".into(),
+            }],
         },
         transitions: vec![SirTransition {
             name: "noop".into(),
             class: "Noop".into(),
             preconditions: vec![],
             postconditions: vec![],
-            body: SirExpr::Var { name: "state".into() },
+            body: SirExpr::Var {
+                name: "state".into(),
+            },
             allowed_mutations: vec![],
         }],
         invariants: vec![
@@ -207,10 +273,14 @@ fn make_multi_invariant_noop_program() -> SirProgram {
                 expr: SirExpr::BinOp {
                     op: "ge".into(),
                     left: Box::new(SirExpr::FieldAccess {
-                        expr: Box::new(SirExpr::Var { name: "state".into() }),
+                        expr: Box::new(SirExpr::Var {
+                            name: "state".into(),
+                        }),
                         field: "balance".into(),
                     }),
-                    right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                    right: Box::new(SirExpr::Literal {
+                        value: SirValue::Int { value: 0 },
+                    }),
                 },
             },
             SirInvariant {
@@ -219,10 +289,14 @@ fn make_multi_invariant_noop_program() -> SirProgram {
                 expr: SirExpr::BinOp {
                     op: "ge".into(),
                     left: Box::new(SirExpr::FieldAccess {
-                        expr: Box::new(SirExpr::Var { name: "state".into() }),
+                        expr: Box::new(SirExpr::Var {
+                            name: "state".into(),
+                        }),
                         field: "nonce".into(),
                     }),
-                    right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                    right: Box::new(SirExpr::Literal {
+                        value: SirValue::Int { value: 0 },
+                    }),
                 },
             },
             SirInvariant {
@@ -233,15 +307,21 @@ fn make_multi_invariant_noop_program() -> SirProgram {
                     left: Box::new(SirExpr::BinOp {
                         op: "add".into(),
                         left: Box::new(SirExpr::FieldAccess {
-                            expr: Box::new(SirExpr::Var { name: "state".into() }),
+                            expr: Box::new(SirExpr::Var {
+                                name: "state".into(),
+                            }),
                             field: "balance".into(),
                         }),
                         right: Box::new(SirExpr::FieldAccess {
-                            expr: Box::new(SirExpr::Var { name: "state".into() }),
+                            expr: Box::new(SirExpr::Var {
+                                name: "state".into(),
+                            }),
                             field: "nonce".into(),
                         }),
                     }),
-                    right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 1_000_000 } }),
+                    right: Box::new(SirExpr::Literal {
+                        value: SirValue::Int { value: 1_000_000 },
+                    }),
                 },
             },
         ],
@@ -302,7 +382,6 @@ fn boundary_any() -> impl Strategy<Value = i64> {
         10 => any::<i64>(),
     ]
 }
-
 
 // ===========================================================================
 // SECTION 1: Noop (T_noop) — Full bidirectional LEM-4/LEM-5 equivalence

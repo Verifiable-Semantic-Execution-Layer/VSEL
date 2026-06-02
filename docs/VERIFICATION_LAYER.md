@@ -7,14 +7,14 @@ This document defines the responsibilities, guarantees, and behavior of the veri
 The verification layer is responsible for:
 
 * validating proofs
-* enforcing semantic correctness guarantees
+* enforcing semantic correctness guarantees only on the strict final-acceptance path
 * binding proofs to actual system state and context
 
 The core requirement is:
 
-> If the verifier accepts a proof, the corresponding execution must be semantically valid under the formal specification.
+> If the strict verifier emits `FullyVerified`, the corresponding execution must be semantically valid under the formal specification.
 
-No weaker interpretation is acceptable.
+`CryptographicallyConsistent` is not an acceptance result for semantic validity.
 
 ---
 
@@ -24,14 +24,18 @@ Given:
 
 * proof ( \pi )
 * public inputs ( Pub )
+* witness ( W )
+* constraint system ( C )
+* complete execution trace ( \tau )
+* authoritative semantic evidence ( E_{sem} )
 
 Verification must ensure:
 
 [
-Verify(\pi, Pub) = true \Rightarrow ValidTrace(\tau)
+StrictTraceVerify(\pi, Pub, W, C, \tau, E_{sem}) = FullyVerified \Rightarrow ValidTrace(\tau)
 ]
 
-Where ( \tau ) is the execution trace implicitly or explicitly represented by the proof.
+Where ( \tau ) is the complete execution trace supplied to the final semantic verifier. Commitments alone are not sufficient for deterministic semantic replay.
 
 The verifier does not trust:
 
@@ -51,13 +55,16 @@ It only trusts:
 The verifier operates on:
 
 [
-Inputs = (\pi, Pub, Context)
+Inputs = (\pi, Pub, W, C, E_{sem}, Context)
 ]
 
 Where:
 
 * ( \pi ): proof object
 * ( Pub ): public inputs
+* ( W ): witness bound to the proof witness commitment
+* ( C ): constraint system bound to the proof constraint commitment
+* ( E_{sem} ): executable or mechanized semantic evidence
 * ( Context ): system-level parameters
 
 ---
@@ -158,16 +165,16 @@ Ensure that:
 * public inputs correspond to semantic observables
 * state commitments correspond to valid states
 
-This step enforces:
+In the strict path this step contributes to:
 
 [
-\pi \Rightarrow ValidTrace(\tau)
+StrictTraceVerify(\pi, Pub, W, C, \tau, E_{sem}) \Rightarrow ValidTrace(\tau)
 ]
 
-not merely:
+It is not satisfied by:
 
 [
-\pi \Rightarrow SatisfiesConstraints(\tau)
+Verify_{crypto}(\pi, Pub) \Rightarrow SatisfiesConstraints(W, C)
 ]
 
 ---
@@ -184,21 +191,21 @@ If invariants are partially externalized:
 ### Step 7: Final Acceptance
 
 [
-Accept(\pi) \iff \text{all checks pass}
+FullyVerified(\pi, Pub, W, C, \tau, E_{sem}) \iff \text{all trace-strict checks pass}
 ]
 
 ---
 
 ## 5. Verification Guarantees
 
-If a proof is accepted, the verifier guarantees:
+If a proof is `FullyVerified`, the verifier guarantees:
 
 * execution trace is valid
 * invariants are preserved
 * state transitions are correct
 * observables are accurate
 
-If any of these are not guaranteed, verification is incomplete.
+If any of these are not guaranteed, verification must return a non-final status.
 
 ---
 
@@ -271,7 +278,7 @@ Ensures:
 ### 8.1 Proof ↔ Constraints
 
 [
-Verify(\pi) \Rightarrow SatisfiesConstraints(\tau)
+StrictTraceVerify(\pi, Pub, W, C, \tau, E_{sem}) \Rightarrow SatisfiesConstraints(W, C)
 ]
 
 ---
@@ -279,7 +286,7 @@ Verify(\pi) \Rightarrow SatisfiesConstraints(\tau)
 ### 8.2 Constraints ↔ Semantics
 
 [
-SatisfiesConstraints(\tau) \Rightarrow ValidTrace(\tau)
+SatisfiesConstraints(W, C) \land DeterministicReplay(\tau) \land Authoritative(E_{sem}) \Rightarrow ValidTrace(\tau)
 ]
 
 ---
@@ -287,7 +294,7 @@ SatisfiesConstraints(\tau) \Rightarrow ValidTrace(\tau)
 ### 8.3 Combined Guarantee
 
 [
-Verify(\pi) \Rightarrow ValidTrace(\tau)
+StrictTraceVerify(\pi, Pub, W, C, \tau, E_{sem}) \Rightarrow ValidTrace(\tau)
 ]
 
 This chain must hold end-to-end.
@@ -357,13 +364,13 @@ No “best effort” validation.
 A verifier is correct if:
 
 [
-Accept(\pi) \Rightarrow ValidTrace(\tau)
+FullyVerified(\pi, Pub, W, C, \tau, E_{sem}) \Rightarrow ValidTrace(\tau)
 ]
 
 If there exists:
 
 [
-\pi \text{ such that } Accept(\pi) \land \neg ValidTrace(\tau)
+\pi \text{ such that } FullyVerified(\pi, Pub, W, C, \tau, E_{sem}) \land \neg ValidTrace(\tau)
 ]
 
 then the verifier is broken.

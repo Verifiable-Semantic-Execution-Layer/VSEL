@@ -96,10 +96,7 @@ pub struct BatchResult {
 /// and no intermediate results.
 ///
 /// Requirements: 2.5
-pub fn execute_batch(
-    state: &State,
-    inputs: &[Input],
-) -> Result<BatchResult, ExecutionError> {
+pub fn execute_batch(state: &State, inputs: &[Input]) -> Result<BatchResult, ExecutionError> {
     let engine = DefaultExecutionEngine;
     let original_state = state.clone();
     let mut current_state = state.clone();
@@ -185,9 +182,7 @@ mod tests {
     use std::collections::BTreeMap;
     use vsel_core::input::Authorization;
     use vsel_core::observable::TransitionStatus;
-    use vsel_core::state::{
-        derive, derive_economic, CanonicalState, Environment, TraceMetadata,
-    };
+    use vsel_core::state::{derive, derive_economic, CanonicalState, Environment, TraceMetadata};
     use vsel_core::transition::apply;
     use vsel_core::types::*;
 
@@ -496,10 +491,7 @@ mod tests {
             result.trace_entry.post_state_commitment,
             commit(&result.post_state.canonical)
         );
-        assert_eq!(
-            result.trace_entry.transition_class,
-            TransitionClass::Batch
-        );
+        assert_eq!(result.trace_entry.transition_class, TransitionClass::Batch);
     }
 
     // -----------------------------------------------------------------------
@@ -579,10 +571,7 @@ mod tests {
         let deposit_a = make_deposit_input([1u8; 32], 1000);
 
         // Execute the batch: must be rejected at step 2.
-        let result = execute_batch(
-            &s,
-            &[deposit_b, transfer_from_nonexistent, deposit_a],
-        );
+        let result = execute_batch(&s, &[deposit_b, transfer_from_nonexistent, deposit_a]);
 
         assert!(
             result.is_err(),

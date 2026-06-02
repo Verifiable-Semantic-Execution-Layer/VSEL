@@ -72,9 +72,20 @@ fn evaluate_circuit(
             Plonky3Gate::Constant { wire, value } => {
                 wire_values.insert(*wire, *value);
             }
-            Plonky3Gate::Arithmetic { left, right, output, op } => {
-                let l = wire_values.get(left).copied().unwrap_or(GoldilocksField::ZERO);
-                let r = wire_values.get(right).copied().unwrap_or(GoldilocksField::ZERO);
+            Plonky3Gate::Arithmetic {
+                left,
+                right,
+                output,
+                op,
+            } => {
+                let l = wire_values
+                    .get(left)
+                    .copied()
+                    .unwrap_or(GoldilocksField::ZERO);
+                let r = wire_values
+                    .get(right)
+                    .copied()
+                    .unwrap_or(GoldilocksField::ZERO);
                 let result = match op {
                     ArithOp::Add => l.add(r),
                     ArithOp::Sub => l.sub(r),
@@ -89,10 +100,24 @@ fn evaluate_circuit(
             Plonky3Gate::Boolean { wire: _ } => {
                 // Boolean gates assert wire ∈ {0, 1}. No output produced.
             }
-            Plonky3Gate::Selector { condition, then_val, else_val, output } => {
-                let c = wire_values.get(condition).copied().unwrap_or(GoldilocksField::ZERO);
-                let t = wire_values.get(then_val).copied().unwrap_or(GoldilocksField::ZERO);
-                let e = wire_values.get(else_val).copied().unwrap_or(GoldilocksField::ZERO);
+            Plonky3Gate::Selector {
+                condition,
+                then_val,
+                else_val,
+                output,
+            } => {
+                let c = wire_values
+                    .get(condition)
+                    .copied()
+                    .unwrap_or(GoldilocksField::ZERO);
+                let t = wire_values
+                    .get(then_val)
+                    .copied()
+                    .unwrap_or(GoldilocksField::ZERO);
+                let e = wire_values
+                    .get(else_val)
+                    .copied()
+                    .unwrap_or(GoldilocksField::ZERO);
                 // result = c * t + (1 - c) * e
                 let one_minus_c = GoldilocksField::ONE.sub(c);
                 let result = c.mul(t).add(one_minus_c.mul(e));
@@ -116,8 +141,14 @@ fn circuit_equality_constraints_satisfied(
 ) -> bool {
     for gate in &circuit.gates {
         if let Plonky3Gate::Equality { left, right } = gate {
-            let l = wire_values.get(left).copied().unwrap_or(GoldilocksField::ZERO);
-            let r = wire_values.get(right).copied().unwrap_or(GoldilocksField::ZERO);
+            let l = wire_values
+                .get(left)
+                .copied()
+                .unwrap_or(GoldilocksField::ZERO);
+            let r = wire_values
+                .get(right)
+                .copied()
+                .unwrap_or(GoldilocksField::ZERO);
             if l != r {
                 return false;
             }
@@ -134,7 +165,10 @@ fn circuit_boolean_constraints_satisfied(
 ) -> bool {
     for gate in &circuit.gates {
         if let Plonky3Gate::Boolean { wire } = gate {
-            let v = wire_values.get(wire).copied().unwrap_or(GoldilocksField::ZERO);
+            let v = wire_values
+                .get(wire)
+                .copied()
+                .unwrap_or(GoldilocksField::ZERO);
             if v != GoldilocksField::ZERO && v != GoldilocksField::ONE {
                 return false;
             }
@@ -174,14 +208,20 @@ fn eval_expr_field(
             }
         }
         ConstraintExpr::BoolConstant(b) => {
-            if *b { GoldilocksField::ONE } else { GoldilocksField::ZERO }
+            if *b {
+                GoldilocksField::ONE
+            } else {
+                GoldilocksField::ZERO
+            }
         }
-        ConstraintExpr::WitnessRef(name) => {
-            witness_env.get(name).copied().unwrap_or(GoldilocksField::ZERO)
-        }
-        ConstraintExpr::PublicInputRef(name) => {
-            public_input_env.get(name).copied().unwrap_or(GoldilocksField::ZERO)
-        }
+        ConstraintExpr::WitnessRef(name) => witness_env
+            .get(name)
+            .copied()
+            .unwrap_or(GoldilocksField::ZERO),
+        ConstraintExpr::PublicInputRef(name) => public_input_env
+            .get(name)
+            .copied()
+            .unwrap_or(GoldilocksField::ZERO),
         ConstraintExpr::Add(a, b) => {
             let l = eval_expr_field(a, witness_env, public_input_env);
             let r = eval_expr_field(b, witness_env, public_input_env);
@@ -287,21 +327,18 @@ fn arb_arithmetic_expr(depth: u32) -> impl Strategy<Value = ConstraintExpr> {
     ];
 
     leaf.prop_recursive(
-        depth,   // max depth
-        64,      // max nodes
-        4,       // items per collection (unused but required)
+        depth, // max depth
+        64,    // max nodes
+        4,     // items per collection (unused but required)
         |inner| {
             prop_oneof![
                 // Arithmetic operations
-                (inner.clone(), inner.clone()).prop_map(|(a, b)| {
-                    ConstraintExpr::Add(Box::new(a), Box::new(b))
-                }),
-                (inner.clone(), inner.clone()).prop_map(|(a, b)| {
-                    ConstraintExpr::Sub(Box::new(a), Box::new(b))
-                }),
-                (inner.clone(), inner.clone()).prop_map(|(a, b)| {
-                    ConstraintExpr::Mul(Box::new(a), Box::new(b))
-                }),
+                (inner.clone(), inner.clone())
+                    .prop_map(|(a, b)| { ConstraintExpr::Add(Box::new(a), Box::new(b)) }),
+                (inner.clone(), inner.clone())
+                    .prop_map(|(a, b)| { ConstraintExpr::Sub(Box::new(a), Box::new(b)) }),
+                (inner.clone(), inner.clone())
+                    .prop_map(|(a, b)| { ConstraintExpr::Mul(Box::new(a), Box::new(b)) }),
                 // Boolean operations (using BoolConstant leaves)
                 (arb_bool_constant(), arb_bool_constant()).prop_map(|(a, b)| {
                     ConstraintExpr::And(

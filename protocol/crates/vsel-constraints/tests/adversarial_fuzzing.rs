@@ -18,12 +18,12 @@ use std::collections::BTreeMap;
 use proptest::prelude::*;
 
 use vsel_constraints::compiler::{
-    compile, satisfies_constraints, Constraint, ConstraintCategory, ConstraintExpr,
-    ConstraintId, ConstraintSystem, WitnessVariable, WitnessVariableKind,
+    compile, satisfies_constraints, Constraint, ConstraintCategory, ConstraintExpr, ConstraintId,
+    ConstraintSystem, WitnessVariable, WitnessVariableKind,
 };
 use vsel_constraints::underconstraint::{
-    detect_u1_free_variables, detect_u2_weakly_constrained,
-    detect_u5_orphan, detect_u6_range_cosmetic,
+    detect_u1_free_variables, detect_u2_weakly_constrained, detect_u5_orphan,
+    detect_u6_range_cosmetic,
 };
 use vsel_sir::types::{
     SirExpr, SirFieldSchema, SirInputSchema, SirInvariant, SirProgram, SirStateSchema,
@@ -74,13 +74,13 @@ fn arb_sir_expr(max_depth: u32) -> impl Strategy<Value = SirExpr> {
 
         let if_expr = {
             let d = max_depth - 1;
-            (arb_sir_expr(d), arb_sir_expr(d), arb_sir_expr(d)).prop_map(
-                |(cond, then_, else_)| SirExpr::If {
+            (arb_sir_expr(d), arb_sir_expr(d), arb_sir_expr(d)).prop_map(|(cond, then_, else_)| {
+                SirExpr::If {
                     cond: Box::new(cond),
                     then_: Box::new(then_),
                     else_: Box::new(else_),
-                },
-            )
+                }
+            })
         };
 
         prop_oneof![
@@ -95,10 +95,7 @@ fn arb_sir_expr(max_depth: u32) -> impl Strategy<Value = SirExpr> {
 /// Generate a random SIR program for fuzzing.
 fn arb_fuzz_program() -> impl Strategy<Value = SirProgram> {
     (
-        prop::collection::vec(
-            ("[a-z][a-z0-9_]{0,5}", "[A-Z][a-z]{0,5}"),
-            1..=4,
-        ),
+        prop::collection::vec(("[a-z][a-z0-9_]{0,5}", "[A-Z][a-z]{0,5}"), 1..=4),
         prop::collection::vec("[a-z][a-z0-9_]{0,5}", 1..=3),
     )
         .prop_flat_map(|(field_specs, input_fields)| {
@@ -138,8 +135,7 @@ fn arb_fuzz_program() -> impl Strategy<Value = SirProgram> {
                 input_schema_fields
             };
 
-            let field_names: Vec<String> =
-                state_fields.iter().map(|f| f.name.clone()).collect();
+            let field_names: Vec<String> = state_fields.iter().map(|f| f.name.clone()).collect();
 
             (
                 Just(SirStateSchema {
@@ -170,46 +166,44 @@ fn arb_fuzz_program() -> impl Strategy<Value = SirProgram> {
                 ),
             )
         })
-        .prop_map(
-            |(state_schema, input_schema, transitions, invariants)| {
-                let transitions: Vec<SirTransition> = transitions
-                    .into_iter()
-                    .map(|(name, class, body, mutations)| {
-                        let mut seen = std::collections::HashSet::new();
-                        let allowed: Vec<String> = mutations
-                            .into_iter()
-                            .filter(|m| seen.insert(m.clone()))
-                            .collect();
-                        SirTransition {
-                            name,
-                            class: class.to_string(),
-                            preconditions: vec![],
-                            postconditions: vec![],
-                            body,
-                            allowed_mutations: allowed,
-                        }
-                    })
-                    .collect();
-
-                let invariants: Vec<SirInvariant> = invariants
-                    .into_iter()
-                    .map(|(name, category, expr)| SirInvariant {
+        .prop_map(|(state_schema, input_schema, transitions, invariants)| {
+            let transitions: Vec<SirTransition> = transitions
+                .into_iter()
+                .map(|(name, class, body, mutations)| {
+                    let mut seen = std::collections::HashSet::new();
+                    let allowed: Vec<String> = mutations
+                        .into_iter()
+                        .filter(|m| seen.insert(m.clone()))
+                        .collect();
+                    SirTransition {
                         name,
-                        category: category.to_string(),
-                        expr,
-                    })
-                    .collect();
+                        class: class.to_string(),
+                        preconditions: vec![],
+                        postconditions: vec![],
+                        body,
+                        allowed_mutations: allowed,
+                    }
+                })
+                .collect();
 
-                SirProgram {
-                    version: "0.1.0".to_string(),
-                    state_schema,
-                    input_schema,
-                    transitions,
-                    invariants,
-                    observables: vec![],
-                }
-            },
-        )
+            let invariants: Vec<SirInvariant> = invariants
+                .into_iter()
+                .map(|(name, category, expr)| SirInvariant {
+                    name,
+                    category: category.to_string(),
+                    expr,
+                })
+                .collect();
+
+            SirProgram {
+                version: "0.1.0".to_string(),
+                state_schema,
+                input_schema,
+                transitions,
+                invariants,
+                observables: vec![],
+            }
+        })
 }
 
 /// Build a SirValue::Map from field name → value pairs.

@@ -3,11 +3,11 @@
 //! Derived from: PROOF_LAYER.md §2-§5, CRYPTOGRAPHIC_MODEL.md §4,
 //! Requirements 1.4, 1.5, 1.6, 1.8, 7.1, 7.2, 7.5, 7.10.
 //!
-//! The prover generates a proof π = (Com, proof_data, Pub, Meta) attesting
-//! that an execution trace τ is semantically valid under the constraint
-//! system. The proof binds to the complete trace (PROOF-1), includes all
-//! observables in public inputs (PROOF-2), uses domain-separated hashing
-//! (PROOF-3), and enforces knowledge soundness (PROOF-4).
+//! The prover generates a proof π = (Com, proof_data, Pub, Meta) binding
+//! the trace-derived commitments, public inputs, and backend proof data. This
+//! is not a standalone semantic-validity certificate. Final semantic
+//! acceptance is a verifier-side decision requiring strict witness/constraint
+//! checks and authoritative semantic evidence.
 //!
 //! The prover is generic over `ZkBackend`, enabling pluggable proof backends.
 //! `GenericProver<B: ZkBackend>` parameterizes proof generation over the
@@ -110,8 +110,10 @@ pub struct ProofMetadata {
 
 /// A complete proof artifact: π = (Com, proof_data, Pub, Meta).
 ///
-/// PROOF_LAYER.md §2: Verify(π) ⟹ ValidTrace(τ) — the proof attests
-/// semantic validity, not just computational correctness (THM-8).
+/// The proof binds commitments, proof data, public inputs, and metadata.
+/// Semantic validity is not established by a proof artifact alone; final
+/// acceptance requires `VerificationPipeline::verify_strict` with witness,
+/// constraints, and authoritative semantic verification evidence.
 ///
 /// Requirements 7.1, 7.2, 7.5, 7.10.
 #[derive(Clone, Debug)]
@@ -139,11 +141,7 @@ pub trait Prover {
     ///
     /// Returns `Proof` on success, or `ProverError` if the trace is
     /// invalid, constraints are violated, or proof generation fails.
-    fn prove(
-        &self,
-        trace: &Trace,
-        constraints: &ConstraintSystem,
-    ) -> Result<Proof, ProverError>;
+    fn prove(&self, trace: &Trace, constraints: &ConstraintSystem) -> Result<Proof, ProverError>;
 }
 
 // ---------------------------------------------------------------------------
@@ -285,11 +283,7 @@ impl<B: ZkBackend> Prover for GenericProver<B> {
     /// 5. Generate proof commitments (PROOF-1: full trace binding)
     /// 6. Generate proof data (STARK placeholder)
     /// 7. Assemble and return Proof
-    fn prove(
-        &self,
-        trace: &Trace,
-        constraints: &ConstraintSystem,
-    ) -> Result<Proof, ProverError> {
+    fn prove(&self, trace: &Trace, constraints: &ConstraintSystem) -> Result<Proof, ProverError> {
         // 1. Validate trace is non-empty.
         if trace.entries.is_empty() {
             return Err(ProverError::EmptyTrace);
@@ -312,11 +306,8 @@ impl<B: ZkBackend> Prover for GenericProver<B> {
         let public_inputs = PublicInputs::from_trace(trace);
 
         // Verify observable binding — all trace observables match public inputs.
-        let trace_observables: Vec<_> = trace
-            .entries
-            .iter()
-            .map(|e| e.observable.clone())
-            .collect();
+        let trace_observables: Vec<_> =
+            trace.entries.iter().map(|e| e.observable.clone()).collect();
         if !public_inputs.verify_observable_binding(&trace_observables) {
             return Err(ProverError::InvalidTrace(
                 "observable binding failed: trace observables do not match public inputs"
@@ -630,8 +621,7 @@ mod tests {
 
         let proof2 = prover.prove(&modified_trace, &cs).expect("proof2");
         assert_ne!(
-            proof.commitments.trace_commitment,
-            proof2.commitments.trace_commitment,
+            proof.commitments.trace_commitment, proof2.commitments.trace_commitment,
             "PROOF-1: modifying intermediate state must change trace commitment"
         );
     }
@@ -670,8 +660,14 @@ mod tests {
         assert_eq!(proof.metadata.domain, proof_tag());
 
         // Proof domain must differ from other domain tags.
-        assert_ne!(proof.metadata.domain, vsel_crypto::domain::trace_commitment_tag());
-        assert_ne!(proof.metadata.domain, vsel_crypto::domain::state_commitment_tag());
+        assert_ne!(
+            proof.metadata.domain,
+            vsel_crypto::domain::trace_commitment_tag()
+        );
+        assert_ne!(
+            proof.metadata.domain,
+            vsel_crypto::domain::state_commitment_tag()
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -694,8 +690,7 @@ mod tests {
         let trace2 = test_trace(2);
         let proof2 = prover.prove(&trace2, &cs).expect("proof2");
         assert_ne!(
-            proof.commitments.witness_commitment,
-            proof2.commitments.witness_commitment,
+            proof.commitments.witness_commitment, proof2.commitments.witness_commitment,
             "PROOF-4: different traces must produce different witness commitments"
         );
     }
@@ -740,7 +735,10 @@ mod tests {
 
         let c1 = prover.commit_constraints(&cs1);
         let c2 = prover.commit_constraints(&cs2);
-        assert_ne!(c1, c2, "different constraint systems must produce different commitments");
+        assert_ne!(
+            c1, c2,
+            "different constraint systems must produce different commitments"
+        );
     }
 
     // -----------------------------------------------------------------------

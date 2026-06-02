@@ -233,11 +233,7 @@ pub trait CircuitBuilder {
     /// # Returns
     ///
     /// A `WireAssignment` mapping private wires to concrete values.
-    fn assign_witness(
-        &self,
-        circuit: &Self::Circuit,
-        witness: &Witness,
-    ) -> Self::WireAssignment;
+    fn assign_witness(&self, circuit: &Self::Circuit, witness: &Witness) -> Self::WireAssignment;
 
     /// Assign public input values to circuit public wires.
     ///
@@ -304,11 +300,7 @@ impl CircuitBuilder for NoOpCircuitBuilder {
         NoOpCircuit
     }
 
-    fn assign_witness(
-        &self,
-        _circuit: &Self::Circuit,
-        _witness: &Witness,
-    ) -> Self::WireAssignment {
+    fn assign_witness(&self, _circuit: &Self::Circuit, _witness: &Witness) -> Self::WireAssignment {
         NoOpWireAssignment
     }
 
@@ -329,8 +321,8 @@ impl CircuitBuilder for NoOpCircuitBuilder {
 mod tests {
     use super::*;
     use vsel_constraints::compiler::{
-        Constraint, ConstraintCategory, ConstraintExpr, ConstraintId, PublicInput,
-        WitnessVariable, WitnessVariableKind,
+        Constraint, ConstraintCategory, ConstraintExpr, ConstraintId, PublicInput, WitnessVariable,
+        WitnessVariableKind,
     };
 
     /// Build a minimal constraint system for testing.
@@ -445,8 +437,7 @@ mod tests {
             },
         };
 
-        let (circuit, wire, pub_wire) =
-            _build_and_assign(&builder, &cs, &witness, &public_inputs);
+        let (circuit, wire, pub_wire) = _build_and_assign(&builder, &cs, &witness, &public_inputs);
         let _ = (circuit, wire, pub_wire);
     }
 
@@ -491,16 +482,10 @@ mod tests {
             id: ConstraintId(0),
             expr: ConstraintExpr::Eq(
                 Box::new(ConstraintExpr::Add(
-                    Box::new(ConstraintExpr::WitnessRef(
-                        "state_pre.balance".to_string(),
-                    )),
-                    Box::new(ConstraintExpr::WitnessRef(
-                        "transfer_amount".to_string(),
-                    )),
+                    Box::new(ConstraintExpr::WitnessRef("state_pre.balance".to_string())),
+                    Box::new(ConstraintExpr::WitnessRef("transfer_amount".to_string())),
                 )),
-                Box::new(ConstraintExpr::WitnessRef(
-                    "state_post.balance".to_string(),
-                )),
+                Box::new(ConstraintExpr::WitnessRef("state_post.balance".to_string())),
             ),
             category: ConstraintCategory::Structural,
             description: "balance update: pre + amount = post".to_string(),
@@ -510,9 +495,7 @@ mod tests {
             id: ConstraintId(1),
             expr: ConstraintExpr::Lt(
                 Box::new(ConstraintExpr::Constant(0)),
-                Box::new(ConstraintExpr::WitnessRef(
-                    "transfer_amount".to_string(),
-                )),
+                Box::new(ConstraintExpr::WitnessRef("transfer_amount".to_string())),
             ),
             category: ConstraintCategory::Semantic,
             description: "transfer amount must be positive".to_string(),
@@ -522,9 +505,7 @@ mod tests {
             id: ConstraintId(2),
             expr: ConstraintExpr::IfThenElse(
                 Box::new(ConstraintExpr::BoolConstant(true)),
-                Box::new(ConstraintExpr::WitnessRef(
-                    "state_post.balance".to_string(),
-                )),
+                Box::new(ConstraintExpr::WitnessRef("state_post.balance".to_string())),
                 Box::new(ConstraintExpr::Constant(0)),
             ),
             category: ConstraintCategory::Branch,

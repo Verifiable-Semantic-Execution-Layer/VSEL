@@ -67,7 +67,11 @@ fn minimal_canonical() -> CanonicalState {
         accounts: BTreeMap::new(),
         storage: BTreeMap::new(),
         system_data: SystemData {
-            protocol_version: ProtocolVersion { major: 0, minor: 1, patch: 0 },
+            protocol_version: ProtocolVersion {
+                major: 0,
+                minor: 1,
+                patch: 0,
+            },
             total_supply: 0,
             parameters: BTreeMap::new(),
         },
@@ -82,14 +86,24 @@ fn build_state_at_seq(c: CanonicalState, seq: u64) -> State {
         execution_domain: test_domain_tag(),
     };
     let econ = derive_economic(&c, &env);
-    let commitment = if seq == 0 { Hash([0u8; 32]) } else { Hash([0xABu8; 32]) };
+    let commitment = if seq == 0 {
+        Hash([0u8; 32])
+    } else {
+        Hash([0xABu8; 32])
+    };
     let meta = TraceMetadata {
         sequence_index: seq,
         previous_commitment: commitment,
         epoch: 0,
         timestamp: 1_000_000,
     };
-    State { canonical: c, derived: d, environment: env, economic: econ, metadata: meta }
+    State {
+        canonical: c,
+        derived: d,
+        environment: env,
+        economic: econ,
+        metadata: meta,
+    }
 }
 
 fn build_genesis_state(c: CanonicalState) -> State {
@@ -98,7 +112,10 @@ fn build_genesis_state(c: CanonicalState) -> State {
 
 fn make_input(payload_type: &str, data: Vec<u8>) -> Input {
     Input {
-        payload: Payload { payload_type: payload_type.to_string(), data },
+        payload: Payload {
+            payload_type: payload_type.to_string(),
+            data,
+        },
         auth: valid_auth(),
         aux: AuxiliaryData { data: vec![] },
     }
@@ -121,15 +138,41 @@ fn make_transfer_input(sender: [u8; 32], receiver: [u8; 32], amount: u128) -> In
 
 fn canonical_with_account(id: [u8; 32], balance: u128) -> CanonicalState {
     let mut c = minimal_canonical();
-    c.accounts.insert(AccountId(id), AccountData { balance, nonce: 0, data: vec![] });
+    c.accounts.insert(
+        AccountId(id),
+        AccountData {
+            balance,
+            nonce: 0,
+            data: vec![],
+        },
+    );
     c.system_data.total_supply = balance;
     c
 }
 
-fn canonical_with_two_accounts(id1: [u8; 32], bal1: u128, id2: [u8; 32], bal2: u128) -> CanonicalState {
+fn canonical_with_two_accounts(
+    id1: [u8; 32],
+    bal1: u128,
+    id2: [u8; 32],
+    bal2: u128,
+) -> CanonicalState {
     let mut c = minimal_canonical();
-    c.accounts.insert(AccountId(id1), AccountData { balance: bal1, nonce: 0, data: vec![] });
-    c.accounts.insert(AccountId(id2), AccountData { balance: bal2, nonce: 0, data: vec![] });
+    c.accounts.insert(
+        AccountId(id1),
+        AccountData {
+            balance: bal1,
+            nonce: 0,
+            data: vec![],
+        },
+    );
+    c.accounts.insert(
+        AccountId(id2),
+        AccountData {
+            balance: bal2,
+            nonce: 0,
+            data: vec![],
+        },
+    );
     c.system_data.total_supply = bal1 + bal2;
     c
 }
@@ -156,9 +199,12 @@ fn build_valid_trace() -> Trace {
     let e2 = engine.record_transition(&s2, &sigma2, &s3, &obs2);
     let commitment = engine.current_chain_hash().clone();
 
-    Trace { entries: vec![e0, e1, e2], initial_state: s0, commitment }
+    Trace {
+        entries: vec![e0, e1, e2],
+        initial_state: s0,
+        commitment,
+    }
 }
-
 
 // ===========================================================================
 // CEX-S: State Space Counterexamples
@@ -181,13 +227,22 @@ fn cex_s_001_unreachable_state_rejected_by_l_valid() {
 
     // Construct an "unreachable" state: structurally valid but not Apply(s, σ)
     let mut fake_c = real_post.canonical.clone();
-    fake_c.system_data.parameters.insert("phantom".to_string(), vec![0xDE, 0xAD]);
+    fake_c
+        .system_data
+        .parameters
+        .insert("phantom".to_string(), vec![0xDE, 0xAD]);
     let mut fake_post = build_state_at_seq(fake_c, 1);
     fake_post.environment = real_post.environment.clone();
 
-    assert!(valid_state(&fake_post), "CEX-S-001: Fake state is structurally valid");
+    assert!(
+        valid_state(&fake_post),
+        "CEX-S-001: Fake state is structurally valid"
+    );
     let result = l_valid(&s, &sigma, &fake_post);
-    assert!(!result.valid, "CEX-S-001: L_valid must reject unreachable post-state");
+    assert!(
+        !result.valid,
+        "CEX-S-001: L_valid must reject unreachable post-state"
+    );
 }
 
 /// CEX-S-002: Derived state inconsistency — D ≠ Derive(C).
@@ -205,8 +260,14 @@ fn cex_s_002_derived_state_inconsistency() {
     s.derived.state_root = Hash([0xFFu8; 32]);
 
     let result = g_commit(&s);
-    assert!(!result.valid, "CEX-S-002: G_commit must reject inconsistent derived state");
-    assert!(!valid_state(&s), "CEX-S-002: valid_state must reject D ≠ Derive(C)");
+    assert!(
+        !result.valid,
+        "CEX-S-002: G_commit must reject inconsistent derived state"
+    );
+    assert!(
+        !valid_state(&s),
+        "CEX-S-002: valid_state must reject D ≠ Derive(C)"
+    );
 }
 
 /// CEX-S-003: State encoding collision attempt — s₁ ≠ s₂ but same commitment.
@@ -221,14 +282,20 @@ fn cex_s_003_encoding_injectivity() {
     let c2 = canonical_with_account([1u8; 32], 200);
     let h1 = commit(&c1);
     let h2 = commit(&c2);
-    assert_ne!(h1, h2, "CEX-S-003: Different states must produce different commitments");
+    assert_ne!(
+        h1, h2,
+        "CEX-S-003: Different states must produce different commitments"
+    );
 
     // Also test with different account IDs but same balance
     let c3 = canonical_with_account([1u8; 32], 500);
     let c4 = canonical_with_account([2u8; 32], 500);
     let h3 = commit(&c3);
     let h4 = commit(&c4);
-    assert_ne!(h3, h4, "CEX-S-003: Different account IDs must produce different commitments");
+    assert_ne!(
+        h3, h4,
+        "CEX-S-003: Different account IDs must produce different commitments"
+    );
 }
 
 /// CEX-S-004: Valid state with economically absurd semantics.
@@ -246,7 +313,10 @@ fn cex_s_004_structurally_valid_economically_absurd() {
 
     assert!(valid_state(&s), "CEX-S-004: State is structurally valid");
     let result = g_concentration(&s);
-    assert!(!result.valid, "CEX-S-004: G_concentration must reject 100% concentration");
+    assert!(
+        !result.valid,
+        "CEX-S-004: G_concentration must reject 100% concentration"
+    );
 }
 
 // ===========================================================================
@@ -269,7 +339,10 @@ fn cex_econ_001_excessive_fee_rate() {
     );
     let s = build_state_at_seq(c, 1);
     let result = e_cost(&s);
-    assert!(!result.valid, "CEX-ECON-001: E_cost must reject fee rate > 100%");
+    assert!(
+        !result.valid,
+        "CEX-ECON-001: E_cost must reject fee rate > 100%"
+    );
 }
 
 /// CEX-ECON-002: Leverage exceeding maximum.
@@ -289,10 +362,15 @@ fn cex_econ_002_excessive_leverage() {
 
     // Inject an exposure limit exceeding max leverage
     let entity = EntityId([1u8; 32]);
-    s.economic.exposure_limits.insert(entity, ExposureLimit(200_000));
+    s.economic
+        .exposure_limits
+        .insert(entity, ExposureLimit(200_000));
 
     let result = e_leverage(&s);
-    assert!(!result.valid, "CEX-ECON-002: E_leverage must reject exposure > max_leverage");
+    assert!(
+        !result.valid,
+        "CEX-ECON-002: E_leverage must reject exposure > max_leverage"
+    );
 }
 
 /// CEX-ECON-003: Dust account below minimum threshold.
@@ -304,13 +382,15 @@ fn cex_econ_002_excessive_leverage() {
 #[test]
 fn cex_econ_003_dust_account() {
     let mut c = canonical_with_account([1u8; 32], 5);
-    c.system_data.parameters.insert(
-        "dust_threshold".to_string(),
-        100u128.to_le_bytes().to_vec(),
-    );
+    c.system_data
+        .parameters
+        .insert("dust_threshold".to_string(), 100u128.to_le_bytes().to_vec());
     let s = build_state_at_seq(c, 1);
     let result = g_dust(&s);
-    assert!(!result.valid, "CEX-ECON-003: G_dust must reject balance below dust threshold");
+    assert!(
+        !result.valid,
+        "CEX-ECON-003: G_dust must reject balance below dust threshold"
+    );
 }
 
 /// CEX-ECON-004: Insolvency — balance sum ≠ total supply.
@@ -325,7 +405,10 @@ fn cex_econ_004_insolvency() {
     c.system_data.total_supply = 2000; // Mismatch
     let s = build_state_at_seq(c, 1);
     let result = g_solvency(&s);
-    assert!(!result.valid, "CEX-ECON-004: G_solvency must reject insolvency");
+    assert!(
+        !result.valid,
+        "CEX-ECON-004: G_solvency must reject insolvency"
+    );
 }
 
 /// CEX-ECON-005: Excessive epoch fee extraction.
@@ -343,7 +426,10 @@ fn cex_econ_005_excessive_extraction() {
     );
     let s = build_state_at_seq(c, 1);
     let result = te_extraction(&s);
-    assert!(!result.valid, "CEX-ECON-005: TE_extraction must reject excessive fee extraction");
+    assert!(
+        !result.valid,
+        "CEX-ECON-005: TE_extraction must reject excessive fee extraction"
+    );
 }
 
 /// CEX-ECON-006: Zero price in oracle (slippage vulnerability).
@@ -357,11 +443,17 @@ fn cex_econ_006_zero_price_oracle() {
     let c = minimal_canonical();
     let mut s = build_state_at_seq(c, 1);
     s.economic.price_oracle.insert(
-        AssetPair { base: "ETH".to_string(), quote: "USD".to_string() },
+        AssetPair {
+            base: "ETH".to_string(),
+            quote: "USD".to_string(),
+        },
         Price(0),
     );
     let result = e_slippage(&s);
-    assert!(!result.valid, "CEX-ECON-006: E_slippage must reject zero price");
+    assert!(
+        !result.valid,
+        "CEX-ECON-006: E_slippage must reject zero price"
+    );
 }
 
 /// CEX-ECON-007: Collateral ratio below minimum.
@@ -383,7 +475,10 @@ fn cex_econ_007_undercollateralized_position() {
         CollateralRatio(5_000), // Below 15_000 minimum
     );
     let result = e_collateral(&s);
-    assert!(!result.valid, "CEX-ECON-007: E_collateral must reject under-collateralized position");
+    assert!(
+        !result.valid,
+        "CEX-ECON-007: E_collateral must reject under-collateralized position"
+    );
 }
 
 /// CEX-ECON-008: Invalid economic parameters (zero max leverage).
@@ -395,15 +490,16 @@ fn cex_econ_007_undercollateralized_position() {
 #[test]
 fn cex_econ_008_invalid_economic_params() {
     let mut c = minimal_canonical();
-    c.system_data.parameters.insert(
-        "max_leverage_bps".to_string(),
-        0u128.to_le_bytes().to_vec(),
-    );
+    c.system_data
+        .parameters
+        .insert("max_leverage_bps".to_string(), 0u128.to_le_bytes().to_vec());
     let s = build_state_at_seq(c, 1);
     let result = g_econ_valid(&s);
-    assert!(!result.valid, "CEX-ECON-008: G_econ_valid must reject zero max leverage");
+    assert!(
+        !result.valid,
+        "CEX-ECON-008: G_econ_valid must reject zero max leverage"
+    );
 }
-
 
 // ===========================================================================
 // CEX-T: Transition Counterexamples
@@ -423,10 +519,16 @@ fn cex_t_001_determinism_verified() {
 
     let result1 = apply(&s, &sigma);
     let result2 = apply(&s, &sigma);
-    assert_eq!(result1, result2, "CEX-T-001: Apply must be deterministic (AX-1)");
+    assert_eq!(
+        result1, result2,
+        "CEX-T-001: Apply must be deterministic (AX-1)"
+    );
 
     let det_result = l_det(&s, &sigma, &result1);
-    assert!(det_result.valid, "CEX-T-001: L_det must confirm determinism");
+    assert!(
+        det_result.valid,
+        "CEX-T-001: L_det must confirm determinism"
+    );
 }
 
 /// CEX-T-002: Transition producing invalid state (closure violation).
@@ -450,7 +552,10 @@ fn cex_t_002_closure_preserved() {
 
     for sigma in &inputs {
         let post = apply(&s, sigma);
-        assert!(valid_state(&post), "CEX-T-002: Apply must produce valid state (AX-2)");
+        assert!(
+            valid_state(&post),
+            "CEX-T-002: Apply must produce valid state (AX-2)"
+        );
     }
 }
 
@@ -469,12 +574,19 @@ fn cex_t_003_hidden_mutation_in_noop() {
 
     // Inject hidden mutation into noop result
     let mut fake_post = real_post.clone();
-    fake_post.canonical.system_data.parameters.insert("hidden".to_string(), vec![0xFF]);
+    fake_post
+        .canonical
+        .system_data
+        .parameters
+        .insert("hidden".to_string(), vec![0xFF]);
     fake_post.derived = derive(&fake_post.canonical);
     fake_post.economic = derive_economic(&fake_post.canonical, &fake_post.environment);
 
     let result = l_valid(&s, &sigma, &fake_post);
-    assert!(!result.valid, "CEX-T-003: L_valid must reject hidden mutation in noop");
+    assert!(
+        !result.valid,
+        "CEX-T-003: L_valid must reject hidden mutation in noop"
+    );
 }
 
 /// CEX-T-004: Guard overlap — input matching multiple transition classes.
@@ -500,7 +612,10 @@ fn cex_t_004_guard_disjointness() {
         let class = classify(&s, sigma);
         // Verify classification is deterministic
         let class2 = classify(&s, sigma);
-        assert_eq!(class, class2, "CEX-T-004: Classification must be deterministic");
+        assert_eq!(
+            class, class2,
+            "CEX-T-004: Classification must be deterministic"
+        );
     }
 }
 
@@ -521,9 +636,15 @@ fn cex_t_005_error_preserves_invariants() {
 
     assert!(valid_state(&post), "CEX-T-005: Error state must be valid");
     let g_result = g_valid(&post);
-    assert!(g_result.valid, "CEX-T-005: G_valid must hold on error state");
+    assert!(
+        g_result.valid,
+        "CEX-T-005: G_valid must hold on error state"
+    );
     let g_struct_result = g_struct(&post);
-    assert!(g_struct_result.valid, "CEX-T-005: G_struct must hold on error state");
+    assert!(
+        g_struct_result.valid,
+        "CEX-T-005: G_struct must hold on error state"
+    );
 }
 
 /// CEX-T-006: Batch non-equivalence to sequential application.
@@ -567,7 +688,10 @@ fn cex_i_001_local_holds_global_breaks() {
 
     let s = build_state_at_seq(c, 1);
     let result = g_struct(&s);
-    assert!(!result.valid, "CEX-I-001: G_struct must detect balance/supply mismatch");
+    assert!(
+        !result.valid,
+        "CEX-I-001: G_struct must detect balance/supply mismatch"
+    );
 }
 
 /// CEX-I-002: Temporal invariant violation via accumulation.
@@ -588,8 +712,7 @@ fn cex_i_002_temporal_accumulation() {
 
     // Verify monotonic metadata across trace steps
     assert!(
-        s1.metadata.sequence_index >= s0.metadata.sequence_index
-            || s0.metadata.sequence_index == 0,
+        s1.metadata.sequence_index >= s0.metadata.sequence_index || s0.metadata.sequence_index == 0,
         "CEX-I-002: Sequence must be monotonic"
     );
     assert!(
@@ -616,7 +739,11 @@ fn cex_i_003_invariant_completeness() {
     let mut fake_c = s.canonical.clone();
     fake_c.accounts.insert(
         AccountId([2u8; 32]),
-        AccountData { balance: 500, nonce: 0, data: vec![] },
+        AccountData {
+            balance: 500,
+            nonce: 0,
+            data: vec![],
+        },
     );
     fake_c.system_data.total_supply = 1500;
     let mut fake_post = build_state_at_seq(fake_c, 2);
@@ -624,7 +751,10 @@ fn cex_i_003_invariant_completeness() {
 
     // L_valid is the definitive check — it catches this
     let result = l_valid(&s, &sigma, &fake_post);
-    assert!(!result.valid, "CEX-I-003: L_valid must reject semantically invalid execution");
+    assert!(
+        !result.valid,
+        "CEX-I-003: L_valid must reject semantically invalid execution"
+    );
 }
 
 // ===========================================================================
@@ -643,16 +773,26 @@ fn cex_m_001_auxiliary_data_exclusion() {
     let s = build_state_at_seq(c, 1);
 
     let sigma1 = Input {
-        payload: Payload { payload_type: "deposit".to_string(), data: {
-            let mut d = vec![]; d.extend_from_slice(&[2u8; 32]); d.extend_from_slice(&100u128.to_le_bytes()); d
-        }},
+        payload: Payload {
+            payload_type: "deposit".to_string(),
+            data: {
+                let mut d = vec![];
+                d.extend_from_slice(&[2u8; 32]);
+                d.extend_from_slice(&100u128.to_le_bytes());
+                d
+            },
+        },
         auth: valid_auth(),
-        aux: AuxiliaryData { data: vec![0xAA, 0xBB] },
+        aux: AuxiliaryData {
+            data: vec![0xAA, 0xBB],
+        },
     };
     let sigma2 = Input {
         payload: sigma1.payload.clone(),
         auth: sigma1.auth.clone(),
-        aux: AuxiliaryData { data: vec![0xCC, 0xDD, 0xEE] },
+        aux: AuxiliaryData {
+            data: vec![0xCC, 0xDD, 0xEE],
+        },
     };
 
     let post1 = apply(&s, &sigma1);
@@ -678,7 +818,10 @@ fn cex_m_002_canonicalization_idempotence() {
     // Apply twice with same input — result must be deterministic
     let post1 = apply(&s, &sigma);
     let post2 = apply(&s, &sigma);
-    assert_eq!(post1, post2, "CEX-M-002: Apply must be idempotent for same input");
+    assert_eq!(
+        post1, post2,
+        "CEX-M-002: Apply must be idempotent for same input"
+    );
 }
 
 /// CEX-M-003: Observable determinism — obs must be derivable from (s, σ, s').
@@ -696,9 +839,11 @@ fn cex_m_003_observable_determinism() {
 
     let obs1 = obs(&s, &sigma, &post);
     let obs2 = obs(&s, &sigma, &post);
-    assert_eq!(obs1, obs2, "CEX-M-003: Observable must be deterministic (DEF-4)");
+    assert_eq!(
+        obs1, obs2,
+        "CEX-M-003: Observable must be deterministic (DEF-4)"
+    );
 }
-
 
 // ===========================================================================
 // CEX-C: Constraint Counterexamples
@@ -726,7 +871,10 @@ fn cex_c_001_invalid_trace_rejected() {
     fake_post.environment = s.environment.clone();
 
     let result = l_valid(&s, &sigma, &fake_post);
-    assert!(!result.valid, "CEX-C-001: L_valid must reject invalid trace (soundness)");
+    assert!(
+        !result.valid,
+        "CEX-C-001: L_valid must reject invalid trace (soundness)"
+    );
 }
 
 /// CEX-C-002: Valid trace accepted by constraint system (completeness).
@@ -745,7 +893,10 @@ fn cex_c_002_valid_trace_accepted() {
     let l_result = l_valid(&s, &sigma, &post);
     assert!(l_result.valid, "CEX-C-002: L_valid must accept valid trace");
     let l_cons_result = l_cons(&s, &sigma, &post);
-    assert!(l_cons_result.valid, "CEX-C-002: L_cons must accept valid trace");
+    assert!(
+        l_cons_result.valid,
+        "CEX-C-002: L_cons must accept valid trace"
+    );
     assert!(valid_state(&post), "CEX-C-002: Post-state must be valid");
 }
 
@@ -769,7 +920,10 @@ fn cex_c_003_resource_conservation_violation() {
     fake_post.derived = derive(&fake_post.canonical);
 
     let result = l_cons(&s, &sigma, &fake_post);
-    assert!(!result.valid, "CEX-C-003: L_cons must reject resource conservation violation");
+    assert!(
+        !result.valid,
+        "CEX-C-003: L_cons must reject resource conservation violation"
+    );
 }
 
 // ===========================================================================
@@ -787,7 +941,10 @@ fn cex_p_001_partial_trace_rejected() {
     let mut trace = build_valid_trace();
     // Remove middle entry — creates gap in indices
     trace.entries.remove(1);
-    assert!(!verify_trace(&trace), "CEX-P-001: Partial trace must be rejected");
+    assert!(
+        !verify_trace(&trace),
+        "CEX-P-001: Partial trace must be rejected"
+    );
 }
 
 /// CEX-P-002: Cross-domain proof replay attempt.
@@ -804,13 +961,22 @@ fn cex_p_002_cross_domain_rejection() {
 
     // Input with zero domain tag — cross-domain attack
     let sigma = Input {
-        payload: Payload { payload_type: "deposit".to_string(), data: {
-            let mut d = vec![]; d.extend_from_slice(&[1u8; 32]); d.extend_from_slice(&100u128.to_le_bytes()); d
-        }},
+        payload: Payload {
+            payload_type: "deposit".to_string(),
+            data: {
+                let mut d = vec![];
+                d.extend_from_slice(&[1u8; 32]);
+                d.extend_from_slice(&100u128.to_le_bytes());
+                d
+            },
+        },
         auth: Authorization {
             classical_sig: vec![1, 2, 3],
             pqc_sig: vec![4, 5, 6],
-            public_key: HybridPublicKey { classical: vec![10, 11], pqc: vec![20, 21] },
+            public_key: HybridPublicKey {
+                classical: vec![10, 11],
+                pqc: vec![20, 21],
+            },
             nonce: 42,
             domain: DomainTag(Hash([0u8; 32])),
         },
@@ -818,7 +984,10 @@ fn cex_p_002_cross_domain_rejection() {
     };
 
     let result = engine.execute(&s, &sigma);
-    assert!(result.is_err(), "CEX-P-002: Zero domain tag must be rejected");
+    assert!(
+        result.is_err(),
+        "CEX-P-002: Zero domain tag must be rejected"
+    );
 }
 
 /// CEX-P-003: Tampered proof commitment chain.
@@ -831,7 +1000,10 @@ fn cex_p_002_cross_domain_rejection() {
 fn cex_p_003_tampered_commitment_chain() {
     let mut trace = build_valid_trace();
     trace.entries[1].chain_hash = Hash([0xDEu8; 32]);
-    assert!(!verify_trace(&trace), "CEX-P-003: Tampered chain hash must be rejected");
+    assert!(
+        !verify_trace(&trace),
+        "CEX-P-003: Tampered chain hash must be rejected"
+    );
 }
 
 // ===========================================================================
@@ -852,13 +1024,22 @@ fn cex_comp_001_local_valid_global_invalid() {
     let s_b = build_state_at_seq(c_b, 1);
 
     // Both systems are individually valid
-    assert!(valid_state(&s_a), "CEX-COMP-001: System A is individually valid");
-    assert!(valid_state(&s_b), "CEX-COMP-001: System B is individually valid");
+    assert!(
+        valid_state(&s_a),
+        "CEX-COMP-001: System A is individually valid"
+    );
+    assert!(
+        valid_state(&s_b),
+        "CEX-COMP-001: System B is individually valid"
+    );
 
     // But shared account has inconsistent balance
     let bal_a = s_a.canonical.accounts[&AccountId([1u8; 32])].balance;
     let bal_b = s_b.canonical.accounts[&AccountId([1u8; 32])].balance;
-    assert_ne!(bal_a, bal_b, "CEX-COMP-001: Shared account has inconsistent balance");
+    assert_ne!(
+        bal_a, bal_b,
+        "CEX-COMP-001: Shared account has inconsistent balance"
+    );
 }
 
 /// CEX-COMP-002: Double-spend across domains.
@@ -897,7 +1078,10 @@ fn cex_comp_002_double_spend() {
 fn cex_tr_001_missing_transition() {
     let mut trace = build_valid_trace();
     trace.entries.remove(1); // Remove middle entry
-    assert!(!verify_trace(&trace), "CEX-TR-001: Missing transition must be detected");
+    assert!(
+        !verify_trace(&trace),
+        "CEX-TR-001: Missing transition must be detected"
+    );
 }
 
 /// CEX-TR-002: Trace commitment chain break.
@@ -913,7 +1097,10 @@ fn cex_tr_002_commitment_chain_break() {
     let h1 = compute_chain_hash(&Hash([0u8; 32]), &e1);
     let h2 = compute_chain_hash(&h1, &e2);
 
-    assert!(verify_chain(&[e1.clone(), e2.clone()], &[h1.clone(), h2.clone()]));
+    assert!(verify_chain(
+        &[e1.clone(), e2.clone()],
+        &[h1.clone(), h2.clone()]
+    ));
     assert!(
         !verify_chain(&[e1.clone(), e2.clone()], &[Hash([0xFFu8; 32]), h2]),
         "CEX-TR-002: Tampered first hash must be rejected"
@@ -934,11 +1121,17 @@ fn cex_tr_003_deterministic_replay() {
 
     let post1 = apply(&s0, &sigma);
     let post2 = apply(&s0, &sigma);
-    assert_eq!(post1, post2, "CEX-TR-003: Replay must produce identical state");
+    assert_eq!(
+        post1, post2,
+        "CEX-TR-003: Replay must produce identical state"
+    );
 
     let obs1 = obs(&s0, &sigma, &post1);
     let obs2 = obs(&s0, &sigma, &post2);
-    assert_eq!(obs1, obs2, "CEX-TR-003: Replay must produce identical observable");
+    assert_eq!(
+        obs1, obs2,
+        "CEX-TR-003: Replay must produce identical observable"
+    );
 }
 
 /// CEX-TR-004: Reordered trace entries.
@@ -951,9 +1144,11 @@ fn cex_tr_003_deterministic_replay() {
 fn cex_tr_004_reordered_entries() {
     let mut trace = build_valid_trace();
     trace.entries.swap(1, 2);
-    assert!(!verify_trace(&trace), "CEX-TR-004: Reordered entries must be rejected");
+    assert!(
+        !verify_trace(&trace),
+        "CEX-TR-004: Reordered entries must be rejected"
+    );
 }
-
 
 // ===========================================================================
 // CEX-TEMP: Temporal Counterexamples
@@ -980,9 +1175,15 @@ fn cex_temp_001_delayed_invariant_failure() {
 
     for sigma in &steps {
         let post = apply(&current, sigma);
-        assert!(valid_state(&post), "CEX-TEMP-001: Every intermediate state must be valid");
+        assert!(
+            valid_state(&post),
+            "CEX-TEMP-001: Every intermediate state must be valid"
+        );
         let g_result = g_valid(&post);
-        assert!(g_result.valid, "CEX-TEMP-001: G_valid must hold at every step");
+        assert!(
+            g_result.valid,
+            "CEX-TEMP-001: G_valid must hold at every step"
+        );
         current = post;
     }
 }
@@ -1023,7 +1224,10 @@ fn cex_temp_003_metadata_monotonicity() {
     s.metadata.previous_commitment = Hash([0u8; 32]);
 
     let result = g_mono(&s);
-    assert!(!result.valid, "CEX-TEMP-003: G_mono must reject non-genesis with zero commitment");
+    assert!(
+        !result.valid,
+        "CEX-TEMP-003: G_mono must reject non-genesis with zero commitment"
+    );
 }
 
 // ===========================================================================
@@ -1072,13 +1276,22 @@ fn cex_crypto_002_hybrid_signature_both_required() {
 
     // Missing classical signature
     let sigma_no_classical = Input {
-        payload: Payload { payload_type: "deposit".to_string(), data: {
-            let mut d = vec![]; d.extend_from_slice(&[1u8; 32]); d.extend_from_slice(&100u128.to_le_bytes()); d
-        }},
+        payload: Payload {
+            payload_type: "deposit".to_string(),
+            data: {
+                let mut d = vec![];
+                d.extend_from_slice(&[1u8; 32]);
+                d.extend_from_slice(&100u128.to_le_bytes());
+                d
+            },
+        },
         auth: Authorization {
             classical_sig: vec![],
             pqc_sig: vec![4, 5, 6],
-            public_key: HybridPublicKey { classical: vec![10, 11], pqc: vec![20, 21] },
+            public_key: HybridPublicKey {
+                classical: vec![10, 11],
+                pqc: vec![20, 21],
+            },
             nonce: 42,
             domain: test_domain_tag(),
         },
@@ -1091,13 +1304,22 @@ fn cex_crypto_002_hybrid_signature_both_required() {
 
     // Missing PQC signature
     let sigma_no_pqc = Input {
-        payload: Payload { payload_type: "deposit".to_string(), data: {
-            let mut d = vec![]; d.extend_from_slice(&[1u8; 32]); d.extend_from_slice(&100u128.to_le_bytes()); d
-        }},
+        payload: Payload {
+            payload_type: "deposit".to_string(),
+            data: {
+                let mut d = vec![];
+                d.extend_from_slice(&[1u8; 32]);
+                d.extend_from_slice(&100u128.to_le_bytes());
+                d
+            },
+        },
         auth: Authorization {
             classical_sig: vec![1, 2, 3],
             pqc_sig: vec![],
-            public_key: HybridPublicKey { classical: vec![10, 11], pqc: vec![20, 21] },
+            public_key: HybridPublicKey {
+                classical: vec![10, 11],
+                pqc: vec![20, 21],
+            },
             nonce: 42,
             domain: test_domain_tag(),
         },
@@ -1122,20 +1344,32 @@ fn cex_crypto_003_domain_separation() {
     let mut s = build_genesis_state(c);
     s.environment.execution_domain = DomainTag(Hash([0u8; 32]));
     let result = g_env(&s);
-    assert!(!result.valid, "CEX-CRYPTO-003: G_env must reject zero domain tag");
+    assert!(
+        !result.valid,
+        "CEX-CRYPTO-003: G_env must reject zero domain tag"
+    );
 
     // Input-level: zero domain tag in auth
     let engine = DefaultExecutionEngine;
     let c2 = canonical_with_account([1u8; 32], 1000);
     let s2 = build_state_at_seq(c2, 1);
     let sigma = Input {
-        payload: Payload { payload_type: "deposit".to_string(), data: {
-            let mut d = vec![]; d.extend_from_slice(&[1u8; 32]); d.extend_from_slice(&100u128.to_le_bytes()); d
-        }},
+        payload: Payload {
+            payload_type: "deposit".to_string(),
+            data: {
+                let mut d = vec![];
+                d.extend_from_slice(&[1u8; 32]);
+                d.extend_from_slice(&100u128.to_le_bytes());
+                d
+            },
+        },
         auth: Authorization {
             classical_sig: vec![1, 2, 3],
             pqc_sig: vec![4, 5, 6],
-            public_key: HybridPublicKey { classical: vec![10, 11], pqc: vec![20, 21] },
+            public_key: HybridPublicKey {
+                classical: vec![10, 11],
+                pqc: vec![20, 21],
+            },
             nonce: 42,
             domain: DomainTag(Hash([0u8; 32])),
         },
@@ -1169,14 +1403,17 @@ fn cex_crypto_004_chain_hash_integrity() {
     ));
 
     // Tampered middle hash
-    assert!(!verify_chain(
-        &[e1.clone(), e2.clone(), e3.clone()],
-        &[h1.clone(), Hash([0xFFu8; 32]), h3.clone()]
-    ), "CEX-CRYPTO-004: Tampered middle hash must be rejected");
+    assert!(
+        !verify_chain(
+            &[e1.clone(), e2.clone(), e3.clone()],
+            &[h1.clone(), Hash([0xFFu8; 32]), h3.clone()]
+        ),
+        "CEX-CRYPTO-004: Tampered middle hash must be rejected"
+    );
 
     // Swapped hashes
-    assert!(!verify_chain(
-        &[e1, e2, e3],
-        &[h2, h1, h3]
-    ), "CEX-CRYPTO-004: Swapped hashes must be rejected");
+    assert!(
+        !verify_chain(&[e1, e2, e3], &[h2, h1, h3]),
+        "CEX-CRYPTO-004: Swapped hashes must be rejected"
+    );
 }

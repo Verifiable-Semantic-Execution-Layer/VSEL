@@ -78,10 +78,7 @@ pub fn e_slippage(state: &State) -> InvariantResult {
             violations.push(InvariantViolation {
                 invariant_id: "E_slippage".to_string(),
                 category: InvariantCategory::Economic,
-                description: format!(
-                    "Zero price for asset pair {}/{}",
-                    pair.base, pair.quote
-                ),
+                description: format!("Zero price for asset pair {}/{}", pair.base, pair.quote),
                 severity: Severity::High,
             });
         }

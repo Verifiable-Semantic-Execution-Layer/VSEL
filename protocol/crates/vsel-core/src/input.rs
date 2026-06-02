@@ -63,8 +63,7 @@ pub struct Input {
 /// - Domain tag is not the zero hash.
 /// - Nonce is structurally valid (always true for u64).
 pub fn valid_input(sigma: &Input) -> bool {
-    valid_payload(&sigma.payload)
-        && valid_authorization(&sigma.auth)
+    valid_payload(&sigma.payload) && valid_authorization(&sigma.auth)
 }
 
 /// Payload validity: type identifier and data must both be non-empty.

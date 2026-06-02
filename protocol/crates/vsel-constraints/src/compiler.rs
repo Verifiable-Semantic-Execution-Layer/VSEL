@@ -101,7 +101,11 @@ pub enum ConstraintExpr {
     Or(Box<ConstraintExpr>, Box<ConstraintExpr>),
     /// Conditional: if cond then a else b.
     /// Both branches are always present (CONST-3).
-    IfThenElse(Box<ConstraintExpr>, Box<ConstraintExpr>, Box<ConstraintExpr>),
+    IfThenElse(
+        Box<ConstraintExpr>,
+        Box<ConstraintExpr>,
+        Box<ConstraintExpr>,
+    ),
     /// Field access on a witness variable: var.field.
     FieldAccess(Box<ConstraintExpr>, String),
 }
@@ -198,6 +202,11 @@ impl ConstraintSystem {
         self.constraints.push(constraint);
     }
 
+    /// Backward-compatible alias for `add_constraint`.
+    pub fn add(&mut self, constraint: Constraint) {
+        self.add_constraint(constraint);
+    }
+
     /// Add a witness variable to the system.
     pub fn add_witness_variable(&mut self, var: WitnessVariable) {
         self.witness_variables.push(var);
@@ -220,7 +229,11 @@ impl ConstraintSystem {
 // Helper: create a constraint with auto-generated ID
 // ---------------------------------------------------------------------------
 
-fn make_constraint(expr: ConstraintExpr, category: ConstraintCategory, description: &str) -> Constraint {
+fn make_constraint(
+    expr: ConstraintExpr,
+    category: ConstraintCategory,
+    description: &str,
+) -> Constraint {
     Constraint {
         id: ConstraintId(next_constraint_id()),
         expr,
@@ -274,9 +287,7 @@ fn lower_sir_expr(expr: &SirExpr) -> ConstraintExpr {
             ConstraintExpr::FieldAccess(Box::new(base), field.clone())
         }
 
-        SirExpr::Match { scrutinee, arms } => {
-            lower_match(scrutinee, arms)
-        }
+        SirExpr::Match { scrutinee, arms } => lower_match(scrutinee, arms),
 
         SirExpr::Apply { func, args } => {
             // Function application — lower to a witness reference for the result.
@@ -351,11 +362,8 @@ fn lower_match(scrutinee: &SirExpr, arms: &[SirMatchArm]) -> ConstraintExpr {
             }
         };
         let arm_body = lower_sir_expr(&arm.body);
-        result = ConstraintExpr::IfThenElse(
-            Box::new(arm_cond),
-            Box::new(arm_body),
-            Box::new(result),
-        );
+        result =
+            ConstraintExpr::IfThenElse(Box::new(arm_cond), Box::new(arm_body), Box::new(result));
     }
 
     result
@@ -680,10 +688,7 @@ pub fn generate_transition_constraints(
                 Box::new(ConstraintExpr::BoolConstant(true)),
             ),
             ConstraintCategory::Semantic,
-            &format!(
-                "precondition {} for transition '{}'",
-                i, transition.name
-            ),
+            &format!("precondition {} for transition '{}'", i, transition.name),
         ));
         constraints.extend(compile_expr(pre));
     }
@@ -709,10 +714,7 @@ pub fn generate_transition_constraints(
                 Box::new(ConstraintExpr::BoolConstant(true)),
             ),
             ConstraintCategory::Semantic,
-            &format!(
-                "postcondition {} for transition '{}'",
-                i, transition.name
-            ),
+            &format!("postcondition {} for transition '{}'", i, transition.name),
         ));
         constraints.extend(compile_expr(post));
     }
@@ -788,12 +790,18 @@ pub fn compile(sir_program: &SirProgram) -> ConstraintSystem {
         system.add_witness_variable(WitnessVariable {
             name: format!("state_pre.{}", field.name),
             kind: WitnessVariableKind::Semantic,
-            description: format!("Pre-state field '{}' (type: {})", field.name, field.field_type),
+            description: format!(
+                "Pre-state field '{}' (type: {})",
+                field.name, field.field_type
+            ),
         });
         system.add_witness_variable(WitnessVariable {
             name: format!("state_post.{}", field.name),
             kind: WitnessVariableKind::Semantic,
-            description: format!("Post-state field '{}' (type: {})", field.name, field.field_type),
+            description: format!(
+                "Post-state field '{}' (type: {})",
+                field.name, field.field_type
+            ),
         });
     }
 
@@ -1092,7 +1100,9 @@ mod tests {
     #[test]
     fn test_template_var() {
         setup();
-        let expr = SirExpr::Var { name: "balance".into() };
+        let expr = SirExpr::Var {
+            name: "balance".into(),
+        };
         let constraints = template_var(&expr);
         assert_eq!(constraints.len(), 1);
         assert_eq!(constraints[0].category, ConstraintCategory::Structural);
@@ -1105,8 +1115,12 @@ mod tests {
         setup();
         let expr = SirExpr::BinOp {
             op: "add".into(),
-            left: Box::new(SirExpr::Literal { value: SirValue::Int { value: 1 } }),
-            right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 2 } }),
+            left: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 1 },
+            }),
+            right: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 2 },
+            }),
         };
         let constraints = template_binop(&expr);
         // 1 for the binop itself + 1 for left literal + 1 for right literal
@@ -1120,9 +1134,15 @@ mod tests {
     fn test_template_if_generates_both_branches() {
         setup();
         let expr = SirExpr::If {
-            cond: Box::new(SirExpr::Literal { value: SirValue::Bool { value: true } }),
-            then_: Box::new(SirExpr::Literal { value: SirValue::Int { value: 1 } }),
-            else_: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+            cond: Box::new(SirExpr::Literal {
+                value: SirValue::Bool { value: true },
+            }),
+            then_: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 1 },
+            }),
+            else_: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 0 },
+            }),
         };
         let constraints = template_if(&expr);
 
@@ -1152,7 +1172,9 @@ mod tests {
         setup();
         let expr = SirExpr::Let {
             name: "x".into(),
-            value: Box::new(SirExpr::Literal { value: SirValue::Int { value: 10 } }),
+            value: Box::new(SirExpr::Literal {
+                value: SirValue::Int { value: 10 },
+            }),
             body: Box::new(SirExpr::Var { name: "x".into() }),
         };
         let constraints = template_let(&expr);
@@ -1169,7 +1191,9 @@ mod tests {
     fn test_template_field_access() {
         setup();
         let expr = SirExpr::FieldAccess {
-            expr: Box::new(SirExpr::Var { name: "state".into() }),
+            expr: Box::new(SirExpr::Var {
+                name: "state".into(),
+            }),
             field: "balance".into(),
         };
         let constraints = template_field_access(&expr);
@@ -1186,16 +1210,26 @@ mod tests {
             scrutinee: Box::new(SirExpr::Var { name: "x".into() }),
             arms: vec![
                 SirMatchArm {
-                    pattern: SirPattern::Literal { value: SirValue::Int { value: 0 } },
-                    body: SirExpr::Literal { value: SirValue::Bool { value: false } },
+                    pattern: SirPattern::Literal {
+                        value: SirValue::Int { value: 0 },
+                    },
+                    body: SirExpr::Literal {
+                        value: SirValue::Bool { value: false },
+                    },
                 },
                 SirMatchArm {
-                    pattern: SirPattern::Literal { value: SirValue::Int { value: 1 } },
-                    body: SirExpr::Literal { value: SirValue::Bool { value: true } },
+                    pattern: SirPattern::Literal {
+                        value: SirValue::Int { value: 1 },
+                    },
+                    body: SirExpr::Literal {
+                        value: SirValue::Bool { value: true },
+                    },
                 },
                 SirMatchArm {
                     pattern: SirPattern::Var { name: "_".into() },
-                    body: SirExpr::Literal { value: SirValue::Bool { value: false } },
+                    body: SirExpr::Literal {
+                        value: SirValue::Bool { value: false },
+                    },
                 },
             ],
         };
@@ -1234,15 +1268,29 @@ mod tests {
             class: "Update".into(),
             preconditions: vec![],
             postconditions: vec![],
-            body: SirExpr::Literal { value: SirValue::Unit },
+            body: SirExpr::Literal {
+                value: SirValue::Unit,
+            },
             allowed_mutations: vec!["balance".to_string(), "nonce".to_string()],
         };
         let schema = SirStateSchema {
             fields: vec![
-                SirFieldSchema { name: "balance".into(), field_type: "Int".into() },
-                SirFieldSchema { name: "nonce".into(), field_type: "Int".into() },
-                SirFieldSchema { name: "data".into(), field_type: "Bytes".into() },
-                SirFieldSchema { name: "status".into(), field_type: "Int".into() },
+                SirFieldSchema {
+                    name: "balance".into(),
+                    field_type: "Int".into(),
+                },
+                SirFieldSchema {
+                    name: "nonce".into(),
+                    field_type: "Int".into(),
+                },
+                SirFieldSchema {
+                    name: "data".into(),
+                    field_type: "Bytes".into(),
+                },
+                SirFieldSchema {
+                    name: "status".into(),
+                    field_type: "Int".into(),
+                },
             ],
         };
 
@@ -1268,13 +1316,21 @@ mod tests {
             class: "Noop".into(),
             preconditions: vec![],
             postconditions: vec![],
-            body: SirExpr::Literal { value: SirValue::Unit },
+            body: SirExpr::Literal {
+                value: SirValue::Unit,
+            },
             allowed_mutations: vec![],
         };
         let schema = SirStateSchema {
             fields: vec![
-                SirFieldSchema { name: "a".into(), field_type: "Int".into() },
-                SirFieldSchema { name: "b".into(), field_type: "Int".into() },
+                SirFieldSchema {
+                    name: "a".into(),
+                    field_type: "Int".into(),
+                },
+                SirFieldSchema {
+                    name: "b".into(),
+                    field_type: "Int".into(),
+                },
             ],
         };
 
@@ -1294,13 +1350,21 @@ mod tests {
             class: "Init".into(),
             preconditions: vec![],
             postconditions: vec![],
-            body: SirExpr::Literal { value: SirValue::Unit },
+            body: SirExpr::Literal {
+                value: SirValue::Unit,
+            },
             allowed_mutations: vec!["a".to_string(), "b".to_string()],
         };
         let schema = SirStateSchema {
             fields: vec![
-                SirFieldSchema { name: "a".into(), field_type: "Int".into() },
-                SirFieldSchema { name: "b".into(), field_type: "Int".into() },
+                SirFieldSchema {
+                    name: "a".into(),
+                    field_type: "Int".into(),
+                },
+                SirFieldSchema {
+                    name: "b".into(),
+                    field_type: "Int".into(),
+                },
             ],
         };
 
@@ -1322,27 +1386,39 @@ mod tests {
             preconditions: vec![SirExpr::BinOp {
                 op: "gt".into(),
                 left: Box::new(SirExpr::FieldAccess {
-                    expr: Box::new(SirExpr::Var { name: "input".into() }),
+                    expr: Box::new(SirExpr::Var {
+                        name: "input".into(),
+                    }),
                     field: "amount".into(),
                 }),
-                right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                right: Box::new(SirExpr::Literal {
+                    value: SirValue::Int { value: 0 },
+                }),
             }],
             postconditions: vec![SirExpr::BinOp {
                 op: "ge".into(),
                 left: Box::new(SirExpr::FieldAccess {
-                    expr: Box::new(SirExpr::Var { name: "state_post".into() }),
+                    expr: Box::new(SirExpr::Var {
+                        name: "state_post".into(),
+                    }),
                     field: "balance".into(),
                 }),
-                right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                right: Box::new(SirExpr::Literal {
+                    value: SirValue::Int { value: 0 },
+                }),
             }],
             body: SirExpr::BinOp {
                 op: "add".into(),
                 left: Box::new(SirExpr::FieldAccess {
-                    expr: Box::new(SirExpr::Var { name: "state".into() }),
+                    expr: Box::new(SirExpr::Var {
+                        name: "state".into(),
+                    }),
                     field: "balance".into(),
                 }),
                 right: Box::new(SirExpr::FieldAccess {
-                    expr: Box::new(SirExpr::Var { name: "input".into() }),
+                    expr: Box::new(SirExpr::Var {
+                        name: "input".into(),
+                    }),
                     field: "amount".into(),
                 }),
             },
@@ -1350,19 +1426,34 @@ mod tests {
         };
         let schema = SirStateSchema {
             fields: vec![
-                SirFieldSchema { name: "balance".into(), field_type: "Int".into() },
-                SirFieldSchema { name: "nonce".into(), field_type: "Int".into() },
+                SirFieldSchema {
+                    name: "balance".into(),
+                    field_type: "Int".into(),
+                },
+                SirFieldSchema {
+                    name: "nonce".into(),
+                    field_type: "Int".into(),
+                },
             ],
         };
 
         let constraints = generate_transition_constraints(&transition, &schema);
 
         // Should have: precondition(s), body, postcondition(s), carry-over(s).
-        let has_semantic = constraints.iter().any(|c| c.category == ConstraintCategory::Semantic);
-        let has_structural = constraints.iter().any(|c| c.category == ConstraintCategory::Structural);
-        let has_carry_over = constraints.iter().any(|c| c.category == ConstraintCategory::CarryOver);
+        let has_semantic = constraints
+            .iter()
+            .any(|c| c.category == ConstraintCategory::Semantic);
+        let has_structural = constraints
+            .iter()
+            .any(|c| c.category == ConstraintCategory::Structural);
+        let has_carry_over = constraints
+            .iter()
+            .any(|c| c.category == ConstraintCategory::CarryOver);
 
-        assert!(has_semantic, "must have semantic constraints (pre/postconditions)");
+        assert!(
+            has_semantic,
+            "must have semantic constraints (pre/postconditions)"
+        );
         assert!(has_structural, "must have structural constraints (body)");
         assert!(has_carry_over, "must have carry-over constraints");
 
@@ -1394,9 +1485,10 @@ mod tests {
             allowed_mutations: vec!["result".to_string()],
         };
         let schema = SirStateSchema {
-            fields: vec![
-                SirFieldSchema { name: "result".into(), field_type: "Int".into() },
-            ],
+            fields: vec![SirFieldSchema {
+                name: "result".into(),
+                field_type: "Int".into(),
+            }],
         };
 
         // Run twice with reset counter — should produce identical constraints.
@@ -1406,11 +1498,21 @@ mod tests {
         reset_constraint_id_counter();
         let c2 = generate_transition_constraints(&transition, &schema);
 
-        assert_eq!(c1.len(), c2.len(), "CONST-4: same input must produce same number of constraints");
+        assert_eq!(
+            c1.len(),
+            c2.len(),
+            "CONST-4: same input must produce same number of constraints"
+        );
         for (a, b) in c1.iter().zip(c2.iter()) {
             assert_eq!(a.expr, b.expr, "CONST-4: constraint expressions must match");
-            assert_eq!(a.category, b.category, "CONST-4: constraint categories must match");
-            assert_eq!(a.description, b.description, "CONST-4: constraint descriptions must match");
+            assert_eq!(
+                a.category, b.category,
+                "CONST-4: constraint categories must match"
+            );
+            assert_eq!(
+                a.description, b.description,
+                "CONST-4: constraint descriptions must match"
+            );
         }
     }
 
@@ -1425,10 +1527,14 @@ mod tests {
             expr: SirExpr::BinOp {
                 op: "ge".into(),
                 left: Box::new(SirExpr::FieldAccess {
-                    expr: Box::new(SirExpr::Var { name: "state".into() }),
+                    expr: Box::new(SirExpr::Var {
+                        name: "state".into(),
+                    }),
                     field: "balance".into(),
                 }),
-                right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                right: Box::new(SirExpr::Literal {
+                    value: SirValue::Int { value: 0 },
+                }),
             },
         };
         let constraints = generate_invariant_constraints(&inv);
@@ -1437,7 +1543,10 @@ mod tests {
             .iter()
             .filter(|c| c.category == ConstraintCategory::Invariant)
             .collect();
-        assert!(!invariant_constraints.is_empty(), "must have Invariant category constraints");
+        assert!(
+            !invariant_constraints.is_empty(),
+            "must have Invariant category constraints"
+        );
         assert!(invariant_constraints[0].description.contains("L_cons"));
         assert!(invariant_constraints[0].description.contains("local"));
     }
@@ -1448,7 +1557,9 @@ mod tests {
         let inv = SirInvariant {
             name: "G_solvency".into(),
             category: "global".into(),
-            expr: SirExpr::Literal { value: SirValue::Bool { value: true } },
+            expr: SirExpr::Literal {
+                value: SirValue::Bool { value: true },
+            },
         };
         let constraints = generate_invariant_constraints(&inv);
         assert!(!constraints.is_empty());
@@ -1462,7 +1573,9 @@ mod tests {
         let inv = SirInvariant {
             name: "T_no_revert".into(),
             category: "temporal".into(),
-            expr: SirExpr::Literal { value: SirValue::Bool { value: true } },
+            expr: SirExpr::Literal {
+                value: SirValue::Bool { value: true },
+            },
         };
         let constraints = generate_invariant_constraints(&inv);
         assert!(constraints[0].description.contains("temporal"));
@@ -1474,7 +1587,9 @@ mod tests {
         let inv = SirInvariant {
             name: "E_cost".into(),
             category: "economic".into(),
-            expr: SirExpr::Literal { value: SirValue::Bool { value: true } },
+            expr: SirExpr::Literal {
+                value: SirValue::Bool { value: true },
+            },
         };
         let constraints = generate_invariant_constraints(&inv);
         assert!(constraints[0].description.contains("economic"));
@@ -1487,14 +1602,21 @@ mod tests {
             version: "0.1.0".into(),
             state_schema: SirStateSchema {
                 fields: vec![
-                    SirFieldSchema { name: "balance".into(), field_type: "Int".into() },
-                    SirFieldSchema { name: "nonce".into(), field_type: "Int".into() },
+                    SirFieldSchema {
+                        name: "balance".into(),
+                        field_type: "Int".into(),
+                    },
+                    SirFieldSchema {
+                        name: "nonce".into(),
+                        field_type: "Int".into(),
+                    },
                 ],
             },
             input_schema: SirInputSchema {
-                fields: vec![
-                    SirFieldSchema { name: "amount".into(), field_type: "Int".into() },
-                ],
+                fields: vec![SirFieldSchema {
+                    name: "amount".into(),
+                    field_type: "Int".into(),
+                }],
             },
             transitions: vec![SirTransition {
                 name: "deposit".into(),
@@ -1502,20 +1624,28 @@ mod tests {
                 preconditions: vec![SirExpr::BinOp {
                     op: "gt".into(),
                     left: Box::new(SirExpr::FieldAccess {
-                        expr: Box::new(SirExpr::Var { name: "input".into() }),
+                        expr: Box::new(SirExpr::Var {
+                            name: "input".into(),
+                        }),
                         field: "amount".into(),
                     }),
-                    right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                    right: Box::new(SirExpr::Literal {
+                        value: SirValue::Int { value: 0 },
+                    }),
                 }],
                 postconditions: vec![],
                 body: SirExpr::BinOp {
                     op: "add".into(),
                     left: Box::new(SirExpr::FieldAccess {
-                        expr: Box::new(SirExpr::Var { name: "state".into() }),
+                        expr: Box::new(SirExpr::Var {
+                            name: "state".into(),
+                        }),
                         field: "balance".into(),
                     }),
                     right: Box::new(SirExpr::FieldAccess {
-                        expr: Box::new(SirExpr::Var { name: "input".into() }),
+                        expr: Box::new(SirExpr::Var {
+                            name: "input".into(),
+                        }),
                         field: "amount".into(),
                     }),
                 },
@@ -1527,10 +1657,14 @@ mod tests {
                 expr: SirExpr::BinOp {
                     op: "ge".into(),
                     left: Box::new(SirExpr::FieldAccess {
-                        expr: Box::new(SirExpr::Var { name: "state".into() }),
+                        expr: Box::new(SirExpr::Var {
+                            name: "state".into(),
+                        }),
                         field: "balance".into(),
                     }),
-                    right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                    right: Box::new(SirExpr::Literal {
+                        value: SirValue::Int { value: 0 },
+                    }),
                 },
             }],
             observables: vec![],
@@ -1544,8 +1678,14 @@ mod tests {
 
         assert_eq!(system.version, "0.1.0");
         assert!(!system.constraints.is_empty(), "must produce constraints");
-        assert!(!system.witness_variables.is_empty(), "must produce witness variables");
-        assert!(!system.public_inputs.is_empty(), "must produce public inputs");
+        assert!(
+            !system.witness_variables.is_empty(),
+            "must produce witness variables"
+        );
+        assert!(
+            !system.public_inputs.is_empty(),
+            "must produce public inputs"
+        );
     }
 
     #[test]
@@ -1555,7 +1695,11 @@ mod tests {
 
         // state_schema has 2 fields → 4 witness vars (pre + post for each)
         // input_schema has 1 field → 1 witness var
-        let names: Vec<&str> = system.witness_variables.iter().map(|w| w.name.as_str()).collect();
+        let names: Vec<&str> = system
+            .witness_variables
+            .iter()
+            .map(|w| w.name.as_str())
+            .collect();
         assert!(names.contains(&"state_pre.balance"));
         assert!(names.contains(&"state_post.balance"));
         assert!(names.contains(&"state_pre.nonce"));
@@ -1568,7 +1712,11 @@ mod tests {
         let program = make_test_program();
         let system = compile(&program);
 
-        let pi_names: Vec<&str> = system.public_inputs.iter().map(|p| p.name.as_str()).collect();
+        let pi_names: Vec<&str> = system
+            .public_inputs
+            .iter()
+            .map(|p| p.name.as_str())
+            .collect();
         assert!(pi_names.contains(&"state_pre_commitment"));
         assert!(pi_names.contains(&"state_post_commitment"));
         assert!(pi_names.contains(&"domain"));
@@ -1580,12 +1728,30 @@ mod tests {
         let program = make_test_program();
         let system = compile(&program);
 
-        let has_semantic = system.constraints.iter().any(|c| c.category == ConstraintCategory::Semantic);
-        let has_structural = system.constraints.iter().any(|c| c.category == ConstraintCategory::Structural);
-        let has_carry_over = system.constraints.iter().any(|c| c.category == ConstraintCategory::CarryOver);
-        assert!(has_semantic, "must have semantic constraints from transitions");
-        assert!(has_structural, "must have structural constraints from transitions");
-        assert!(has_carry_over, "must have carry-over constraints from transitions");
+        let has_semantic = system
+            .constraints
+            .iter()
+            .any(|c| c.category == ConstraintCategory::Semantic);
+        let has_structural = system
+            .constraints
+            .iter()
+            .any(|c| c.category == ConstraintCategory::Structural);
+        let has_carry_over = system
+            .constraints
+            .iter()
+            .any(|c| c.category == ConstraintCategory::CarryOver);
+        assert!(
+            has_semantic,
+            "must have semantic constraints from transitions"
+        );
+        assert!(
+            has_structural,
+            "must have structural constraints from transitions"
+        );
+        assert!(
+            has_carry_over,
+            "must have carry-over constraints from transitions"
+        );
     }
 
     #[test]
@@ -1593,7 +1759,10 @@ mod tests {
         let program = make_test_program();
         let system = compile(&program);
 
-        let has_invariant = system.constraints.iter().any(|c| c.category == ConstraintCategory::Invariant);
+        let has_invariant = system
+            .constraints
+            .iter()
+            .any(|c| c.category == ConstraintCategory::Invariant);
         assert!(has_invariant, "must have invariant constraints");
     }
 
@@ -1608,8 +1777,11 @@ mod tests {
         let s1 = compile(&program);
         let s2 = compile(&program);
 
-        assert_eq!(s1.constraints.len(), s2.constraints.len(),
-            "CONST-4: same input must produce same number of constraints");
+        assert_eq!(
+            s1.constraints.len(),
+            s2.constraints.len(),
+            "CONST-4: same input must produce same number of constraints"
+        );
         assert_eq!(s1.witness_variables.len(), s2.witness_variables.len());
         assert_eq!(s1.public_inputs.len(), s2.public_inputs.len());
         assert_eq!(s1.version, s2.version);
@@ -1617,8 +1789,14 @@ mod tests {
         // Both runs must produce identical constraint expressions and categories.
         for (a, b) in s1.constraints.iter().zip(s2.constraints.iter()) {
             assert_eq!(a.expr, b.expr, "CONST-4: constraint expressions must match");
-            assert_eq!(a.category, b.category, "CONST-4: constraint categories must match");
-            assert_eq!(a.description, b.description, "CONST-4: descriptions must match");
+            assert_eq!(
+                a.category, b.category,
+                "CONST-4: constraint categories must match"
+            );
+            assert_eq!(
+                a.description, b.description,
+                "CONST-4: descriptions must match"
+            );
         }
 
         // Both runs must produce identical witness variables.
@@ -1664,7 +1842,10 @@ mod tests {
             Box::new(ConstraintExpr::Constant(5)),
             Box::new(ConstraintExpr::Constant(5)),
         );
-        assert_eq!(evaluate_constraint_expr(&expr, &env), Some(SirValue::Bool { value: true }));
+        assert_eq!(
+            evaluate_constraint_expr(&expr, &env),
+            Some(SirValue::Bool { value: true })
+        );
     }
 
     #[test]
@@ -1674,7 +1855,10 @@ mod tests {
             Box::new(ConstraintExpr::Constant(5)),
             Box::new(ConstraintExpr::Constant(3)),
         );
-        assert_eq!(evaluate_constraint_expr(&expr, &env), Some(SirValue::Bool { value: false }));
+        assert_eq!(
+            evaluate_constraint_expr(&expr, &env),
+            Some(SirValue::Bool { value: false })
+        );
     }
 
     #[test]
@@ -1684,19 +1868,28 @@ mod tests {
             Box::new(ConstraintExpr::Constant(3)),
             Box::new(ConstraintExpr::Constant(4)),
         );
-        assert_eq!(evaluate_constraint_expr(&add, &env), Some(SirValue::Int { value: 7 }));
+        assert_eq!(
+            evaluate_constraint_expr(&add, &env),
+            Some(SirValue::Int { value: 7 })
+        );
 
         let sub = ConstraintExpr::Sub(
             Box::new(ConstraintExpr::Constant(10)),
             Box::new(ConstraintExpr::Constant(3)),
         );
-        assert_eq!(evaluate_constraint_expr(&sub, &env), Some(SirValue::Int { value: 7 }));
+        assert_eq!(
+            evaluate_constraint_expr(&sub, &env),
+            Some(SirValue::Int { value: 7 })
+        );
 
         let mul = ConstraintExpr::Mul(
             Box::new(ConstraintExpr::Constant(6)),
             Box::new(ConstraintExpr::Constant(7)),
         );
-        assert_eq!(evaluate_constraint_expr(&mul, &env), Some(SirValue::Int { value: 42 }));
+        assert_eq!(
+            evaluate_constraint_expr(&mul, &env),
+            Some(SirValue::Int { value: 42 })
+        );
     }
 
     #[test]
@@ -1706,13 +1899,19 @@ mod tests {
             Box::new(ConstraintExpr::Constant(1)),
             Box::new(ConstraintExpr::Constant(2)),
         );
-        assert_eq!(evaluate_constraint_expr(&lt, &env), Some(SirValue::Bool { value: true }));
+        assert_eq!(
+            evaluate_constraint_expr(&lt, &env),
+            Some(SirValue::Bool { value: true })
+        );
 
         let ge = ConstraintExpr::Ge(
             Box::new(ConstraintExpr::Constant(5)),
             Box::new(ConstraintExpr::Constant(5)),
         );
-        assert_eq!(evaluate_constraint_expr(&ge, &env), Some(SirValue::Bool { value: true }));
+        assert_eq!(
+            evaluate_constraint_expr(&ge, &env),
+            Some(SirValue::Bool { value: true })
+        );
     }
 
     #[test]
@@ -1723,14 +1922,20 @@ mod tests {
             Box::new(ConstraintExpr::Constant(1)),
             Box::new(ConstraintExpr::Constant(0)),
         );
-        assert_eq!(evaluate_constraint_expr(&expr, &env), Some(SirValue::Int { value: 1 }));
+        assert_eq!(
+            evaluate_constraint_expr(&expr, &env),
+            Some(SirValue::Int { value: 1 })
+        );
 
         let expr_false = ConstraintExpr::IfThenElse(
             Box::new(ConstraintExpr::BoolConstant(false)),
             Box::new(ConstraintExpr::Constant(1)),
             Box::new(ConstraintExpr::Constant(0)),
         );
-        assert_eq!(evaluate_constraint_expr(&expr_false, &env), Some(SirValue::Int { value: 0 }));
+        assert_eq!(
+            evaluate_constraint_expr(&expr_false, &env),
+            Some(SirValue::Int { value: 0 })
+        );
     }
 
     #[test]
@@ -1744,7 +1949,10 @@ mod tests {
             Box::new(ConstraintExpr::WitnessRef("state".into())),
             "balance".into(),
         );
-        assert_eq!(evaluate_constraint_expr(&expr, &env), Some(SirValue::Int { value: 100 }));
+        assert_eq!(
+            evaluate_constraint_expr(&expr, &env),
+            Some(SirValue::Int { value: 100 })
+        );
     }
 
     #[test]
@@ -1767,8 +1975,12 @@ mod tests {
         let system = ConstraintSystem::new("0.1.0");
         let mut pre_entries = std::collections::BTreeMap::new();
         pre_entries.insert("balance".to_string(), SirValue::Int { value: 100 });
-        let pre = SirValue::Map { entries: pre_entries };
-        let input = SirValue::Map { entries: std::collections::BTreeMap::new() };
+        let pre = SirValue::Map {
+            entries: pre_entries,
+        };
+        let input = SirValue::Map {
+            entries: std::collections::BTreeMap::new(),
+        };
         let post = pre.clone();
         assert!(satisfies_constraints(&[(pre, input, post)], &system));
     }
@@ -1789,8 +2001,12 @@ mod tests {
 
         let mut pre_entries = std::collections::BTreeMap::new();
         pre_entries.insert("balance".to_string(), SirValue::Int { value: 100 });
-        let pre = SirValue::Map { entries: pre_entries };
-        let input = SirValue::Map { entries: std::collections::BTreeMap::new() };
+        let pre = SirValue::Map {
+            entries: pre_entries,
+        };
+        let input = SirValue::Map {
+            entries: std::collections::BTreeMap::new(),
+        };
         let post = pre.clone(); // same balance
 
         assert!(satisfies_constraints(&[(pre, input, post)], &system));
@@ -1811,11 +2027,17 @@ mod tests {
 
         let mut pre_entries = std::collections::BTreeMap::new();
         pre_entries.insert("balance".to_string(), SirValue::Int { value: 100 });
-        let pre = SirValue::Map { entries: pre_entries };
-        let input = SirValue::Map { entries: std::collections::BTreeMap::new() };
+        let pre = SirValue::Map {
+            entries: pre_entries,
+        };
+        let input = SirValue::Map {
+            entries: std::collections::BTreeMap::new(),
+        };
         let mut post_entries = std::collections::BTreeMap::new();
         post_entries.insert("balance".to_string(), SirValue::Int { value: 200 });
-        let post = SirValue::Map { entries: post_entries };
+        let post = SirValue::Map {
+            entries: post_entries,
+        };
 
         assert!(!satisfies_constraints(&[(pre, input, post)], &system));
     }
@@ -1839,7 +2061,9 @@ mod tests {
             entries.insert("balance".to_string(), SirValue::Int { value: bal });
             SirValue::Map { entries }
         };
-        let input = SirValue::Map { entries: std::collections::BTreeMap::new() };
+        let input = SirValue::Map {
+            entries: std::collections::BTreeMap::new(),
+        };
 
         let trace = vec![
             (make_state(100), input.clone(), make_state(50)),

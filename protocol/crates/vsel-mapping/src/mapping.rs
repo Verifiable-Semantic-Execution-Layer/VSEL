@@ -86,16 +86,33 @@ pub struct FormalObservable(pub SirValue);
 /// Requirement 4.1: μ_S is total and deterministic.
 pub fn map_state(concrete: &State) -> FormalState {
     let mut entries = BTreeMap::new();
-    entries.insert("canonical".to_string(), map_canonical_state(&concrete.canonical));
+    entries.insert(
+        "canonical".to_string(),
+        map_canonical_state(&concrete.canonical),
+    );
     entries.insert("derived".to_string(), map_derived_state(&concrete.derived));
-    entries.insert("environment".to_string(), map_environment(&concrete.environment));
-    entries.insert("economic".to_string(), map_economic_context(&concrete.economic));
-    entries.insert("metadata".to_string(), map_trace_metadata(&concrete.metadata));
+    entries.insert(
+        "environment".to_string(),
+        map_environment(&concrete.environment),
+    );
+    entries.insert(
+        "economic".to_string(),
+        map_economic_context(&concrete.economic),
+    );
+    entries.insert(
+        "metadata".to_string(),
+        map_trace_metadata(&concrete.metadata),
+    );
 
     // Verify D = Derive(C) through the mapping (DEF-1 verification)
     let recomputed_derived = state::derive(&concrete.canonical);
     let derived_valid = concrete.derived == recomputed_derived;
-    entries.insert("derived_valid".to_string(), SirValue::Bool { value: derived_valid });
+    entries.insert(
+        "derived_valid".to_string(),
+        SirValue::Bool {
+            value: derived_valid,
+        },
+    );
 
     FormalState(SirValue::Map { entries })
 }
@@ -145,7 +162,12 @@ pub fn map_input(concrete: &Input) -> FormalInput {
     let mut entries = BTreeMap::new();
     entries.insert("payload".to_string(), map_payload(&concrete.payload));
     entries.insert("auth".to_string(), map_authorization(&concrete.auth));
-    entries.insert("aux".to_string(), SirValue::Bytes { value: concrete.aux.data.clone() });
+    entries.insert(
+        "aux".to_string(),
+        SirValue::Bytes {
+            value: concrete.aux.data.clone(),
+        },
+    );
     FormalInput(SirValue::Map { entries })
 }
 
@@ -177,15 +199,19 @@ pub fn map_transition(pre: &State, input: &Input, post: &State) -> FormalTransit
 ///
 /// Requirement 4.1: μ_Tr is total and deterministic.
 pub fn map_trace(concrete: &Trace) -> FormalTrace {
-    let formal_entries: Vec<SirValue> = concrete
-        .entries
-        .iter()
-        .map(map_trace_entry)
-        .collect();
+    let formal_entries: Vec<SirValue> = concrete.entries.iter().map(map_trace_entry).collect();
 
     let mut entries = BTreeMap::new();
-    entries.insert("entries".to_string(), SirValue::List { elements: formal_entries });
-    entries.insert("initial_state".to_string(), map_state(&concrete.initial_state).0);
+    entries.insert(
+        "entries".to_string(),
+        SirValue::List {
+            elements: formal_entries,
+        },
+    );
+    entries.insert(
+        "initial_state".to_string(),
+        map_state(&concrete.initial_state).0,
+    );
     entries.insert("commitment".to_string(), map_hash(&concrete.commitment));
     FormalTrace(SirValue::Map { entries })
 }
@@ -214,7 +240,9 @@ pub fn map_observable(concrete: &Observable) -> FormalObservable {
     );
     entries.insert(
         "gas_used".to_string(),
-        SirValue::Int { value: concrete.gas_used as i64 },
+        SirValue::Int {
+            value: concrete.gas_used as i64,
+        },
     );
     entries.insert("status".to_string(), map_transition_status(concrete.status));
     FormalObservable(SirValue::Map { entries })
@@ -226,7 +254,9 @@ pub fn map_observable(concrete: &Observable) -> FormalObservable {
 
 /// Map a `Hash` to `SirValue::Bytes`.
 fn map_hash(h: &Hash) -> SirValue {
-    SirValue::Bytes { value: h.0.to_vec() }
+    SirValue::Bytes {
+        value: h.0.to_vec(),
+    }
 }
 
 /// Map a `CanonicalState` to `SirValue::Map`.
@@ -243,7 +273,12 @@ fn map_canonical_state(c: &CanonicalState) -> SirValue {
     // Storage: map of hex-encoded keys to byte values
     let mut storage = BTreeMap::new();
     for (key, val) in &c.storage {
-        storage.insert(hex_encode(&key.0), SirValue::Bytes { value: val.0.clone() });
+        storage.insert(
+            hex_encode(&key.0),
+            SirValue::Bytes {
+                value: val.0.clone(),
+            },
+        );
     }
     entries.insert("storage".to_string(), SirValue::Map { entries: storage });
 
@@ -260,8 +295,18 @@ fn map_canonical_state(c: &CanonicalState) -> SirValue {
 fn map_account_data(a: &AccountData) -> SirValue {
     let mut entries = BTreeMap::new();
     entries.insert("balance".to_string(), map_u128(a.balance));
-    entries.insert("nonce".to_string(), SirValue::Int { value: a.nonce as i64 });
-    entries.insert("data".to_string(), SirValue::Bytes { value: a.data.clone() });
+    entries.insert(
+        "nonce".to_string(),
+        SirValue::Int {
+            value: a.nonce as i64,
+        },
+    );
+    entries.insert(
+        "data".to_string(),
+        SirValue::Bytes {
+            value: a.data.clone(),
+        },
+    );
     SirValue::Map { entries }
 }
 
@@ -273,10 +318,28 @@ fn map_system_data(sd: &SystemData) -> SirValue {
 
     // Protocol version as a map
     let mut version = BTreeMap::new();
-    version.insert("major".to_string(), SirValue::Int { value: sd.protocol_version.major as i64 });
-    version.insert("minor".to_string(), SirValue::Int { value: sd.protocol_version.minor as i64 });
-    version.insert("patch".to_string(), SirValue::Int { value: sd.protocol_version.patch as i64 });
-    entries.insert("protocol_version".to_string(), SirValue::Map { entries: version });
+    version.insert(
+        "major".to_string(),
+        SirValue::Int {
+            value: sd.protocol_version.major as i64,
+        },
+    );
+    version.insert(
+        "minor".to_string(),
+        SirValue::Int {
+            value: sd.protocol_version.minor as i64,
+        },
+    );
+    version.insert(
+        "patch".to_string(),
+        SirValue::Int {
+            value: sd.protocol_version.patch as i64,
+        },
+    );
+    entries.insert(
+        "protocol_version".to_string(),
+        SirValue::Map { entries: version },
+    );
 
     entries.insert("total_supply".to_string(), map_u128(sd.total_supply));
 
@@ -301,13 +364,21 @@ fn map_derived_state(d: &DerivedState) -> SirValue {
     for (k, h) in &d.auxiliary_roots {
         aux_roots.insert(k.clone(), map_hash(h));
     }
-    entries.insert("auxiliary_roots".to_string(), SirValue::Map { entries: aux_roots });
+    entries.insert(
+        "auxiliary_roots".to_string(),
+        SirValue::Map { entries: aux_roots },
+    );
 
     let mut aggregates = BTreeMap::new();
     for (k, v) in &d.aggregates {
         aggregates.insert(k.clone(), map_u128(*v));
     }
-    entries.insert("aggregates".to_string(), SirValue::Map { entries: aggregates });
+    entries.insert(
+        "aggregates".to_string(),
+        SirValue::Map {
+            entries: aggregates,
+        },
+    );
 
     SirValue::Map { entries }
 }
@@ -315,9 +386,22 @@ fn map_derived_state(d: &DerivedState) -> SirValue {
 /// Map `Environment` to `SirValue::Map`.
 fn map_environment(e: &Environment) -> SirValue {
     let mut entries = BTreeMap::new();
-    entries.insert("timestamp".to_string(), SirValue::Int { value: e.timestamp as i64 });
-    entries.insert("block_height".to_string(), SirValue::Int { value: e.block_height as i64 });
-    entries.insert("execution_domain".to_string(), map_hash(&e.execution_domain.0));
+    entries.insert(
+        "timestamp".to_string(),
+        SirValue::Int {
+            value: e.timestamp as i64,
+        },
+    );
+    entries.insert(
+        "block_height".to_string(),
+        SirValue::Int {
+            value: e.block_height as i64,
+        },
+    );
+    entries.insert(
+        "execution_domain".to_string(),
+        map_hash(&e.execution_domain.0),
+    );
     SirValue::Map { entries }
 }
 
@@ -334,27 +418,44 @@ fn map_economic_context(econ: &EconomicContext) -> SirValue {
         let key = format!("{}_{}", pair.base, pair.quote);
         oracle.insert(key, map_u128(price.0));
     }
-    entries.insert("price_oracle".to_string(), SirValue::Map { entries: oracle });
+    entries.insert(
+        "price_oracle".to_string(),
+        SirValue::Map { entries: oracle },
+    );
 
     // Exposure limits
     let mut limits = BTreeMap::new();
     for (id, limit) in &econ.exposure_limits {
         limits.insert(hex_encode(&id.0), map_u128(limit.0));
     }
-    entries.insert("exposure_limits".to_string(), SirValue::Map { entries: limits });
+    entries.insert(
+        "exposure_limits".to_string(),
+        SirValue::Map { entries: limits },
+    );
 
     // Liquidity thresholds
     let mut thresholds = BTreeMap::new();
     for (id, threshold) in &econ.liquidity_thresholds {
         thresholds.insert(hex_encode(&id.0), map_u128(threshold.0));
     }
-    entries.insert("liquidity_thresholds".to_string(), SirValue::Map { entries: thresholds });
+    entries.insert(
+        "liquidity_thresholds".to_string(),
+        SirValue::Map {
+            entries: thresholds,
+        },
+    );
 
     // Fee schedule
-    entries.insert("fee_schedule".to_string(), map_fee_schedule(&econ.fee_schedule));
+    entries.insert(
+        "fee_schedule".to_string(),
+        map_fee_schedule(&econ.fee_schedule),
+    );
 
     // Epoch accounting
-    entries.insert("epoch_accounting".to_string(), map_epoch_accounting(&econ.epoch_accounting));
+    entries.insert(
+        "epoch_accounting".to_string(),
+        map_epoch_accounting(&econ.epoch_accounting),
+    );
 
     // Collateral requirements
     let mut collateral = BTreeMap::new();
@@ -366,10 +467,18 @@ fn map_economic_context(econ: &EconomicContext) -> SirValue {
         };
         collateral.insert(key.to_string(), map_u128(ratio.0));
     }
-    entries.insert("collateral_requirements".to_string(), SirValue::Map { entries: collateral });
+    entries.insert(
+        "collateral_requirements".to_string(),
+        SirValue::Map {
+            entries: collateral,
+        },
+    );
 
     // Economic parameters
-    entries.insert("economic_parameters".to_string(), map_economic_parameters(&econ.economic_parameters));
+    entries.insert(
+        "economic_parameters".to_string(),
+        map_economic_parameters(&econ.economic_parameters),
+    );
 
     SirValue::Map { entries }
 }
@@ -386,7 +495,10 @@ fn map_fee_schedule(fs: &FeeSchedule) -> SirValue {
     for (k, v) in &fs.overrides {
         overrides.insert(k.clone(), map_u128(*v));
     }
-    entries.insert("overrides".to_string(), SirValue::Map { entries: overrides });
+    entries.insert(
+        "overrides".to_string(),
+        SirValue::Map { entries: overrides },
+    );
 
     SirValue::Map { entries }
 }
@@ -396,9 +508,22 @@ fn map_fee_schedule(fs: &FeeSchedule) -> SirValue {
 /// total_fees_collected is encoded as `SirValue::Bytes` (16-byte LE) for u128 precision.
 fn map_epoch_accounting(ea: &EpochAccounting) -> SirValue {
     let mut entries = BTreeMap::new();
-    entries.insert("epoch".to_string(), SirValue::Int { value: ea.epoch as i64 });
-    entries.insert("total_fees_collected".to_string(), map_u128(ea.total_fees_collected));
-    entries.insert("total_transactions".to_string(), SirValue::Int { value: ea.total_transactions as i64 });
+    entries.insert(
+        "epoch".to_string(),
+        SirValue::Int {
+            value: ea.epoch as i64,
+        },
+    );
+    entries.insert(
+        "total_fees_collected".to_string(),
+        map_u128(ea.total_fees_collected),
+    );
+    entries.insert(
+        "total_transactions".to_string(),
+        SirValue::Int {
+            value: ea.total_transactions as i64,
+        },
+    );
     SirValue::Map { entries }
 }
 
@@ -407,8 +532,14 @@ fn map_epoch_accounting(ea: &EpochAccounting) -> SirValue {
 /// All u128 parameter values are encoded as `SirValue::Bytes` (16-byte LE).
 fn map_economic_parameters(ep: &EconomicParameters) -> SirValue {
     let mut entries = BTreeMap::new();
-    entries.insert("min_collateral_ratio_bps".to_string(), map_u128(ep.min_collateral_ratio_bps));
-    entries.insert("max_leverage_bps".to_string(), map_u128(ep.max_leverage_bps));
+    entries.insert(
+        "min_collateral_ratio_bps".to_string(),
+        map_u128(ep.min_collateral_ratio_bps),
+    );
+    entries.insert(
+        "max_leverage_bps".to_string(),
+        map_u128(ep.max_leverage_bps),
+    );
     entries.insert("dust_threshold".to_string(), map_u128(ep.dust_threshold));
 
     let mut extra = BTreeMap::new();
@@ -423,33 +554,86 @@ fn map_economic_parameters(ep: &EconomicParameters) -> SirValue {
 /// Map `TraceMetadata` to `SirValue::Map`.
 fn map_trace_metadata(m: &TraceMetadata) -> SirValue {
     let mut entries = BTreeMap::new();
-    entries.insert("sequence_index".to_string(), SirValue::Int { value: m.sequence_index as i64 });
-    entries.insert("previous_commitment".to_string(), map_hash(&m.previous_commitment));
-    entries.insert("epoch".to_string(), SirValue::Int { value: m.epoch as i64 });
-    entries.insert("timestamp".to_string(), SirValue::Int { value: m.timestamp as i64 });
+    entries.insert(
+        "sequence_index".to_string(),
+        SirValue::Int {
+            value: m.sequence_index as i64,
+        },
+    );
+    entries.insert(
+        "previous_commitment".to_string(),
+        map_hash(&m.previous_commitment),
+    );
+    entries.insert(
+        "epoch".to_string(),
+        SirValue::Int {
+            value: m.epoch as i64,
+        },
+    );
+    entries.insert(
+        "timestamp".to_string(),
+        SirValue::Int {
+            value: m.timestamp as i64,
+        },
+    );
     SirValue::Map { entries }
 }
 
 /// Map `Payload` to `SirValue::Map`.
 fn map_payload(p: &Payload) -> SirValue {
     let mut entries = BTreeMap::new();
-    entries.insert("payload_type".to_string(), SirValue::Bytes { value: p.payload_type.as_bytes().to_vec() });
-    entries.insert("data".to_string(), SirValue::Bytes { value: p.data.clone() });
+    entries.insert(
+        "payload_type".to_string(),
+        SirValue::Bytes {
+            value: p.payload_type.as_bytes().to_vec(),
+        },
+    );
+    entries.insert(
+        "data".to_string(),
+        SirValue::Bytes {
+            value: p.data.clone(),
+        },
+    );
     SirValue::Map { entries }
 }
 
 /// Map `Authorization` to `SirValue::Map`.
 fn map_authorization(a: &Authorization) -> SirValue {
     let mut entries = BTreeMap::new();
-    entries.insert("classical_sig".to_string(), SirValue::Bytes { value: a.classical_sig.clone() });
-    entries.insert("pqc_sig".to_string(), SirValue::Bytes { value: a.pqc_sig.clone() });
+    entries.insert(
+        "classical_sig".to_string(),
+        SirValue::Bytes {
+            value: a.classical_sig.clone(),
+        },
+    );
+    entries.insert(
+        "pqc_sig".to_string(),
+        SirValue::Bytes {
+            value: a.pqc_sig.clone(),
+        },
+    );
 
     let mut pk = BTreeMap::new();
-    pk.insert("classical".to_string(), SirValue::Bytes { value: a.public_key.classical.clone() });
-    pk.insert("pqc".to_string(), SirValue::Bytes { value: a.public_key.pqc.clone() });
+    pk.insert(
+        "classical".to_string(),
+        SirValue::Bytes {
+            value: a.public_key.classical.clone(),
+        },
+    );
+    pk.insert(
+        "pqc".to_string(),
+        SirValue::Bytes {
+            value: a.public_key.pqc.clone(),
+        },
+    );
     entries.insert("public_key".to_string(), SirValue::Map { entries: pk });
 
-    entries.insert("nonce".to_string(), SirValue::Int { value: a.nonce as i64 });
+    entries.insert(
+        "nonce".to_string(),
+        SirValue::Int {
+            value: a.nonce as i64,
+        },
+    );
     entries.insert("domain".to_string(), map_hash(&a.domain.0));
     SirValue::Map { entries }
 }
@@ -472,18 +656,39 @@ fn map_transition_status(ts: TransitionStatus) -> SirValue {
 /// Map an `OutputEvent` to `SirValue::Map`.
 fn map_output_event(e: &OutputEvent) -> SirValue {
     let mut entries = BTreeMap::new();
-    entries.insert("event_type".to_string(), SirValue::Bytes { value: e.event_type.as_bytes().to_vec() });
-    entries.insert("data".to_string(), SirValue::Bytes { value: e.data.clone() });
+    entries.insert(
+        "event_type".to_string(),
+        SirValue::Bytes {
+            value: e.event_type.as_bytes().to_vec(),
+        },
+    );
+    entries.insert(
+        "data".to_string(),
+        SirValue::Bytes {
+            value: e.data.clone(),
+        },
+    );
     SirValue::Map { entries }
 }
 
 /// Map a `TraceEntry` to `SirValue::Map`.
 fn map_trace_entry(te: &TraceEntry) -> SirValue {
     let mut entries = BTreeMap::new();
-    entries.insert("index".to_string(), SirValue::Int { value: te.index as i64 });
-    entries.insert("pre_state_commitment".to_string(), map_hash(&te.pre_state_commitment));
+    entries.insert(
+        "index".to_string(),
+        SirValue::Int {
+            value: te.index as i64,
+        },
+    );
+    entries.insert(
+        "pre_state_commitment".to_string(),
+        map_hash(&te.pre_state_commitment),
+    );
     entries.insert("input".to_string(), map_input(&te.input).0);
-    entries.insert("post_state_commitment".to_string(), map_hash(&te.post_state_commitment));
+    entries.insert(
+        "post_state_commitment".to_string(),
+        map_hash(&te.post_state_commitment),
+    );
     entries.insert("observable".to_string(), map_observable(&te.observable).0);
     entries.insert("environment".to_string(), map_environment(&te.environment));
     entries.insert("chain_hash".to_string(), map_hash(&te.chain_hash));
@@ -509,7 +714,9 @@ fn hex_encode(bytes: &[u8]) -> String {
 ///
 /// The encoding is injective: distinct u128 values produce distinct byte sequences.
 fn map_u128(v: u128) -> SirValue {
-    SirValue::Bytes { value: v.to_le_bytes().to_vec() }
+    SirValue::Bytes {
+        value: v.to_le_bytes().to_vec(),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -722,9 +929,15 @@ pub fn verify_derived_commutativity(canonical: &CanonicalState) -> bool {
     }
 
     // Verify aggregates are consistent with canonical state
-    if let Some(SirValue::Map { entries: agg_entries }) = derived_map.get("aggregates") {
+    if let Some(SirValue::Map {
+        entries: agg_entries,
+    }) = derived_map.get("aggregates")
+    {
         // total_balance aggregate should match sum of account balances
-        if let SirValue::Map { entries: canonical_map } = &formal_canonical {
+        if let SirValue::Map {
+            entries: canonical_map,
+        } = &formal_canonical
+        {
             if let Some(SirValue::Map { entries: accounts }) = canonical_map.get("accounts") {
                 let total: u128 = accounts
                     .values()
@@ -741,7 +954,8 @@ pub fn verify_derived_commutativity(canonical: &CanonicalState) -> bool {
                         None
                     })
                     .sum();
-                if let Some(SirValue::Bytes { value: agg_bytes }) = agg_entries.get("total_balance") {
+                if let Some(SirValue::Bytes { value: agg_bytes }) = agg_entries.get("total_balance")
+                {
                     if agg_bytes.len() == 16 {
                         let agg_total = u128::from_le_bytes(agg_bytes[..16].try_into().unwrap());
                         if agg_total != total {
@@ -1038,7 +1252,11 @@ mod tests {
             accounts: BTreeMap::new(),
             storage: BTreeMap::new(),
             system_data: SystemData {
-                protocol_version: ProtocolVersion { major: 0, minor: 1, patch: 0 },
+                protocol_version: ProtocolVersion {
+                    major: 0,
+                    minor: 1,
+                    patch: 0,
+                },
                 total_supply: 0,
                 parameters: BTreeMap::new(),
             },
@@ -1059,14 +1277,23 @@ mod tests {
             epoch: 0,
             timestamp: 1_000_000,
         };
-        State { canonical: c, derived: d, environment: env, economic: econ, metadata: meta }
+        State {
+            canonical: c,
+            derived: d,
+            environment: env,
+            economic: econ,
+            metadata: meta,
+        }
     }
 
     fn valid_auth() -> Authorization {
         Authorization {
             classical_sig: vec![1, 2, 3],
             pqc_sig: vec![4, 5, 6],
-            public_key: HybridPublicKey { classical: vec![10, 11], pqc: vec![20, 21] },
+            public_key: HybridPublicKey {
+                classical: vec![10, 11],
+                pqc: vec![20, 21],
+            },
             nonce: 42,
             domain: test_domain_tag(),
         }
@@ -1074,7 +1301,10 @@ mod tests {
 
     fn valid_input_fixture() -> Input {
         Input {
-            payload: Payload { payload_type: "transfer".to_string(), data: vec![0xFF] },
+            payload: Payload {
+                payload_type: "transfer".to_string(),
+                data: vec![0xFF],
+            },
             auth: valid_auth(),
             aux: AuxiliaryData { data: vec![] },
         }
@@ -1083,7 +1313,10 @@ mod tests {
     fn valid_observable() -> Observable {
         Observable {
             transition_class: TransitionClass::Update,
-            outputs: vec![OutputEvent { event_type: "balance_change".to_string(), data: vec![1, 2] }],
+            outputs: vec![OutputEvent {
+                event_type: "balance_change".to_string(),
+                data: vec![1, 2],
+            }],
             gas_used: 21_000,
             status: TransitionStatus::Success,
         }
@@ -1123,7 +1356,11 @@ mod tests {
         c2.system_data.total_supply = 100;
         c2.accounts.insert(
             AccountId([1u8; 32]),
-            AccountData { balance: 100, nonce: 0, data: vec![] },
+            AccountData {
+                balance: 100,
+                nonce: 0,
+                data: vec![],
+            },
         );
         let s2 = build_valid_state(c2);
         assert_ne!(map_state(&s1), map_state(&s2));
@@ -1275,12 +1512,21 @@ mod tests {
             epoch: 0,
             timestamp: 1_000_000,
         };
-        State { canonical: c, derived: d, environment: env, economic: econ, metadata: meta }
+        State {
+            canonical: c,
+            derived: d,
+            environment: env,
+            economic: econ,
+            metadata: meta,
+        }
     }
 
     fn make_input(payload_type: &str, data: Vec<u8>) -> Input {
         Input {
-            payload: Payload { payload_type: payload_type.to_string(), data },
+            payload: Payload {
+                payload_type: payload_type.to_string(),
+                data,
+            },
             auth: valid_auth(),
             aux: AuxiliaryData { data: vec![] },
         }
@@ -1307,8 +1553,22 @@ mod tests {
         let mut c = minimal_canonical();
         let sender_id = AccountId([1u8; 32]);
         let receiver_id = AccountId([2u8; 32]);
-        c.accounts.insert(sender_id, AccountData { balance: 1000, nonce: 0, data: vec![] });
-        c.accounts.insert(receiver_id, AccountData { balance: 500, nonce: 0, data: vec![] });
+        c.accounts.insert(
+            sender_id,
+            AccountData {
+                balance: 1000,
+                nonce: 0,
+                data: vec![],
+            },
+        );
+        c.accounts.insert(
+            receiver_id,
+            AccountData {
+                balance: 500,
+                nonce: 0,
+                data: vec![],
+            },
+        );
         c.system_data.total_supply = 1500;
         let s = build_state_at_seq(c, 1);
 
@@ -1359,8 +1619,22 @@ mod tests {
         let mut c = minimal_canonical();
         let sender_id = AccountId([1u8; 32]);
         let receiver_id = AccountId([2u8; 32]);
-        c.accounts.insert(sender_id, AccountData { balance: 1000, nonce: 0, data: vec![] });
-        c.accounts.insert(receiver_id, AccountData { balance: 500, nonce: 0, data: vec![] });
+        c.accounts.insert(
+            sender_id,
+            AccountData {
+                balance: 1000,
+                nonce: 0,
+                data: vec![],
+            },
+        );
+        c.accounts.insert(
+            receiver_id,
+            AccountData {
+                balance: 500,
+                nonce: 0,
+                data: vec![],
+            },
+        );
         c.system_data.total_supply = 1500;
         let s = build_state_at_seq(c, 1);
 
@@ -1386,8 +1660,22 @@ mod tests {
         let mut c = minimal_canonical();
         let sender_id = AccountId([1u8; 32]);
         let receiver_id = AccountId([2u8; 32]);
-        c.accounts.insert(sender_id, AccountData { balance: 1000, nonce: 0, data: vec![] });
-        c.accounts.insert(receiver_id, AccountData { balance: 500, nonce: 0, data: vec![] });
+        c.accounts.insert(
+            sender_id,
+            AccountData {
+                balance: 1000,
+                nonce: 0,
+                data: vec![],
+            },
+        );
+        c.accounts.insert(
+            receiver_id,
+            AccountData {
+                balance: 500,
+                nonce: 0,
+                data: vec![],
+            },
+        );
         c.system_data.total_supply = 1500;
         let s = build_state_at_seq(c, 1);
 
@@ -1403,9 +1691,14 @@ mod tests {
     fn test_auxiliary_exclusion_with_nonempty_aux() {
         let s = build_state_at_seq(minimal_canonical(), 1);
         let input = Input {
-            payload: Payload { payload_type: "unknown_op".to_string(), data: vec![0x01] },
+            payload: Payload {
+                payload_type: "unknown_op".to_string(),
+                data: vec![0x01],
+            },
             auth: valid_auth(),
-            aux: AuxiliaryData { data: vec![0xCA, 0xFE] },
+            aux: AuxiliaryData {
+                data: vec![0xCA, 0xFE],
+            },
         };
         assert!(verify_auxiliary_exclusion(&s, &input));
     }
@@ -1423,11 +1716,19 @@ mod tests {
         let mut c = minimal_canonical();
         c.accounts.insert(
             AccountId([1u8; 32]),
-            AccountData { balance: 100, nonce: 0, data: vec![] },
+            AccountData {
+                balance: 100,
+                nonce: 0,
+                data: vec![],
+            },
         );
         c.accounts.insert(
             AccountId([2u8; 32]),
-            AccountData { balance: 200, nonce: 1, data: vec![0xAB] },
+            AccountData {
+                balance: 200,
+                nonce: 1,
+                data: vec![0xAB],
+            },
         );
         c.system_data.total_supply = 300;
         assert!(verify_derived_commutativity(&c));
@@ -1436,10 +1737,8 @@ mod tests {
     #[test]
     fn test_derived_commutativity_with_storage() {
         let mut c = minimal_canonical();
-        c.storage.insert(
-            StorageKey(vec![1, 2, 3]),
-            StorageValue(vec![10, 20]),
-        );
+        c.storage
+            .insert(StorageKey(vec![1, 2, 3]), StorageValue(vec![10, 20]));
         assert!(verify_derived_commutativity(&c));
     }
 
@@ -1472,7 +1771,12 @@ mod tests {
         let pre_commit = commit(&s.canonical);
         let post_commit = commit(&s_prime.canonical);
         let entry_commit = commit_entry(
-            0, &pre_commit, &sigma, &post_commit, &observable, &s_prime.environment,
+            0,
+            &pre_commit,
+            &sigma,
+            &post_commit,
+            &observable,
+            &s_prime.environment,
         );
         let chain_hash = compute_chain_hash(&Hash([0u8; 32]), &entry_commit);
 
@@ -1548,8 +1852,22 @@ mod tests {
         let mut c = minimal_canonical();
         let sender_id = AccountId([1u8; 32]);
         let receiver_id = AccountId([2u8; 32]);
-        c.accounts.insert(sender_id, AccountData { balance: 1000, nonce: 0, data: vec![] });
-        c.accounts.insert(receiver_id, AccountData { balance: 500, nonce: 0, data: vec![] });
+        c.accounts.insert(
+            sender_id,
+            AccountData {
+                balance: 1000,
+                nonce: 0,
+                data: vec![],
+            },
+        );
+        c.accounts.insert(
+            receiver_id,
+            AccountData {
+                balance: 500,
+                nonce: 0,
+                data: vec![],
+            },
+        );
         c.system_data.total_supply = 1500;
         let s = build_state_at_seq(c, 1);
 
@@ -1586,13 +1904,23 @@ mod tests {
     #[test]
     fn test_map_u128_zero() {
         let v = map_u128(0u128);
-        assert_eq!(v, SirValue::Bytes { value: 0u128.to_le_bytes().to_vec() });
+        assert_eq!(
+            v,
+            SirValue::Bytes {
+                value: 0u128.to_le_bytes().to_vec()
+            }
+        );
     }
 
     #[test]
     fn test_map_u128_max() {
         let v = map_u128(u128::MAX);
-        assert_eq!(v, SirValue::Bytes { value: u128::MAX.to_le_bytes().to_vec() });
+        assert_eq!(
+            v,
+            SirValue::Bytes {
+                value: u128::MAX.to_le_bytes().to_vec()
+            }
+        );
     }
 
     #[test]
@@ -1631,7 +1959,11 @@ mod tests {
         c2.system_data.total_supply = 100;
         c2.accounts.insert(
             AccountId([1u8; 32]),
-            AccountData { balance: 100, nonce: 0, data: vec![] },
+            AccountData {
+                balance: 100,
+                nonce: 0,
+                data: vec![],
+            },
         );
         let s2 = build_valid_state(c2);
         assert!(verify_state_injectivity(&s1, &s2));
@@ -1645,7 +1977,11 @@ mod tests {
         c1.system_data.total_supply = large_balance;
         c1.accounts.insert(
             AccountId([1u8; 32]),
-            AccountData { balance: large_balance, nonce: 0, data: vec![] },
+            AccountData {
+                balance: large_balance,
+                nonce: 0,
+                data: vec![],
+            },
         );
         let s1 = build_valid_state(c1);
 
@@ -1654,7 +1990,11 @@ mod tests {
         c2.system_data.total_supply = large_balance_2;
         c2.accounts.insert(
             AccountId([1u8; 32]),
-            AccountData { balance: large_balance_2, nonce: 0, data: vec![] },
+            AccountData {
+                balance: large_balance_2,
+                nonce: 0,
+                data: vec![],
+            },
         );
         let s2 = build_valid_state(c2);
 
@@ -1695,7 +2035,11 @@ mod tests {
         c.system_data.total_supply = large_balance;
         c.accounts.insert(
             AccountId([1u8; 32]),
-            AccountData { balance: large_balance, nonce: 0, data: vec![] },
+            AccountData {
+                balance: large_balance,
+                nonce: 0,
+                data: vec![],
+            },
         );
         let formal = map_canonical_state(&c);
         if let SirValue::Map { entries } = &formal {

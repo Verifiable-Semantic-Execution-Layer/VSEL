@@ -169,8 +169,7 @@ pub fn derive_economic(c: &CanonicalState, _e: &Environment) -> EconomicContext 
         read_u128_param(&c.system_data.parameters, "min_collateral_ratio_bps").unwrap_or(10_000);
     let max_leverage_bps =
         read_u128_param(&c.system_data.parameters, "max_leverage_bps").unwrap_or(100_000);
-    let dust_threshold =
-        read_u128_param(&c.system_data.parameters, "dust_threshold").unwrap_or(0);
+    let dust_threshold = read_u128_param(&c.system_data.parameters, "dust_threshold").unwrap_or(0);
 
     let economic_parameters = EconomicParameters {
         min_collateral_ratio_bps,
@@ -821,7 +820,10 @@ mod tests {
         let s = build_valid_state(c);
         let enc1 = encode(&s);
         let enc2 = encode(&s);
-        assert_eq!(enc1, enc2, "encode must be deterministic: same state → same bytes");
+        assert_eq!(
+            enc1, enc2,
+            "encode must be deterministic: same state → same bytes"
+        );
     }
 
     #[test]
@@ -830,7 +832,11 @@ mod tests {
         c1.system_data.total_supply = 100;
         c1.accounts.insert(
             AccountId([1u8; 32]),
-            AccountData { balance: 100, nonce: 0, data: vec![] },
+            AccountData {
+                balance: 100,
+                nonce: 0,
+                data: vec![],
+            },
         );
         let s1 = build_valid_state(c1);
 
@@ -838,7 +844,11 @@ mod tests {
         c2.system_data.total_supply = 200;
         c2.accounts.insert(
             AccountId([1u8; 32]),
-            AccountData { balance: 200, nonce: 0, data: vec![] },
+            AccountData {
+                balance: 200,
+                nonce: 0,
+                data: vec![],
+            },
         );
         let s2 = build_valid_state(c2);
 
@@ -855,7 +865,11 @@ mod tests {
         c1.system_data.total_supply = 50;
         c1.accounts.insert(
             AccountId([1u8; 32]),
-            AccountData { balance: 50, nonce: 0, data: vec![] },
+            AccountData {
+                balance: 50,
+                nonce: 0,
+                data: vec![],
+            },
         );
         let s1 = build_valid_state(c1);
 
@@ -863,7 +877,11 @@ mod tests {
         c2.system_data.total_supply = 50;
         c2.accounts.insert(
             AccountId([2u8; 32]),
-            AccountData { balance: 50, nonce: 0, data: vec![] },
+            AccountData {
+                balance: 50,
+                nonce: 0,
+                data: vec![],
+            },
         );
         let s2 = build_valid_state(c2);
 
@@ -877,17 +895,13 @@ mod tests {
     #[test]
     fn test_encode_injectivity_different_storage() {
         let mut c1 = minimal_canonical();
-        c1.storage.insert(
-            StorageKey(vec![1, 2, 3]),
-            StorageValue(vec![10]),
-        );
+        c1.storage
+            .insert(StorageKey(vec![1, 2, 3]), StorageValue(vec![10]));
         let s1 = build_valid_state(c1);
 
         let mut c2 = minimal_canonical();
-        c2.storage.insert(
-            StorageKey(vec![1, 2, 3]),
-            StorageValue(vec![20]),
-        );
+        c2.storage
+            .insert(StorageKey(vec![1, 2, 3]), StorageValue(vec![20]));
         let s2 = build_valid_state(c2);
 
         assert_ne!(
@@ -938,7 +952,11 @@ mod tests {
         c2.system_data.total_supply = 999;
         c2.accounts.insert(
             AccountId([1u8; 32]),
-            AccountData { balance: 999, nonce: 0, data: vec![] },
+            AccountData {
+                balance: 999,
+                nonce: 0,
+                data: vec![],
+            },
         );
 
         assert_ne!(

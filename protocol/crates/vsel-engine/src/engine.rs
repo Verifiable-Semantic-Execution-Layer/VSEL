@@ -111,21 +111,15 @@ impl From<PipelineError> for ExecutionError {
         match e {
             PipelineError::MalformedInput { reason } => Self::MalformedInput(reason),
             PipelineError::Unauthorized { reason } => Self::Unauthorized(reason),
-            PipelineError::PreconditionViolation { reason } => {
-                Self::PreconditionViolation(reason)
-            }
+            PipelineError::PreconditionViolation { reason } => Self::PreconditionViolation(reason),
             PipelineError::PostconditionViolation { reason } => {
                 Self::PostconditionViolation(reason)
             }
-            PipelineError::DerivedStateMismatch { reason } => {
-                Self::DerivedStateMismatch(reason)
-            }
+            PipelineError::DerivedStateMismatch { reason } => Self::DerivedStateMismatch(reason),
             PipelineError::PipelineOrderViolation { reason } => {
                 Self::PipelineOrderViolation(reason)
             }
-            PipelineError::InvariantViolation { details } => {
-                Self::InvariantViolation(details)
-            }
+            PipelineError::InvariantViolation { details } => Self::InvariantViolation(details),
             PipelineError::NondeterminismDetected { reason } => {
                 Self::NondeterminismDetected(reason)
             }
@@ -462,7 +456,10 @@ mod tests {
         let sigma = make_invalid_input();
         let result = engine.execute(&s, &sigma);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), ExecutionError::MalformedInput(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            ExecutionError::MalformedInput(_)
+        ));
     }
 
     #[test]

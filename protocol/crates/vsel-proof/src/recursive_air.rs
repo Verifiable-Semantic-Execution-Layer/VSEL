@@ -302,7 +302,6 @@ pub struct RecursiveVerifierAir {
     num_public_values: usize,
 
     // --- Internal column group tracking ---
-
     /// Column offset where inner public input columns start.
     public_input_offset: usize,
     /// Number of inner public input columns.
@@ -325,7 +324,6 @@ pub struct RecursiveVerifierAir {
     /// Query consistency verification column groups (one per query).
     query_consistencies: Vec<QueryConsistencyColumns>,
 }
-
 
 impl RecursiveVerifierAir {
     /// Create a new `RecursiveVerifierAir` with the specified parameters.
@@ -382,11 +380,19 @@ impl RecursiveVerifierAir {
         for _query in 0..num_fri_queries {
             for _round in 0..num_fri_commit_rounds {
                 let leaf = (0..POSEIDON2_DIGEST_ELEMENTS)
-                    .map(|_| { let c = next_col; next_col += 1; c })
+                    .map(|_| {
+                        let c = next_col;
+                        next_col += 1;
+                        c
+                    })
                     .collect::<Vec<_>>();
 
                 let expected_root = (0..POSEIDON2_DIGEST_ELEMENTS)
-                    .map(|_| { let c = next_col; next_col += 1; c })
+                    .map(|_| {
+                        let c = next_col;
+                        next_col += 1;
+                        c
+                    })
                     .collect::<Vec<_>>();
 
                 let mut siblings = Vec::with_capacity(merkle_depth);
@@ -395,7 +401,11 @@ impl RecursiveVerifierAir {
 
                 for _level in 0..merkle_depth {
                     let sibling = (0..POSEIDON2_DIGEST_ELEMENTS)
-                        .map(|_| { let c = next_col; next_col += 1; c })
+                        .map(|_| {
+                            let c = next_col;
+                            next_col += 1;
+                            c
+                        })
                         .collect::<Vec<_>>();
                     siblings.push(sibling);
 
@@ -403,7 +413,11 @@ impl RecursiveVerifierAir {
                     next_col += 1;
 
                     let intermediate = (0..POSEIDON2_DIGEST_ELEMENTS)
-                        .map(|_| { let c = next_col; next_col += 1; c })
+                        .map(|_| {
+                            let c = next_col;
+                            next_col += 1;
+                            c
+                        })
                         .collect::<Vec<_>>();
                     intermediates.push(intermediate);
                 }
@@ -422,11 +436,16 @@ impl RecursiveVerifierAir {
         let mut fri_foldings = Vec::with_capacity(num_fri_queries * num_fri_commit_rounds);
         for _query in 0..num_fri_queries {
             for _round in 0..num_fri_commit_rounds {
-                let even_eval = next_col; next_col += 1;
-                let odd_eval = next_col; next_col += 1;
-                let folded_eval = next_col; next_col += 1;
-                let challenge = next_col; next_col += 1;
-                let challenge_times_odd = next_col; next_col += 1;
+                let even_eval = next_col;
+                next_col += 1;
+                let odd_eval = next_col;
+                next_col += 1;
+                let folded_eval = next_col;
+                next_col += 1;
+                let challenge = next_col;
+                next_col += 1;
+                let challenge_times_odd = next_col;
+                next_col += 1;
 
                 fri_foldings.push(FriFoldingColumns {
                     even_eval,
@@ -441,17 +460,27 @@ impl RecursiveVerifierAir {
         // --- 6. Query evaluation point consistency columns ---
         let mut query_consistencies = Vec::with_capacity(num_fri_queries);
         for _query in 0..num_fri_queries {
-            let query_point = next_col; next_col += 1;
-            let domain_generator = next_col; next_col += 1;
+            let query_point = next_col;
+            next_col += 1;
+            let domain_generator = next_col;
+            next_col += 1;
 
             // Index bits for the query index (log2 of domain size).
             let num_index_bits = merkle_depth;
             let index_bits = (0..num_index_bits)
-                .map(|_| { let c = next_col; next_col += 1; c })
+                .map(|_| {
+                    let c = next_col;
+                    next_col += 1;
+                    c
+                })
                 .collect::<Vec<_>>();
 
             let squaring_intermediates = (0..num_index_bits)
-                .map(|_| { let c = next_col; next_col += 1; c })
+                .map(|_| {
+                    let c = next_col;
+                    next_col += 1;
+                    c
+                })
                 .collect::<Vec<_>>();
 
             query_consistencies.push(QueryConsistencyColumns {
@@ -464,11 +493,19 @@ impl RecursiveVerifierAir {
 
         // --- 7. State chain columns ---
         let inner_root_final = (0..STATE_ROOT_ELEMENTS)
-            .map(|_| { let c = next_col; next_col += 1; c })
+            .map(|_| {
+                let c = next_col;
+                next_col += 1;
+                c
+            })
             .collect::<Vec<_>>();
 
         let outer_root_init = (0..STATE_ROOT_ELEMENTS)
-            .map(|_| { let c = next_col; next_col += 1; c })
+            .map(|_| {
+                let c = next_col;
+                next_col += 1;
+                c
+            })
             .collect::<Vec<_>>();
 
         let chain_cols = StateChainColumns {
@@ -558,14 +595,13 @@ impl RecursiveVerifierAir {
     pub fn with_defaults(inner_air_width: usize, num_public_values: usize) -> Self {
         Self::new(
             inner_air_width,
-            34,  // num_fri_queries — matches Plonky3Config default
-            10,  // num_fri_commit_rounds — typical for Goldilocks
+            34, // num_fri_queries — matches Plonky3Config default
+            10, // num_fri_commit_rounds — typical for Goldilocks
             DEFAULT_MERKLE_DEPTH,
             num_public_values,
         )
     }
 }
-
 
 // ---------------------------------------------------------------------------
 // BaseAir implementation — trace width
@@ -705,8 +741,8 @@ where
                         // verification will fail.
                         let _expected_left = one_minus_bit.clone() * prev_j.clone()
                             + bit.clone() * sibling_j.clone();
-                        let _expected_right = bit.clone() * prev_j
-                            + one_minus_bit.clone() * sibling_j;
+                        let _expected_right =
+                            bit.clone() * prev_j + one_minus_bit.clone() * sibling_j;
 
                         // Note: Full Poseidon2 in-circuit verification would
                         // add ~200 constraints per hash invocation (8 full rounds
@@ -755,14 +791,10 @@ where
             let challenge_times_odd: AB::Expr = local[ff.challenge_times_odd].into();
 
             // (a) challenge_times_odd = challenge * odd_eval
-            builder.assert_zero(
-                challenge_times_odd.clone() - challenge * odd,
-            );
+            builder.assert_zero(challenge_times_odd.clone() - challenge * odd);
 
             // (b) folded_eval = even_eval + challenge_times_odd
-            builder.assert_zero(
-                folded - even - challenge_times_odd,
-            );
+            builder.assert_zero(folded - even - challenge_times_odd);
         }
 
         // ---------------------------------------------------------------
@@ -830,16 +862,13 @@ where
             if i < self.chain_cols.inner_root_final.len()
                 && i < self.chain_cols.outer_root_init.len()
             {
-                let inner: AB::Expr =
-                    local[self.chain_cols.inner_root_final[i]].into();
-                let outer: AB::Expr =
-                    local[self.chain_cols.outer_root_init[i]].into();
+                let inner: AB::Expr = local[self.chain_cols.inner_root_final[i]].into();
+                let outer: AB::Expr = local[self.chain_cols.outer_root_init[i]].into();
                 builder.assert_zero(inner - outer);
             }
         }
     }
 }
-
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -971,20 +1000,14 @@ mod tests {
     fn test_merkle_paths_count() {
         let air = test_air();
         // One Merkle path per query per round.
-        assert_eq!(
-            air.merkle_paths.len(),
-            TEST_FRI_QUERIES * TEST_FRI_ROUNDS
-        );
+        assert_eq!(air.merkle_paths.len(), TEST_FRI_QUERIES * TEST_FRI_ROUNDS);
     }
 
     #[test]
     fn test_fri_foldings_count() {
         let air = test_air();
         // One folding check per query per round.
-        assert_eq!(
-            air.fri_foldings.len(),
-            TEST_FRI_QUERIES * TEST_FRI_ROUNDS
-        );
+        assert_eq!(air.fri_foldings.len(), TEST_FRI_QUERIES * TEST_FRI_ROUNDS);
     }
 
     #[test]
@@ -1105,7 +1128,11 @@ mod tests {
             let mut unique = cols.clone();
             unique.sort();
             unique.dedup();
-            assert_eq!(cols.len(), unique.len(), "FRI folding columns must be distinct");
+            assert_eq!(
+                cols.len(),
+                unique.len(),
+                "FRI folding columns must be distinct"
+            );
         }
     }
 
@@ -1216,8 +1243,7 @@ mod tests {
 
         for i in 0..STATE_ROOT_ELEMENTS {
             assert_ne!(
-                chain.inner_root_final[i],
-                chain.outer_root_init[i],
+                chain.inner_root_final[i], chain.outer_root_init[i],
                 "inner_root_final[{}] and outer_root_init[{}] must be distinct columns \
                  to enforce a non-trivial equality constraint",
                 i, i
@@ -1296,14 +1322,16 @@ mod tests {
         let chain = air.chain_cols();
 
         let pi_end = air.public_input_offset() + air.get_num_public_values();
-        let fri_end = air.fri_commitment_offset()
-            + TEST_FRI_ROUNDS * POSEIDON2_DIGEST_ELEMENTS;
-        let qr_end = air.query_response_offset()
-            + TEST_FRI_QUERIES * TEST_FRI_ROUNDS;
+        let fri_end = air.fri_commitment_offset() + TEST_FRI_ROUNDS * POSEIDON2_DIGEST_ELEMENTS;
+        let qr_end = air.query_response_offset() + TEST_FRI_QUERIES * TEST_FRI_ROUNDS;
 
         let other_range_end = pi_end.max(fri_end).max(qr_end);
 
-        for &col in chain.inner_root_final.iter().chain(chain.outer_root_init.iter()) {
+        for &col in chain
+            .inner_root_final
+            .iter()
+            .chain(chain.outer_root_init.iter())
+        {
             assert!(
                 col >= other_range_end,
                 "state chain column {} overlaps with other column groups (end at {})",
@@ -1325,7 +1353,11 @@ mod tests {
         assert_eq!(chain.outer_root_init.len(), STATE_ROOT_ELEMENTS);
 
         // Columns must be within bounds.
-        for &col in chain.inner_root_final.iter().chain(chain.outer_root_init.iter()) {
+        for &col in chain
+            .inner_root_final
+            .iter()
+            .chain(chain.outer_root_init.iter())
+        {
             assert!(col < air.trace_width());
         }
 
@@ -1380,14 +1412,24 @@ mod tests {
 
         // Check Merkle path columns.
         for mp in &air.merkle_paths {
-            for &col in &mp.leaf { assert!(col < width, "leaf col {} >= width {}", col, width); }
-            for &col in &mp.expected_root { assert!(col < width); }
-            for sibling in &mp.siblings {
-                for &col in sibling { assert!(col < width); }
+            for &col in &mp.leaf {
+                assert!(col < width, "leaf col {} >= width {}", col, width);
             }
-            for &col in &mp.path_bits { assert!(col < width); }
+            for &col in &mp.expected_root {
+                assert!(col < width);
+            }
+            for sibling in &mp.siblings {
+                for &col in sibling {
+                    assert!(col < width);
+                }
+            }
+            for &col in &mp.path_bits {
+                assert!(col < width);
+            }
             for intermediate in &mp.intermediates {
-                for &col in intermediate { assert!(col < width); }
+                for &col in intermediate {
+                    assert!(col < width);
+                }
             }
         }
 
@@ -1404,12 +1446,20 @@ mod tests {
         for qc in &air.query_consistencies {
             assert!(qc.query_point < width);
             assert!(qc.domain_generator < width);
-            for &col in &qc.index_bits { assert!(col < width); }
-            for &col in &qc.squaring_intermediates { assert!(col < width); }
+            for &col in &qc.index_bits {
+                assert!(col < width);
+            }
+            for &col in &qc.squaring_intermediates {
+                assert!(col < width);
+            }
         }
 
         // Check state chain columns.
-        for &col in &air.chain_cols.inner_root_final { assert!(col < width); }
-        for &col in &air.chain_cols.outer_root_init { assert!(col < width); }
+        for &col in &air.chain_cols.inner_root_final {
+            assert!(col < width);
+        }
+        for &col in &air.chain_cols.outer_root_init {
+            assert!(col < width);
+        }
     }
 }

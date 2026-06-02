@@ -41,6 +41,16 @@ pub struct ProtocolVersion {
     pub patch: u32,
 }
 
+impl Default for ProtocolVersion {
+    fn default() -> Self {
+        Self {
+            major: 1,
+            minor: 0,
+            patch: 0,
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Cryptographic types — hybrid classical + PQC
 // Derived from: CRYPTOGRAPHIC_MODEL.md, LONG_TERM_SECURITY_MODEL.md

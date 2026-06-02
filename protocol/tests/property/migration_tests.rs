@@ -106,7 +106,8 @@ fn arb_non_placeholder_proof_system() -> impl Strategy<Value = String> {
         Just("halo2".to_string()),
         Just("nova-folding".to_string()),
         // Random non-placeholder strings
-        "[a-z]{3,20}".prop_filter("must not be stark-placeholder", |s| s != "stark-placeholder"),
+        "[a-z]{3,20}".prop_filter("must not be stark-placeholder", |s| s
+            != "stark-placeholder"),
     ]
 }
 
@@ -373,10 +374,7 @@ mod unit_tests {
 
     #[test]
     fn test_legacy_poseidon_rejected_with_empty_string() {
-        assert!(!accepts_legacy_poseidon(
-            "",
-            CommitmentType::LegacyPoseidon
-        ));
+        assert!(!accepts_legacy_poseidon("", CommitmentType::LegacyPoseidon));
     }
 
     #[test]

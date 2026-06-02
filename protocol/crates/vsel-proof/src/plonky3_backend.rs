@@ -79,7 +79,9 @@ pub enum Plonky3Error {
     CompositionTooFewProofs,
 
     /// State chain is broken between consecutive proofs.
-    #[error("plonky3-stark: state chain broken: proof[{left}].root_final != proof[{right}].root_init")]
+    #[error(
+        "plonky3-stark: state chain broken: proof[{left}].root_final != proof[{right}].root_init"
+    )]
     StateChainBroken {
         /// Index of the proof whose root_final does not match.
         left: usize,
@@ -776,13 +778,13 @@ impl Plonky3Backend {
             )));
         }
 
-        let constraint_system: ConstraintSystem =
-            bincode::deserialize(&bundle[cs_start..cs_end]).map_err(|e| {
-                Plonky3Error::DeserializationFailed(format!(
-                    "failed to deserialize constraint system from proof bundle: {}",
-                    e
-                ))
-            })?;
+        let constraint_system: ConstraintSystem = bincode::deserialize(&bundle[cs_start..cs_end])
+            .map_err(|e| {
+            Plonky3Error::DeserializationFailed(format!(
+                "failed to deserialize constraint system from proof bundle: {}",
+                e
+            ))
+        })?;
 
         let native_proof: p3_uni_stark::Proof<VselStarkConfig> =
             bincode::deserialize(&bundle[cs_end..]).map_err(|e| {
@@ -822,24 +824,19 @@ impl Plonky3Backend {
 
         // Base layer: hash of witness data over Goldilocks field
         let mut witness_data = Vec::new();
-        witness_data.extend_from_slice(
-            &(witness.intermediate_states.len() as u64).to_le_bytes(),
-        );
+        witness_data.extend_from_slice(&(witness.intermediate_states.len() as u64).to_le_bytes());
         for state in &witness.intermediate_states {
             let state_commit = vsel_core::state::commit(&state.canonical);
             witness_data.extend_from_slice(&state_commit.0);
         }
-        witness_data.extend_from_slice(
-            &(witness.input_sequence.len() as u64).to_le_bytes(),
-        );
+        witness_data.extend_from_slice(&(witness.input_sequence.len() as u64).to_le_bytes());
         for input in &witness.input_sequence {
             witness_data.extend_from_slice(input.payload.payload_type.as_bytes());
             witness_data.extend_from_slice(&input.payload.data);
             witness_data.extend_from_slice(&input.auth.nonce.to_le_bytes());
         }
 
-        let base_commitment =
-            Self::goldilocks_hash(b"plonky3-fri-base", &witness_data);
+        let base_commitment = Self::goldilocks_hash(b"plonky3-fri-base", &witness_data);
         commitments.push(base_commitment.clone());
 
         // Folding layers: each layer is derived from the previous
@@ -850,18 +847,13 @@ impl Plonky3Backend {
             layer_data.extend_from_slice(&prev);
             layer_data.extend_from_slice(&(i as u64).to_le_bytes());
             layer_data.extend_from_slice(constraints.version.as_bytes());
-            layer_data.extend_from_slice(
-                &(constraints.constraints.len() as u64).to_le_bytes(),
-            );
+            layer_data.extend_from_slice(&(constraints.constraints.len() as u64).to_le_bytes());
 
             // Mix in public inputs for binding
             layer_data.extend_from_slice(&public_inputs.root_init.0);
             layer_data.extend_from_slice(&public_inputs.root_final.0);
 
-            let layer_commitment = Self::goldilocks_hash(
-                b"plonky3-fri-fold",
-                &layer_data,
-            );
+            let layer_commitment = Self::goldilocks_hash(b"plonky3-fri-fold", &layer_data);
             commitments.push(layer_commitment.clone());
             prev = layer_commitment;
         }
@@ -895,8 +887,7 @@ impl Plonky3Backend {
                 query_data.extend_from_slice(&elem.to_bytes());
             }
 
-            let response =
-                Self::goldilocks_hash(b"plonky3-query", &query_data);
+            let response = Self::goldilocks_hash(b"plonky3-query", &query_data);
             responses.push(response);
         }
 
@@ -993,25 +984,17 @@ impl ZkBackend for Plonky3Backend {
         air.set_num_public_values(native_public_values.len());
 
         // Step 6: Call p3_uni_stark::prove() to generate the real STARK proof
-        let native_proof = p3_uni_stark::prove(
-            &stark_config,
-            &air,
-            trace,
-            &native_public_values,
-        );
+        let native_proof = p3_uni_stark::prove(&stark_config, &air, trace, &native_public_values);
 
         // Step 7: Serialize the native proof bundle (constraint system + native proof)
         // using the bundle format so the verifier can reconstruct the VselAir.
-        let native_proof_bytes =
-            Self::serialize_native_proof_bundle(constraints, &native_proof)?;
+        let native_proof_bytes = Self::serialize_native_proof_bundle(constraints, &native_proof)?;
 
         // Step 8: Extract FRI commitments and query responses from the
         // native proof for backward compatibility with existing code.
         // We derive these from the native proof bytes deterministically.
-        let fri_commitments =
-            self.generate_fri_commitments(witness, constraints, public_inputs);
-        let query_responses =
-            self.generate_query_responses(&fri_commitments, &public_input_values);
+        let fri_commitments = self.generate_fri_commitments(witness, constraints, public_inputs);
+        let query_responses = self.generate_query_responses(&fri_commitments, &public_input_values);
 
         // Step 9: Assemble the StarkProof
         let mut proof = StarkProof {
@@ -1148,13 +1131,7 @@ impl ZkBackend for Plonky3Backend {
         // - FRI proximity: the committed polynomial is close to low-degree
         // - Constraint satisfaction: the AIR constraints hold on the trace
         // - Public input binding: the proof is bound to the public values
-        p3_uni_stark::verify(
-            &stark_config,
-            &air,
-            &native_proof,
-            &native_public_values,
-        )
-        .is_ok()
+        p3_uni_stark::verify(&stark_config, &air, &native_proof, &native_public_values).is_ok()
     }
 
     /// Return the backend identifier: "plonky3-stark".
@@ -1301,12 +1278,7 @@ impl Plonky3Backend {
             ));
         }
         for i in 0..public_inputs.len() - 1 {
-            Self::validate_composition_pair(
-                &public_inputs[i],
-                &public_inputs[i + 1],
-                i,
-                i + 1,
-            )?;
+            Self::validate_composition_pair(&public_inputs[i], &public_inputs[i + 1], i, i + 1)?;
         }
         Ok(())
     }
@@ -1338,7 +1310,8 @@ impl Plonky3Backend {
     ) -> Result<StarkProof, Plonky3Error> {
         // RecursiveVerifierAir is constructed here but NOT used in the
         // proving pipeline. See the composition status block above.
-        let _recursive_air = crate::recursive_air::RecursiveVerifierAir::with_defaults( // UNUSED — see §Composition Architecture Status
+        let _recursive_air = crate::recursive_air::RecursiveVerifierAir::with_defaults(
+            // UNUSED — see §Composition Architecture Status
             // Inner AIR width: estimated from the inner proof's structure.
             // For composition, we use a conservative width based on the
             // number of public input values in the inner proof.
@@ -1427,10 +1400,7 @@ impl Plonky3Backend {
     ///
     /// PROOF-1 (trace binding): composed commitments bind to both traces.
     /// PROOF-3 (domain separation): recursive composition domain tag.
-    fn compose_fri_commitments_recursive(
-        left: &StarkProof,
-        right: &StarkProof,
-    ) -> Vec<Vec<u8>> {
+    fn compose_fri_commitments_recursive(left: &StarkProof, right: &StarkProof) -> Vec<Vec<u8>> {
         let max_layers = left.fri_commitments.len().max(right.fri_commitments.len());
         let mut composed = Vec::with_capacity(max_layers);
 
@@ -1511,12 +1481,8 @@ impl Plonky3Backend {
         //   acc = Compose(acc, π₃)
         //   ...
         //   acc = Compose(acc, πₙ)
-        let mut acc_proof = self.compose_binary(
-            &proofs[0],
-            &proofs[1],
-            &public_inputs[0],
-            &public_inputs[1],
-        )?;
+        let mut acc_proof =
+            self.compose_binary(&proofs[0], &proofs[1], &public_inputs[0], &public_inputs[1])?;
 
         // Build the accumulated public inputs after the first binary composition.
         let mut acc_pub = PublicInputs {
@@ -1533,12 +1499,7 @@ impl Plonky3Backend {
 
         // Chain remaining proofs one at a time.
         for i in 2..proofs.len() {
-            acc_proof = self.compose_binary(
-                &acc_proof,
-                &proofs[i],
-                &acc_pub,
-                &public_inputs[i],
-            )?;
+            acc_proof = self.compose_binary(&acc_proof, &proofs[i], &acc_pub, &public_inputs[i])?;
 
             // Update accumulated public inputs.
             acc_pub = PublicInputs {
@@ -1605,7 +1566,11 @@ impl Plonky3Backend {
     /// composed commitments (PROOF-1: trace binding, PROOF-3: domain separation).
     #[allow(dead_code)]
     fn compose_fri_commitments(proofs: &[StarkProof]) -> Vec<Vec<u8>> {
-        let max_layers = proofs.iter().map(|p| p.fri_commitments.len()).max().unwrap_or(0);
+        let max_layers = proofs
+            .iter()
+            .map(|p| p.fri_commitments.len())
+            .max()
+            .unwrap_or(0);
         let mut composed = Vec::with_capacity(max_layers);
 
         for layer_idx in 0..max_layers {
@@ -1821,9 +1786,18 @@ mod tests {
             .expect("prove should succeed");
 
         assert!(!proof.as_ref().is_empty(), "proof bytes must be non-empty");
-        assert!(!proof.fri_commitments.is_empty(), "FRI commitments must be non-empty");
-        assert!(!proof.query_responses.is_empty(), "query responses must be non-empty");
-        assert!(!proof.public_input_values.is_empty(), "public input values must be non-empty");
+        assert!(
+            !proof.fri_commitments.is_empty(),
+            "FRI commitments must be non-empty"
+        );
+        assert!(
+            !proof.query_responses.is_empty(),
+            "query responses must be non-empty"
+        );
+        assert!(
+            !proof.public_input_values.is_empty(),
+            "public input values must be non-empty"
+        );
         assert_eq!(proof.backend_id, "plonky3-stark");
     }
 
@@ -2335,9 +2309,7 @@ mod tests {
         let bytes = backend.serialize_proof(&proof);
 
         // Deserialize
-        let restored = backend
-            .deserialize_proof(&bytes)
-            .expect("deserialize");
+        let restored = backend.deserialize_proof(&bytes).expect("deserialize");
 
         // Verify the deserialized proof
         let constraint_commitment = compute_test_constraint_commitment(&constraints);
@@ -2374,7 +2346,10 @@ mod tests {
             .collect()
     }
 
-    fn make_chain_proofs(backend: &Plonky3Backend, n: usize) -> (Vec<StarkProof>, Vec<PublicInputs>) {
+    fn make_chain_proofs(
+        backend: &Plonky3Backend,
+        n: usize,
+    ) -> (Vec<StarkProof>, Vec<PublicInputs>) {
         let witness = test_witness();
         let constraints = test_constraint_system();
         let pub_inputs_list = make_chain_public_inputs(n);
@@ -2425,7 +2400,10 @@ mod tests {
         let composed_pub = PublicInputs {
             root_init: pub_inputs[0].root_init.clone(),
             root_final: pub_inputs[2].root_final.clone(),
-            observables: pub_inputs.iter().flat_map(|p| p.observables.clone()).collect(),
+            observables: pub_inputs
+                .iter()
+                .flat_map(|p| p.observables.clone())
+                .collect(),
             domain: pub_inputs[0].domain.clone(),
             version: pub_inputs[0].version.clone(),
         };
@@ -2491,7 +2469,11 @@ mod tests {
     fn test_compose_version_mismatch() {
         let backend = Plonky3Backend::new();
         let (proofs, mut pub_inputs) = make_chain_proofs(&backend, 2);
-        pub_inputs[1].version = ProtocolVersion { major: 99, minor: 0, patch: 0 };
+        pub_inputs[1].version = ProtocolVersion {
+            major: 99,
+            minor: 0,
+            patch: 0,
+        };
 
         let result = backend.compose_proofs(&proofs, &pub_inputs);
         assert!(result.is_err());
@@ -2521,7 +2503,10 @@ mod tests {
         let first_two_pub = PublicInputs {
             root_init: pub_inputs[0].root_init.clone(),
             root_final: pub_inputs[1].root_final.clone(),
-            observables: pub_inputs[..2].iter().flat_map(|p| p.observables.clone()).collect(),
+            observables: pub_inputs[..2]
+                .iter()
+                .flat_map(|p| p.observables.clone())
+                .collect(),
             domain: pub_inputs[0].domain.clone(),
             version: pub_inputs[0].version.clone(),
         };
@@ -2534,7 +2519,10 @@ mod tests {
         let batch_pub = PublicInputs {
             root_init: pub_inputs[0].root_init.clone(),
             root_final: pub_inputs[2].root_final.clone(),
-            observables: pub_inputs.iter().flat_map(|p| p.observables.clone()).collect(),
+            observables: pub_inputs
+                .iter()
+                .flat_map(|p| p.observables.clone())
+                .collect(),
             domain: pub_inputs[0].domain.clone(),
             version: pub_inputs[0].version.clone(),
         };
@@ -2664,7 +2652,10 @@ mod tests {
         let config = Plonky3Config::default();
 
         assert_eq!(config.security_bits, 100, "target: 100-bit security");
-        assert_eq!(config.num_fri_queries, 34, "34 queries for 2^(-102) FRI soundness");
+        assert_eq!(
+            config.num_fri_queries, 34,
+            "34 queries for 2^(-102) FRI soundness"
+        );
         assert_eq!(config.fri_folding_factor, 2, "log₂(4) = 2 folding factor");
         assert_eq!(config.blowup_factor, 8, "blowup 8 → rate 1/8");
 
@@ -2715,8 +2706,14 @@ mod tests {
 
         assert_eq!(fri_params.log_blowup, 3, "log₂(8) = 3");
         assert_eq!(fri_params.num_queries, 34, "34 FRI queries");
-        assert_eq!(fri_params.query_proof_of_work_bits, 0, "no proof-of-work grinding");
-        assert_eq!(fri_params.commit_proof_of_work_bits, 0, "no commit proof-of-work");
+        assert_eq!(
+            fri_params.query_proof_of_work_bits, 0,
+            "no proof-of-work grinding"
+        );
+        assert_eq!(
+            fri_params.commit_proof_of_work_bits, 0,
+            "no commit proof-of-work"
+        );
         assert_eq!(fri_params.max_log_arity, 2, "folding factor log₂(4) = 2");
     }
 
@@ -3112,7 +3109,10 @@ mod tests {
         let expected_pub = PublicInputs {
             root_init: pub_inputs[0].root_init.clone(),
             root_final: pub_inputs[1].root_final.clone(),
-            observables: pub_inputs.iter().flat_map(|p| p.observables.clone()).collect(),
+            observables: pub_inputs
+                .iter()
+                .flat_map(|p| p.observables.clone())
+                .collect(),
             domain: pub_inputs[0].domain.clone(),
             version: pub_inputs[0].version.clone(),
         };
@@ -3138,7 +3138,10 @@ mod tests {
         let expected_pub = PublicInputs {
             root_init: pub_inputs[0].root_init.clone(),
             root_final: pub_inputs[4].root_final.clone(),
-            observables: pub_inputs.iter().flat_map(|p| p.observables.clone()).collect(),
+            observables: pub_inputs
+                .iter()
+                .flat_map(|p| p.observables.clone())
+                .collect(),
             domain: pub_inputs[0].domain.clone(),
             version: pub_inputs[0].version.clone(),
         };
@@ -3162,7 +3165,10 @@ mod tests {
         let expected_pub = PublicInputs {
             root_init: pub_inputs[0].root_init.clone(),
             root_final: pub_inputs[3].root_final.clone(),
-            observables: pub_inputs.iter().flat_map(|p| p.observables.clone()).collect(),
+            observables: pub_inputs
+                .iter()
+                .flat_map(|p| p.observables.clone())
+                .collect(),
             domain: pub_inputs[0].domain.clone(),
             version: pub_inputs[0].version.clone(),
         };
@@ -3235,7 +3241,10 @@ mod tests {
         let first_two_pub = PublicInputs {
             root_init: pub_inputs[0].root_init.clone(),
             root_final: pub_inputs[1].root_final.clone(),
-            observables: pub_inputs[..2].iter().flat_map(|p| p.observables.clone()).collect(),
+            observables: pub_inputs[..2]
+                .iter()
+                .flat_map(|p| p.observables.clone())
+                .collect(),
             domain: pub_inputs[0].domain.clone(),
             version: pub_inputs[0].version.clone(),
         };
@@ -3245,8 +3254,7 @@ mod tests {
 
         // Public input values must be identical.
         assert_eq!(
-            batch.public_input_values,
-            incremental.public_input_values,
+            batch.public_input_values, incremental.public_input_values,
             "incremental and batch composition must produce identical public input values"
         );
     }
@@ -3267,7 +3275,10 @@ mod tests {
         let first_two_pub = PublicInputs {
             root_init: pub_inputs[0].root_init.clone(),
             root_final: pub_inputs[1].root_final.clone(),
-            observables: pub_inputs[..2].iter().flat_map(|p| p.observables.clone()).collect(),
+            observables: pub_inputs[..2]
+                .iter()
+                .flat_map(|p| p.observables.clone())
+                .collect(),
             domain: pub_inputs[0].domain.clone(),
             version: pub_inputs[0].version.clone(),
         };
@@ -3304,7 +3315,10 @@ mod tests {
         let mut acc_pub = PublicInputs {
             root_init: pub_inputs[0].root_init.clone(),
             root_final: pub_inputs[1].root_final.clone(),
-            observables: pub_inputs[..2].iter().flat_map(|p| p.observables.clone()).collect(),
+            observables: pub_inputs[..2]
+                .iter()
+                .flat_map(|p| p.observables.clone())
+                .collect(),
             domain: pub_inputs[0].domain.clone(),
             version: pub_inputs[0].version.clone(),
         };
@@ -3334,7 +3348,10 @@ mod tests {
         let expected_pub = PublicInputs {
             root_init: pub_inputs[0].root_init.clone(),
             root_final: pub_inputs[3].root_final.clone(),
-            observables: pub_inputs.iter().flat_map(|p| p.observables.clone()).collect(),
+            observables: pub_inputs
+                .iter()
+                .flat_map(|p| p.observables.clone())
+                .collect(),
             domain: pub_inputs[0].domain.clone(),
             version: pub_inputs[0].version.clone(),
         };
@@ -3375,7 +3392,11 @@ mod tests {
         let first = &proofs[0];
         let first_pub = &pub_inputs[0];
         let mut second_pub = pub_inputs[1].clone();
-        second_pub.version = ProtocolVersion { major: 99, minor: 0, patch: 0 };
+        second_pub.version = ProtocolVersion {
+            major: 99,
+            minor: 0,
+            patch: 0,
+        };
 
         let result = backend.compose_incremental(first, &proofs[1], first_pub, &second_pub);
         assert!(result.is_err());

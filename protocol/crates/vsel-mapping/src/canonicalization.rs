@@ -197,7 +197,9 @@ mod tests {
                 data: vec![0xFF],
             },
             auth: valid_auth(),
-            aux: AuxiliaryData { data: vec![0xDE, 0xAD] },
+            aux: AuxiliaryData {
+                data: vec![0xDE, 0xAD],
+            },
         }
     }
 
@@ -206,7 +208,11 @@ mod tests {
             accounts: BTreeMap::new(),
             storage: BTreeMap::new(),
             system_data: SystemData {
-                protocol_version: ProtocolVersion { major: 0, minor: 1, patch: 0 },
+                protocol_version: ProtocolVersion {
+                    major: 0,
+                    minor: 1,
+                    patch: 0,
+                },
                 total_supply: 0,
                 parameters: BTreeMap::new(),
             },
@@ -227,7 +233,13 @@ mod tests {
             epoch: 0,
             timestamp: 1_000_000,
         };
-        State { canonical: c, derived: d, environment: env, economic: econ, metadata: meta }
+        State {
+            canonical: c,
+            derived: d,
+            environment: env,
+            economic: econ,
+            metadata: meta,
+        }
     }
 
     // -- canonicalize_input: happy path --
@@ -368,7 +380,10 @@ mod tests {
         let s = build_valid_state(minimal_canonical());
         let once = canonicalize_state(&s).unwrap();
         let twice = canonicalize_state(&once).unwrap();
-        assert_eq!(once, twice, "DEF-5: state canonicalization must be idempotent");
+        assert_eq!(
+            once, twice,
+            "DEF-5: state canonicalization must be idempotent"
+        );
     }
 
     // -- canonicalize_state: rejection cases --

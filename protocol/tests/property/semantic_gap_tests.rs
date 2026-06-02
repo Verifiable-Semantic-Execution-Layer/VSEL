@@ -47,19 +47,30 @@ fn make_noop_program() -> SirProgram {
         version: "0.1.0".to_string(),
         state_schema: SirStateSchema {
             fields: vec![
-                SirFieldSchema { name: "balance".into(), field_type: "Int".into() },
-                SirFieldSchema { name: "nonce".into(), field_type: "Int".into() },
+                SirFieldSchema {
+                    name: "balance".into(),
+                    field_type: "Int".into(),
+                },
+                SirFieldSchema {
+                    name: "nonce".into(),
+                    field_type: "Int".into(),
+                },
             ],
         },
         input_schema: SirInputSchema {
-            fields: vec![SirFieldSchema { name: "amount".into(), field_type: "Int".into() }],
+            fields: vec![SirFieldSchema {
+                name: "amount".into(),
+                field_type: "Int".into(),
+            }],
         },
         transitions: vec![SirTransition {
             name: "noop".into(),
             class: "Noop".into(),
             preconditions: vec![],
             postconditions: vec![],
-            body: SirExpr::Var { name: "state".into() },
+            body: SirExpr::Var {
+                name: "state".into(),
+            },
             allowed_mutations: vec![],
         }],
         invariants: vec![SirInvariant {
@@ -68,10 +79,14 @@ fn make_noop_program() -> SirProgram {
             expr: SirExpr::BinOp {
                 op: "ge".into(),
                 left: Box::new(SirExpr::FieldAccess {
-                    expr: Box::new(SirExpr::Var { name: "state".into() }),
+                    expr: Box::new(SirExpr::Var {
+                        name: "state".into(),
+                    }),
                     field: "balance".into(),
                 }),
-                right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                right: Box::new(SirExpr::Literal {
+                    value: SirValue::Int { value: 0 },
+                }),
             },
         }],
         observables: vec![],
@@ -89,19 +104,30 @@ fn make_multi_invariant_program() -> SirProgram {
         version: "0.1.0".to_string(),
         state_schema: SirStateSchema {
             fields: vec![
-                SirFieldSchema { name: "balance".into(), field_type: "Int".into() },
-                SirFieldSchema { name: "nonce".into(), field_type: "Int".into() },
+                SirFieldSchema {
+                    name: "balance".into(),
+                    field_type: "Int".into(),
+                },
+                SirFieldSchema {
+                    name: "nonce".into(),
+                    field_type: "Int".into(),
+                },
             ],
         },
         input_schema: SirInputSchema {
-            fields: vec![SirFieldSchema { name: "amount".into(), field_type: "Int".into() }],
+            fields: vec![SirFieldSchema {
+                name: "amount".into(),
+                field_type: "Int".into(),
+            }],
         },
         transitions: vec![SirTransition {
             name: "noop".into(),
             class: "Noop".into(),
             preconditions: vec![],
             postconditions: vec![],
-            body: SirExpr::Var { name: "state".into() },
+            body: SirExpr::Var {
+                name: "state".into(),
+            },
             allowed_mutations: vec![],
         }],
         invariants: vec![
@@ -111,10 +137,14 @@ fn make_multi_invariant_program() -> SirProgram {
                 expr: SirExpr::BinOp {
                     op: "ge".into(),
                     left: Box::new(SirExpr::FieldAccess {
-                        expr: Box::new(SirExpr::Var { name: "state".into() }),
+                        expr: Box::new(SirExpr::Var {
+                            name: "state".into(),
+                        }),
                         field: "balance".into(),
                     }),
-                    right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                    right: Box::new(SirExpr::Literal {
+                        value: SirValue::Int { value: 0 },
+                    }),
                 },
             },
             SirInvariant {
@@ -123,10 +153,14 @@ fn make_multi_invariant_program() -> SirProgram {
                 expr: SirExpr::BinOp {
                     op: "ge".into(),
                     left: Box::new(SirExpr::FieldAccess {
-                        expr: Box::new(SirExpr::Var { name: "state".into() }),
+                        expr: Box::new(SirExpr::Var {
+                            name: "state".into(),
+                        }),
                         field: "nonce".into(),
                     }),
-                    right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                    right: Box::new(SirExpr::Literal {
+                        value: SirValue::Int { value: 0 },
+                    }),
                 },
             },
             SirInvariant {
@@ -137,15 +171,21 @@ fn make_multi_invariant_program() -> SirProgram {
                     left: Box::new(SirExpr::BinOp {
                         op: "add".into(),
                         left: Box::new(SirExpr::FieldAccess {
-                            expr: Box::new(SirExpr::Var { name: "state".into() }),
+                            expr: Box::new(SirExpr::Var {
+                                name: "state".into(),
+                            }),
                             field: "balance".into(),
                         }),
                         right: Box::new(SirExpr::FieldAccess {
-                            expr: Box::new(SirExpr::Var { name: "state".into() }),
+                            expr: Box::new(SirExpr::Var {
+                                name: "state".into(),
+                            }),
                             field: "nonce".into(),
                         }),
                     }),
-                    right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 1_000_000 } }),
+                    right: Box::new(SirExpr::Literal {
+                        value: SirValue::Int { value: 1_000_000 },
+                    }),
                 },
             },
         ],
@@ -161,12 +201,21 @@ fn make_update_program() -> SirProgram {
         version: "0.1.0".to_string(),
         state_schema: SirStateSchema {
             fields: vec![
-                SirFieldSchema { name: "balance".into(), field_type: "Int".into() },
-                SirFieldSchema { name: "nonce".into(), field_type: "Int".into() },
+                SirFieldSchema {
+                    name: "balance".into(),
+                    field_type: "Int".into(),
+                },
+                SirFieldSchema {
+                    name: "nonce".into(),
+                    field_type: "Int".into(),
+                },
             ],
         },
         input_schema: SirInputSchema {
-            fields: vec![SirFieldSchema { name: "amount".into(), field_type: "Int".into() }],
+            fields: vec![SirFieldSchema {
+                name: "amount".into(),
+                field_type: "Int".into(),
+            }],
         },
         transitions: vec![SirTransition {
             name: "deposit".into(),
@@ -174,20 +223,28 @@ fn make_update_program() -> SirProgram {
             preconditions: vec![SirExpr::BinOp {
                 op: "gt".into(),
                 left: Box::new(SirExpr::FieldAccess {
-                    expr: Box::new(SirExpr::Var { name: "input".into() }),
+                    expr: Box::new(SirExpr::Var {
+                        name: "input".into(),
+                    }),
                     field: "amount".into(),
                 }),
-                right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                right: Box::new(SirExpr::Literal {
+                    value: SirValue::Int { value: 0 },
+                }),
             }],
             postconditions: vec![],
             body: SirExpr::BinOp {
                 op: "add".into(),
                 left: Box::new(SirExpr::FieldAccess {
-                    expr: Box::new(SirExpr::Var { name: "state".into() }),
+                    expr: Box::new(SirExpr::Var {
+                        name: "state".into(),
+                    }),
                     field: "balance".into(),
                 }),
                 right: Box::new(SirExpr::FieldAccess {
-                    expr: Box::new(SirExpr::Var { name: "input".into() }),
+                    expr: Box::new(SirExpr::Var {
+                        name: "input".into(),
+                    }),
                     field: "amount".into(),
                 }),
             },
@@ -199,10 +256,14 @@ fn make_update_program() -> SirProgram {
             expr: SirExpr::BinOp {
                 op: "ge".into(),
                 left: Box::new(SirExpr::FieldAccess {
-                    expr: Box::new(SirExpr::Var { name: "state".into() }),
+                    expr: Box::new(SirExpr::Var {
+                        name: "state".into(),
+                    }),
                     field: "balance".into(),
                 }),
-                right: Box::new(SirExpr::Literal { value: SirValue::Int { value: 0 } }),
+                right: Box::new(SirExpr::Literal {
+                    value: SirValue::Int { value: 0 },
+                }),
             },
         }],
         observables: vec![],
@@ -250,7 +311,6 @@ fn boundary_positive() -> impl Strategy<Value = i64> {
         10 => 1i64..=1_000_000,
     ]
 }
-
 
 // ===========================================================================
 // COMPLETENESS TESTS (LEM-5 direction)
@@ -742,7 +802,6 @@ proptest! {
     }
 }
 
-
 // ===========================================================================
 // PROPERTY 10: DIFFERENTIAL APPLY CONSISTENCY
 //
@@ -776,18 +835,17 @@ proptest! {
 use vsel_core::input::{Authorization, Input};
 use vsel_core::observable::{obs, TransitionStatus};
 use vsel_core::state::{
-    derive, derive_economic, CanonicalState, Environment, State, TraceMetadata,
-    AccountData,
+    derive, derive_economic, AccountData, CanonicalState, Environment, State, TraceMetadata,
 };
 use vsel_core::transition::{apply, classify, TransitionClass};
 use vsel_core::types::{
-    AccountId, AuxiliaryData, DomainTag, Hash, HybridPublicKey, Payload,
-    ProtocolVersion, SystemData,
+    AccountId, AuxiliaryData, DomainTag, Hash, HybridPublicKey, Payload, ProtocolVersion,
+    SystemData,
 };
 use vsel_mapping::differential::{run_differential, DivergenceKind};
 use vsel_mapping::mapping::{
-    map_input, map_state, map_transition,
-    verify_execution_commutativity, verify_observable_commutativity,
+    map_input, map_state, map_transition, verify_execution_commutativity,
+    verify_observable_commutativity,
 };
 
 // ===========================================================================
@@ -832,7 +890,11 @@ fn arb_canonical() -> impl Strategy<Value = CanonicalState> {
                 accounts,
                 storage: BTreeMap::new(),
                 system_data: SystemData {
-                    protocol_version: ProtocolVersion { major, minor, patch },
+                    protocol_version: ProtocolVersion {
+                        major,
+                        minor,
+                        patch,
+                    },
                     total_supply,
                     parameters: BTreeMap::new(),
                 },
@@ -843,7 +905,9 @@ fn arb_canonical() -> impl Strategy<Value = CanonicalState> {
 /// Generate a non-zero DomainTag (required for valid environment).
 fn arb_domain_tag() -> impl Strategy<Value = DomainTag> {
     arb_bytes32()
-        .prop_filter("domain tag must not be all zeros", |b| b.iter().any(|&x| x != 0))
+        .prop_filter("domain tag must not be all zeros", |b| {
+            b.iter().any(|&x| x != 0)
+        })
         .prop_map(|b| DomainTag(Hash(b)))
 }
 
@@ -868,8 +932,8 @@ fn arb_auth() -> impl Strategy<Value = Authorization> {
         any::<u64>(),
         arb_domain_tag(),
     )
-        .prop_map(|(classical_sig, pqc_sig, pk_classical, pk_pqc, nonce, domain)| {
-            Authorization {
+        .prop_map(
+            |(classical_sig, pqc_sig, pk_classical, pk_pqc, nonce, domain)| Authorization {
                 classical_sig,
                 pqc_sig,
                 public_key: HybridPublicKey {
@@ -878,8 +942,8 @@ fn arb_auth() -> impl Strategy<Value = Authorization> {
                 },
                 nonce,
                 domain,
-            }
-        })
+            },
+        )
 }
 
 /// Build a valid State from canonical + environment at a given sequence index.
@@ -908,7 +972,11 @@ fn build_state(canonical: CanonicalState, env: Environment, seq: u64) -> State {
 
 /// Generate a valid State at a random sequence index.
 fn arb_state() -> impl Strategy<Value = State> {
-    (arb_canonical(), arb_env(), prop_oneof![Just(0u64), 1u64..=1_000])
+    (
+        arb_canonical(),
+        arb_env(),
+        prop_oneof![Just(0u64), 1u64..=1_000],
+    )
         .prop_map(|(canonical, env, seq)| build_state(canonical, env, seq))
 }
 
@@ -940,18 +1008,14 @@ fn arb_diverse_input() -> impl Strategy<Value = Input> {
 
 /// Generate an invalid Input (empty payload_type → Reject classification).
 fn arb_invalid_input() -> impl Strategy<Value = Input> {
-    (
-        arb_auth(),
-        prop::collection::vec(any::<u8>(), 0..32),
-    )
-        .prop_map(|(auth, aux_data)| Input {
-            payload: Payload {
-                payload_type: String::new(),
-                data: vec![],
-            },
-            auth,
-            aux: AuxiliaryData { data: aux_data },
-        })
+    (arb_auth(), prop::collection::vec(any::<u8>(), 0..32)).prop_map(|(auth, aux_data)| Input {
+        payload: Payload {
+            payload_type: String::new(),
+            data: vec![],
+        },
+        auth,
+        aux: AuxiliaryData { data: aux_data },
+    })
 }
 
 /// Generate a (state, input) pair covering all transition classes.
@@ -973,7 +1037,9 @@ fn make_differential_sir_program() -> SirProgram {
         class: class.to_string(),
         preconditions: vec![],
         postconditions: vec![],
-        body: SirExpr::Var { name: "state".into() },
+        body: SirExpr::Var {
+            name: "state".into(),
+        },
         allowed_mutations: vec![],
     };
 
@@ -1069,12 +1135,8 @@ fn verify_observable_status_consistency(class: TransitionClass, status: Transiti
         TransitionClass::Init | TransitionClass::Batch | TransitionClass::Update => {
             status == TransitionStatus::Success
         }
-        TransitionClass::Reject | TransitionClass::Noop => {
-            status == TransitionStatus::Rejected
-        }
-        TransitionClass::Error => {
-            status == TransitionStatus::Error
-        }
+        TransitionClass::Reject | TransitionClass::Noop => status == TransitionStatus::Rejected,
+        TransitionClass::Error => status == TransitionStatus::Error,
     }
 }
 

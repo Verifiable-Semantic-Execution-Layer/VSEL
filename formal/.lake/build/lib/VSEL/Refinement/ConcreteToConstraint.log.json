@@ -1,0 +1,5 @@
+{"log":
+ [{"message":
+   ".> LEAN_PATH=././.lake/build/lib DYLD_LIBRARY_PATH=././.lake/build/lib /Users/mac/.elan/toolchains/leanprover--lean4---v4.8.0/bin/lean -DautoImplicit=false ././././VSEL/Refinement/ConcreteToConstraint.lean -R ./././. -o ././.lake/build/lib/VSEL/Refinement/ConcreteToConstraint.olean -i ././.lake/build/lib/VSEL/Refinement/ConcreteToConstraint.ilean -c ././.lake/build/ir/VSEL/Refinement/ConcreteToConstraint.c --json",
+   "level": "trace"}],
+ "depHash": "152398247273908812"}

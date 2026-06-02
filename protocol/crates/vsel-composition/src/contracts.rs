@@ -86,7 +86,6 @@ pub struct SubsystemContract {
     pub temporal: Vec<TemporalObligation>,
 }
 
-
 // ---------------------------------------------------------------------------
 // SystemDefinition — defines a subsystem for contract generation
 // ---------------------------------------------------------------------------
@@ -235,7 +234,6 @@ pub fn define_contract(system: &SystemDefinition) -> SubsystemContract {
     }
 }
 
-
 // ---------------------------------------------------------------------------
 // verify_composition — check composition validity of two contracts
 // ---------------------------------------------------------------------------
@@ -249,10 +247,7 @@ pub fn define_contract(system: &SystemDefinition) -> SubsystemContract {
 ///
 /// Returns `CompositionResult::Valid` if all conditions hold, or
 /// `CompositionResult::Invalid` with a list of violations otherwise.
-pub fn verify_composition(
-    a: &SubsystemContract,
-    b: &SubsystemContract,
-) -> CompositionResult {
+pub fn verify_composition(a: &SubsystemContract, b: &SubsystemContract) -> CompositionResult {
     let mut violations = Vec::new();
 
     // Check 1: G(M_A) ⊇ A(M_B) — guarantees of A must cover assumptions of B
@@ -284,8 +279,7 @@ pub fn verify_composition(
     }
 
     // Check 3: Eff(M_A) ∩ F(M_B) = ∅ — effects of A must not conflict with forbids of B
-    let a_effects_conflict: BTreeSet<_> =
-        a.effects.intersection(&b.forbids).cloned().collect();
+    let a_effects_conflict: BTreeSet<_> = a.effects.intersection(&b.forbids).cloned().collect();
     if !a_effects_conflict.is_empty() {
         violations.push(CompositionViolation {
             kind: ViolationKind::EffectsConflictWithForbids,
@@ -298,8 +292,7 @@ pub fn verify_composition(
     }
 
     // Check 4: Eff(M_B) ∩ F(M_A) = ∅ — effects of B must not conflict with forbids of A
-    let b_effects_conflict: BTreeSet<_> =
-        b.effects.intersection(&a.forbids).cloned().collect();
+    let b_effects_conflict: BTreeSet<_> = b.effects.intersection(&a.forbids).cloned().collect();
     if !b_effects_conflict.is_empty() {
         violations.push(CompositionViolation {
             kind: ViolationKind::EffectsConflictWithForbids,
@@ -405,8 +398,11 @@ pub fn check_backward_compatibility(
     }
 
     // Check 2: G(M^v2) ⊇ G(M^v1) — new version must not guarantee less
-    let lost_guarantees: BTreeSet<_> =
-        old.guarantees.difference(&new.guarantees).cloned().collect();
+    let lost_guarantees: BTreeSet<_> = old
+        .guarantees
+        .difference(&new.guarantees)
+        .cloned()
+        .collect();
     if !lost_guarantees.is_empty() {
         violations.push(CompatibilityViolation {
             kind: CompatibilityViolationKind::GuaranteesReduced,
@@ -419,8 +415,7 @@ pub fn check_backward_compatibility(
     }
 
     // Check 3: F(M^v2) ⊆ F(M^v1) — new version must not forbid more
-    let new_extra_forbids: BTreeSet<_> =
-        new.forbids.difference(&old.forbids).cloned().collect();
+    let new_extra_forbids: BTreeSet<_> = new.forbids.difference(&old.forbids).cloned().collect();
     if !new_extra_forbids.is_empty() {
         violations.push(CompatibilityViolation {
             kind: CompatibilityViolationKind::ForbidsExpanded,
@@ -438,7 +433,6 @@ pub fn check_backward_compatibility(
         CompatibilityResult::Incompatible { violations }
     }
 }
-
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -476,14 +470,8 @@ mod tests {
     ) -> SystemDefinition {
         SystemDefinition {
             name: name.to_string(),
-            assumed_properties: assumes
-                .iter()
-                .map(|(id, desc)| prop(id, desc))
-                .collect(),
-            guaranteed_properties: guarantees
-                .iter()
-                .map(|(id, desc)| prop(id, desc))
-                .collect(),
+            assumed_properties: assumes.iter().map(|(id, desc)| prop(id, desc)).collect(),
+            guaranteed_properties: guarantees.iter().map(|(id, desc)| prop(id, desc)).collect(),
             exported_interfaces: exports.iter().map(|s| s.to_string()).collect(),
             state_effects: effects.iter().map(|s| s.to_string()).collect(),
             forbidden_interactions: forbids.iter().map(|s| s.to_string()).collect(),
@@ -497,12 +485,22 @@ mod tests {
     fn test_define_contract_from_system_definition() {
         let system = make_system(
             "subsystem_a",
-            &[("valid_state", "State is valid"), ("resource_conservation", "Resources conserved")],
-            &[("determinism", "Execution is deterministic"), ("closure", "State closure")],
+            &[
+                ("valid_state", "State is valid"),
+                ("resource_conservation", "Resources conserved"),
+            ],
+            &[
+                ("determinism", "Execution is deterministic"),
+                ("closure", "State closure"),
+            ],
             &["api_v1"],
             &["write_accounts", "write_storage"],
             &["direct_storage_access"],
-            vec![temporal("liveness", "Eventually progresses", &["valid_state"])],
+            vec![temporal(
+                "liveness",
+                "Eventually progresses",
+                &["valid_state"],
+            )],
         );
 
         let contract = define_contract(&system);
@@ -533,10 +531,7 @@ mod tests {
     fn test_define_contract_deduplicates_properties() {
         let system = SystemDefinition {
             name: "dedup_test".to_string(),
-            assumed_properties: vec![
-                prop("p1", "first"),
-                prop("p1", "duplicate"),
-            ],
+            assumed_properties: vec![prop("p1", "first"), prop("p1", "duplicate")],
             guaranteed_properties: vec![],
             exported_interfaces: vec!["api".to_string(), "api".to_string()],
             state_effects: vec![],
@@ -557,7 +552,10 @@ mod tests {
         // A assumes what B guarantees and vice versa; no effect/forbid conflicts
         let a = SubsystemContract {
             assumes: ["valid_input"].iter().map(|s| s.to_string()).collect(),
-            guarantees: ["determinism", "closure"].iter().map(|s| s.to_string()).collect(),
+            guarantees: ["determinism", "closure"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
             exports: ["api_a"].iter().map(|s| s.to_string()).collect(),
             effects: ["write_accounts"].iter().map(|s| s.to_string()).collect(),
             forbids: ["write_proofs"].iter().map(|s| s.to_string()).collect(),
@@ -566,9 +564,15 @@ mod tests {
 
         let b = SubsystemContract {
             assumes: ["determinism"].iter().map(|s| s.to_string()).collect(),
-            guarantees: ["valid_input", "resource_conservation"].iter().map(|s| s.to_string()).collect(),
+            guarantees: ["valid_input", "resource_conservation"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
             exports: ["api_b"].iter().map(|s| s.to_string()).collect(),
-            effects: ["write_proofs_internal"].iter().map(|s| s.to_string()).collect(),
+            effects: ["write_proofs_internal"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
             forbids: ["write_storage"].iter().map(|s| s.to_string()).collect(),
             temporal: vec![],
         };
@@ -592,7 +596,10 @@ mod tests {
         };
 
         let b = SubsystemContract {
-            assumes: ["determinism", "resource_conservation"].iter().map(|s| s.to_string()).collect(),
+            assumes: ["determinism", "resource_conservation"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
             guarantees: BTreeSet::new(),
             exports: BTreeSet::new(),
             effects: BTreeSet::new(),
@@ -621,7 +628,10 @@ mod tests {
             assumes: BTreeSet::new(),
             guarantees: BTreeSet::new(),
             exports: BTreeSet::new(),
-            effects: ["write_storage", "write_accounts"].iter().map(|s| s.to_string()).collect(),
+            effects: ["write_storage", "write_accounts"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
             forbids: BTreeSet::new(),
             temporal: vec![],
         };
@@ -692,7 +702,11 @@ mod tests {
             exports: BTreeSet::new(),
             effects: BTreeSet::new(),
             forbids: BTreeSet::new(),
-            temporal: vec![temporal("liveness_a", "A must progress", &["shared_resource"])],
+            temporal: vec![temporal(
+                "liveness_a",
+                "A must progress",
+                &["shared_resource"],
+            )],
         };
 
         let b = SubsystemContract {
@@ -712,7 +726,9 @@ mod tests {
                         && v.properties.contains(&"shared_resource".to_string())
                 }));
             }
-            CompositionResult::Valid => panic!("Expected invalid composition due to temporal conflict"),
+            CompositionResult::Valid => {
+                panic!("Expected invalid composition due to temporal conflict")
+            }
         }
     }
 
@@ -793,7 +809,10 @@ mod tests {
         };
 
         let v2 = SubsystemContract {
-            assumes: ["prop_a", "prop_new"].iter().map(|s| s.to_string()).collect(), // assumes more
+            assumes: ["prop_a", "prop_new"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(), // assumes more
             guarantees: ["g1"].iter().map(|s| s.to_string()).collect(),
             exports: BTreeSet::new(),
             effects: BTreeSet::new(),

@@ -178,7 +178,10 @@ mod tests {
     #[test]
     fn test_legacy_poseidon_non_trivial() {
         let h = legacy_poseidon_hash(b"test");
-        assert_ne!(h.0, [0u8; 32], "Legacy Poseidon output should not be trivial");
+        assert_ne!(
+            h.0, [0u8; 32],
+            "Legacy Poseidon output should not be trivial"
+        );
     }
 
     #[test]
