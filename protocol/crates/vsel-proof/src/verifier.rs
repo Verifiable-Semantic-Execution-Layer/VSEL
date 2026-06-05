@@ -103,7 +103,7 @@ use std::marker::PhantomData;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use sha3::{Digest, Sha3_256};
 
@@ -116,8 +116,9 @@ use vsel_crypto::domain::{domain_hash, proof_tag};
 use vsel_trace::engine::{verify_trace, Trace};
 
 use crate::backend::ZkBackend;
+use crate::cairo_stark::CairoStarkProof;
 use crate::hash_backend::HashBackend;
-use crate::prover::{Proof, ProofCommitments};
+use crate::prover::{canonical_constraint_commitment, Proof, ProofCommitments};
 use crate::public_inputs::PublicInputs;
 use crate::recursive::verify_recursive as recursive_verify;
 use crate::witness::Witness;
@@ -1270,8 +1271,9 @@ impl Lean4SemanticVerifier {
     /// Require a real STARK proof-system identifier for final semantic evidence.
     ///
     /// This rejects placeholder proof systems. It accepts `plonky3-stark` and
-    /// `cairo-stark` identifiers, allowing the cryptographic verifier/backend
-    /// to supply the actual proof validity check.
+    /// concrete `cairo-stark/<adapter-id>` identifiers, allowing the
+    /// cryptographic verifier/backend to supply the actual proof validity
+    /// check.
     pub fn requiring_stark_proof_system(mut self) -> Self {
         self.require_stark_proof_system = true;
         self
@@ -1292,17 +1294,8 @@ impl Lean4SemanticVerifier {
         // Encode proof for Lean 4 verification
         let _proof_encoding = self.encode_proof_for_lean4(proof, public_inputs)?;
 
-        // TODO: In production, this would:
-        // 1. Write proof_encoding to a temporary file
-        // 2. Invoke `lake exec vsel-verify` with the file path
-        // 3. Capture stdout/stderr
-        // 4. Parse verification results
-        // 5. Clean up temporary files
-
-        // For now, we simulate the check with basic validation
-        // This would be replaced with actual Lean 4 integration
-
-        // Placeholder: Check if we can access formal spec path
+        // This adapter is intentionally fail-closed until an executable Lean
+        // target consumes this exact encoding and emits a bounded certificate.
         let spec_path = std::path::Path::new(&self.formal_spec_path);
         if !spec_path.exists() {
             return Ok(SemanticVerificationResult::Skipped {
@@ -1395,8 +1388,6 @@ impl Lean4SemanticVerifier {
             ));
         }
 
-        self.run_lake_build(spec_path)?;
-
         let mut passed_checks = verify_executable_trace_semantics(
             proof,
             public_inputs,
@@ -1406,8 +1397,23 @@ impl Lean4SemanticVerifier {
             self.require_stark_proof_system,
         )?;
 
+        let certificate = build_semantic_certificate(
+            proof,
+            public_inputs,
+            witness,
+            constraints,
+            trace,
+            self.require_stark_proof_system,
+            &passed_checks,
+            &specification_commitment,
+        );
+
+        self.run_lake_build(spec_path)?;
+        self.run_lake_certificate_check(spec_path, &certificate)?;
+
         let trusted_declarations = count_lean_trusted_declarations(spec_path)?;
         passed_checks.push("lean:lake_build".to_string());
+        passed_checks.push("lean:certificate_checker".to_string());
         passed_checks.push("lean:no_sorry_or_admit".to_string());
         passed_checks.push(format!(
             "lean:tcb_axiom_opaque_declarations_bound:{}",
@@ -1488,6 +1494,78 @@ impl Lean4SemanticVerifier {
             }
         }
     }
+
+    fn run_lake_certificate_check(
+        &self,
+        spec_path: &Path,
+        certificate: &str,
+    ) -> Result<(), String> {
+        let certificate_path = write_semantic_certificate_tempfile(certificate)?;
+        let result = self.run_lake_lean_checker(spec_path, &certificate_path);
+        let _ = fs::remove_file(&certificate_path);
+        result
+    }
+
+    fn run_lake_lean_checker(
+        &self,
+        spec_path: &Path,
+        certificate_path: &Path,
+    ) -> Result<(), String> {
+        let timeout = Duration::from_millis(self.verification_timeout_ms.max(1));
+        let mut child = Command::new(&self.lean_executable)
+            .arg("env")
+            .arg("lean")
+            .arg("--run")
+            .arg("VSEL/Checker/Main.lean")
+            .arg(certificate_path)
+            .current_dir(spec_path)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .env("ELAN_NO_OVERRIDE_NOTICE", "1")
+            .spawn()
+            .map_err(|e| {
+                format!(
+                    "failed to spawn Lean certificate checker '{} env lean --run': {}",
+                    self.lean_executable, e
+                )
+            })?;
+
+        let started = Instant::now();
+        loop {
+            match child.try_wait() {
+                Ok(Some(_status)) => {
+                    let output = child
+                        .wait_with_output()
+                        .map_err(|e| format!("failed to collect lake exe output: {}", e))?;
+                    if output.status.success() {
+                        return Ok(());
+                    }
+                    return Err(format!(
+                        "lake env lean --run VSEL/Checker/Main.lean failed: stdout='{}' stderr='{}'",
+                        String::from_utf8_lossy(&output.stdout),
+                        String::from_utf8_lossy(&output.stderr)
+                    ));
+                }
+                Ok(None) => {
+                    if started.elapsed() >= timeout {
+                        let _ = child.kill();
+                        let output = child.wait_with_output().map_err(|e| {
+                            format!("failed to collect timed-out lake exe output: {}", e)
+                        })?;
+                        return Err(format!(
+                            "lake env lean --run VSEL/Checker/Main.lean timed out after {} ms: stdout='{}' stderr='{}'",
+                            self.verification_timeout_ms,
+                            String::from_utf8_lossy(&output.stdout),
+                            String::from_utf8_lossy(&output.stderr)
+                        ));
+                    }
+                    thread::sleep(Duration::from_millis(10));
+                }
+                Err(e) => return Err(format!("failed while waiting for lake exe: {}", e)),
+            }
+        }
+    }
 }
 
 impl SemanticVerifier for Lean4SemanticVerifier {
@@ -1535,7 +1613,7 @@ fn verify_executable_trace_semantics(
     require_stark_proof_system: bool,
 ) -> Result<Vec<String>, String> {
     if require_stark_proof_system {
-        validate_stark_proof_system_binding(proof)?;
+        validate_stark_proof_artifact_binding(proof)?;
     }
 
     if trace.entries.is_empty() {
@@ -1670,6 +1748,15 @@ fn verify_executable_trace_semantics(
 
     if require_stark_proof_system {
         checks.push("stark:non_placeholder_proof_system_binding".to_string());
+        checks.push("stark:artifact_shape_binding".to_string());
+        if proof.metadata.proof_system.starts_with("cairo-stark/") {
+            checks.push("cairo:program_binding".to_string());
+            checks.push("cairo:sierra_casm_binding".to_string());
+            checks.push("cairo:public_input_hash_binding".to_string());
+            checks.push("cairo:constraint_commitment_binding".to_string());
+            checks.push("cairo:adapter_verifier_certificate_binding".to_string());
+            checks.push("cairo:native_verifier_success".to_string());
+        }
     }
 
     Ok(checks)
@@ -1685,13 +1772,147 @@ fn validate_stark_proof_system_binding(proof: &Proof) -> Result<(), String> {
     }
 
     match proof_system {
-        "plonky3-stark" | "cairo-stark" => Ok(()),
+        "plonky3-stark" => Ok(()),
+        "cairo-stark" => Err(
+            "proof system 'cairo-stark' is ambiguous; expected cairo-stark/<adapter-id>"
+                .to_string(),
+        ),
         other if other.starts_with("cairo-stark/") => Ok(()),
         other => Err(format!(
             "proof system '{}' is not an accepted STARK/Cairo backend",
             other
         )),
     }
+}
+
+fn validate_stark_proof_artifact_binding(proof: &Proof) -> Result<(), String> {
+    validate_stark_proof_system_binding(proof)?;
+
+    if proof.proof_data.is_empty() {
+        return Err(
+            "STARK final-acceptance policy requires a non-empty proof artifact".to_string(),
+        );
+    }
+
+    let synthetic_hash_backend_data =
+        recompute_proof_data(&proof.commitments, &proof.public_inputs);
+    if proof.proof_data == synthetic_hash_backend_data {
+        return Err(
+            "hash-backend synthetic proof data cannot satisfy STARK/Cairo final-acceptance policy"
+                .to_string(),
+        );
+    }
+
+    match proof.metadata.proof_system.as_str() {
+        "plonky3-stark" => validate_plonky3_stark_artifact(&proof.proof_data),
+        "cairo-stark" => Err(
+            "Cairo/STARK final acceptance requires a concrete cairo-stark/<adapter-id> backend"
+                .to_string(),
+        ),
+        other if other.starts_with("cairo-stark/") => {
+            validate_cairo_stark_artifact(&proof.proof_data, other)
+        }
+        other => Err(format!(
+            "proof system '{}' is not an accepted STARK/Cairo backend",
+            other
+        )),
+    }
+}
+
+fn validate_plonky3_stark_artifact(bytes: &[u8]) -> Result<(), String> {
+    if bytes.len() < 5 || &bytes[..4] != b"STAR" || bytes[4] != 1 {
+        return Err("Plonky3 STARK artifact must use the canonical STAR/v1 encoding".to_string());
+    }
+
+    let mut cursor = 5usize;
+    let fri_count = read_u32_le(bytes, &mut cursor)? as usize;
+    if fri_count == 0 {
+        return Err("Plonky3 STARK artifact has no FRI commitments".to_string());
+    }
+    for _ in 0..fri_count {
+        let len = read_u32_le(bytes, &mut cursor)? as usize;
+        if len == 0 {
+            return Err("Plonky3 STARK artifact contains an empty FRI commitment".to_string());
+        }
+        read_exact_len(bytes, &mut cursor, len)?;
+    }
+
+    let query_count = read_u32_le(bytes, &mut cursor)? as usize;
+    if query_count == 0 {
+        return Err("Plonky3 STARK artifact has no query responses".to_string());
+    }
+    for _ in 0..query_count {
+        let len = read_u32_le(bytes, &mut cursor)? as usize;
+        if len == 0 {
+            return Err("Plonky3 STARK artifact contains an empty query response".to_string());
+        }
+        read_exact_len(bytes, &mut cursor, len)?;
+    }
+
+    let public_input_count = read_u32_le(bytes, &mut cursor)? as usize;
+    if public_input_count == 0 {
+        return Err("Plonky3 STARK artifact has no public input field elements".to_string());
+    }
+    read_exact_len(bytes, &mut cursor, public_input_count.saturating_mul(8))?;
+
+    let backend_id_len = read_u32_le(bytes, &mut cursor)? as usize;
+    let backend_id = read_exact_len(bytes, &mut cursor, backend_id_len)?;
+    let backend_id = std::str::from_utf8(backend_id)
+        .map_err(|e| format!("Plonky3 backend id is not UTF-8: {}", e))?;
+    if !backend_id.contains("plonky3") {
+        return Err(format!(
+            "Plonky3 STARK artifact backend id '{}' is not plonky3-bound",
+            backend_id
+        ));
+    }
+
+    let native_len = read_u32_le(bytes, &mut cursor)? as usize;
+    if native_len == 0 {
+        return Err(
+            "Plonky3 STARK artifact lacks native proof bytes; simulation fallback is not final evidence"
+                .to_string(),
+        );
+    }
+    read_exact_len(bytes, &mut cursor, native_len)?;
+
+    if cursor != bytes.len() {
+        return Err("Plonky3 STARK artifact has trailing bytes after canonical decode".to_string());
+    }
+
+    Ok(())
+}
+
+fn validate_cairo_stark_artifact(bytes: &[u8], expected_backend_id: &str) -> Result<(), String> {
+    let artifact = CairoStarkProof::from_bytes(bytes)
+        .map_err(|e| format!("Cairo/STARK artifact is not canonical VCAI/v1: {}", e))?;
+    if artifact.backend_id != expected_backend_id {
+        return Err(format!(
+            "Cairo/STARK artifact backend id '{}' does not match metadata '{}'",
+            artifact.backend_id, expected_backend_id
+        ));
+    }
+    artifact
+        .validate_static()
+        .map_err(|e| format!("Cairo/STARK artifact certificate binding failed: {}", e))
+}
+
+fn read_u32_le(bytes: &[u8], cursor: &mut usize) -> Result<u32, String> {
+    let raw = read_exact_len(bytes, cursor, 4)?;
+    Ok(u32::from_le_bytes([raw[0], raw[1], raw[2], raw[3]]))
+}
+
+fn read_exact_len<'a>(bytes: &'a [u8], cursor: &mut usize, len: usize) -> Result<&'a [u8], String> {
+    if *cursor + len > bytes.len() {
+        return Err(format!(
+            "STARK artifact truncated at byte {}; need {} bytes, have {}",
+            *cursor,
+            len,
+            bytes.len().saturating_sub(*cursor)
+        ));
+    }
+    let slice = &bytes[*cursor..*cursor + len];
+    *cursor += len;
+    Ok(slice)
 }
 
 fn witness_aux_equals(witness: &Witness, name: &str, expected: &[u8]) -> bool {
@@ -1766,6 +1987,165 @@ fn compute_semantic_context_commitment(
     }
 
     domain_hash(&proof_tag(), &data)
+}
+
+fn build_semantic_certificate(
+    proof: &Proof,
+    public_inputs: &PublicInputs,
+    witness: &Witness,
+    constraints: &ConstraintSystem,
+    trace: &Trace,
+    require_stark_proof_system: bool,
+    obligations: &[String],
+    specification_commitment: &Hash,
+) -> String {
+    let mut certificate = String::new();
+    certificate.push_str("VSEL_SEMANTIC_CERTIFICATE_V1\n");
+    push_certificate_field(
+        &mut certificate,
+        "protocol_major",
+        &public_inputs.version.major.to_string(),
+    );
+    push_certificate_field(
+        &mut certificate,
+        "protocol_minor",
+        &public_inputs.version.minor.to_string(),
+    );
+    push_certificate_field(
+        &mut certificate,
+        "protocol_patch",
+        &public_inputs.version.patch.to_string(),
+    );
+    push_certificate_field(
+        &mut certificate,
+        "proof_system",
+        &proof.metadata.proof_system,
+    );
+    push_certificate_field(
+        &mut certificate,
+        "stark_required",
+        if require_stark_proof_system {
+            "true"
+        } else {
+            "false"
+        },
+    );
+    push_certificate_field(
+        &mut certificate,
+        "trace_commitment",
+        &hex32(&proof.commitments.trace_commitment),
+    );
+    push_certificate_field(
+        &mut certificate,
+        "witness_commitment",
+        &hex32(&proof.commitments.witness_commitment),
+    );
+    push_certificate_field(
+        &mut certificate,
+        "constraint_commitment",
+        &hex32(&proof.commitments.constraint_commitment),
+    );
+    push_certificate_field(
+        &mut certificate,
+        "root_init",
+        &hex32(&public_inputs.root_init),
+    );
+    push_certificate_field(
+        &mut certificate,
+        "root_final",
+        &hex32(&public_inputs.root_final),
+    );
+    push_certificate_field(&mut certificate, "domain", &hex32(&public_inputs.domain.0));
+    push_certificate_field(
+        &mut certificate,
+        "formal_spec_commitment",
+        &hex32(specification_commitment),
+    );
+    push_certificate_field(
+        &mut certificate,
+        "trace_entries",
+        &trace.entries.len().to_string(),
+    );
+    push_certificate_field(
+        &mut certificate,
+        "public_observables",
+        &public_inputs.observables.len().to_string(),
+    );
+    push_certificate_field(
+        &mut certificate,
+        "witness_inputs",
+        &witness.input_sequence.len().to_string(),
+    );
+    push_certificate_field(
+        &mut certificate,
+        "witness_intermediate_states",
+        &witness.intermediate_states.len().to_string(),
+    );
+    push_certificate_field(
+        &mut certificate,
+        "witness_aux_values",
+        &witness.aux_computation.values.len().to_string(),
+    );
+    push_certificate_field(
+        &mut certificate,
+        "constraint_count",
+        &constraints.constraints.len().to_string(),
+    );
+    push_certificate_field(
+        &mut certificate,
+        "witness_variable_count",
+        &constraints.witness_variables.len().to_string(),
+    );
+    push_certificate_field(
+        &mut certificate,
+        "public_constraint_input_count",
+        &constraints.public_inputs.len().to_string(),
+    );
+    for obligation in obligations {
+        push_certificate_field(&mut certificate, "obligation", obligation);
+    }
+    certificate
+}
+
+fn push_certificate_field(certificate: &mut String, key: &str, value: &str) {
+    certificate.push_str(key);
+    certificate.push('=');
+    certificate.push_str(value);
+    certificate.push('\n');
+}
+
+fn write_semantic_certificate_tempfile(certificate: &str) -> Result<PathBuf, String> {
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| format!("system clock before unix epoch: {}", e))?
+        .as_nanos();
+    let path = std::env::temp_dir().join(format!(
+        "vsel-semantic-certificate-{}-{}.cert",
+        std::process::id(),
+        nonce
+    ));
+    fs::write(&path, certificate).map_err(|e| {
+        format!(
+            "failed to write semantic certificate {}: {}",
+            path.display(),
+            e
+        )
+    })?;
+    Ok(path)
+}
+
+fn hex32(hash: &Hash) -> String {
+    hex_bytes(&hash.0)
+}
+
+fn hex_bytes(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for byte in bytes {
+        out.push(HEX[(byte >> 4) as usize] as char);
+        out.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    out
 }
 
 fn compute_formal_spec_commitment(spec_path: &Path) -> Result<Hash, String> {
@@ -1914,12 +2294,9 @@ impl VerificationTimeout {
             return Some(f());
         }
 
-        // In a real implementation, this would use crossbeam or tokio
-        // for actual timeout. For now, we just execute directly.
-        // TODO: Replace with real timeout mechanism using:
-        // - std::thread::spawn + join_timeout (unstable)
-        // - tokio::time::timeout
-        // - crossbeam_channel::RecvTimeout
+        // This guard is currently a configuration marker only. Callers that
+        // require wall-clock enforcement must provide an execution runtime with
+        // cancellation semantics instead of treating this as a hard timeout.
 
         Some(f())
     }
@@ -1944,6 +2321,85 @@ impl<B: ZkBackend> CryptographicVerifier for GenericVerifier<B> {
                     failed_step: step,
                 }
             }
+        }
+    }
+}
+
+impl<B: ZkBackend> CryptographicVerifier for BackendCryptographicVerifier<B> {
+    fn verify_cryptographic(
+        &self,
+        proof: &Proof,
+        public_inputs: &PublicInputs,
+    ) -> CryptographicVerificationResult {
+        let shape = self.legacy_shape_verifier();
+
+        for (step, check) in [
+            (
+                VerificationStep::DomainValidation,
+                shape.validate_domain(proof, public_inputs),
+            ),
+            (
+                VerificationStep::StructuralValidation,
+                shape.validate_structure(proof, public_inputs),
+            ),
+            (
+                VerificationStep::CommitmentValidation,
+                shape.validate_commitments(proof, public_inputs),
+            ),
+            (
+                VerificationStep::SemanticBinding,
+                shape.validate_semantic_binding(proof, public_inputs),
+            ),
+            (
+                VerificationStep::InvariantEnforcement,
+                shape.enforce_invariants(proof, public_inputs),
+            ),
+        ] {
+            if let Err(reason) = check {
+                return CryptographicVerificationResult::Failed {
+                    reason,
+                    failed_step: step,
+                };
+            }
+        }
+
+        if proof.metadata.proof_system != self.backend.backend_id() {
+            return CryptographicVerificationResult::Failed {
+                reason: RejectionReason::CryptographicFailure,
+                failed_step: VerificationStep::CryptographicVerification,
+            };
+        }
+
+        if !self.backend.is_post_quantum() {
+            return CryptographicVerificationResult::Failed {
+                reason: RejectionReason::CryptographicFailure,
+                failed_step: VerificationStep::CryptographicVerification,
+            };
+        }
+
+        let backend_proof = match self.backend.deserialize_proof(&proof.proof_data) {
+            Ok(proof) => proof,
+            Err(_) => {
+                return CryptographicVerificationResult::Failed {
+                    reason: RejectionReason::CryptographicFailure,
+                    failed_step: VerificationStep::CryptographicVerification,
+                };
+            }
+        };
+
+        if !self.backend.verify(
+            &backend_proof,
+            public_inputs,
+            &proof.commitments.constraint_commitment,
+        ) {
+            return CryptographicVerificationResult::Failed {
+                reason: RejectionReason::CryptographicFailure,
+                failed_step: VerificationStep::CryptographicVerification,
+            };
+        }
+
+        CryptographicVerificationResult::Consistent {
+            completed_step: VerificationStep::FinalAcceptance,
         }
     }
 }
@@ -2662,6 +3118,17 @@ impl IntegratedFormalVerifier {
     ) -> IntegratedFormalVerificationResult {
         let mut result = IntegratedFormalVerificationResult::new();
 
+        if !witness.input_sequence.is_empty() && witness.input_sequence.len() != trace.entries.len()
+        {
+            result.errors.push(format!(
+                "Witness/trace length mismatch: witness inputs={}, trace entries={}",
+                witness.input_sequence.len(),
+                trace.entries.len()
+            ));
+            result.determine_overall();
+            return result;
+        }
+
         // Phase 1: Symbolic Execution
         match self.symbolic_engine.execute_symbolic(trace) {
             Ok(sym_result) => {
@@ -2927,10 +3394,21 @@ impl SymbolicExecutionEngine {
         &self,
         trace: &FormalTrace,
     ) -> Result<SymbolicExecutionResult, SymbolicExecutionError> {
+        if self.current_depth + trace.entries.len() > self.max_depth {
+            return Err(SymbolicExecutionError::MaxDepthExceeded);
+        }
+
         let mut result = SymbolicExecutionResult {
-            paths_explored: 0,
-            underconstrained_vars: Vec::new(),
-            path_conditions: Vec::new(),
+            paths_explored: self.current_depth,
+            underconstrained_vars: self
+                .symbolic_state
+                .iter()
+                .filter_map(|(name, value)| match value {
+                    SymbolicValue::Unconstrained { .. } => Some(name.clone()),
+                    _ => None,
+                })
+                .collect(),
+            path_conditions: self.path_conditions.clone(),
         };
 
         // Explore all paths symbolically
@@ -2947,11 +3425,28 @@ impl SymbolicExecutionEngine {
         entry: &FormalTraceEntry,
         result: &mut SymbolicExecutionResult,
     ) -> Result<(), SymbolicExecutionError> {
-        // Symbolically execute this step
-        // Track state changes
-        // Detect underconstrained variables
+        if entry.id.is_empty() {
+            result
+                .underconstrained_vars
+                .push(format!("trace[{}].id", index));
+        }
 
-        // Placeholder implementation
+        let post_total_supply =
+            u64::try_from(entry.post_state.system_data.total_supply).unwrap_or(u64::MAX);
+        result.path_conditions.push(SymbolicConstraint::Eq(
+            SymbolicValue::Symbolic {
+                name: format!("trace[{}].post_total_supply", index),
+                constraints: Vec::new(),
+            },
+            SymbolicValue::Concrete(post_total_supply),
+        ));
+
+        if entry.pre_state_commitment == Hash([0u8; 32]) && index > 0 {
+            result
+                .underconstrained_vars
+                .push(format!("trace[{}].pre_state_commitment", index));
+        }
+
         result.paths_explored += 1;
         Ok(())
     }
@@ -2982,6 +3477,12 @@ impl RealTimeModelChecker {
         &self,
         trace: &FormalTrace,
     ) -> Result<ModelCheckingResult, ModelCheckingError> {
+        for automaton in &self.automata {
+            if !automaton.is_well_formed() {
+                return Err(ModelCheckingError::MalformedAutomaton);
+            }
+        }
+
         let mut result = ModelCheckingResult {
             properties_checked: 0,
             violations: Vec::new(),
@@ -3011,6 +3512,24 @@ impl RealTimeModelChecker {
     }
 }
 
+impl BuchiAutomaton {
+    fn is_well_formed(&self) -> bool {
+        !self.states.is_empty()
+            && self.current < self.states.len()
+            && self
+                .accepting
+                .iter()
+                .all(|state| *state < self.states.len())
+            && self.states.iter().enumerate().all(|(expected_id, state)| {
+                state.id == expected_id
+                    && state
+                        .transitions
+                        .iter()
+                        .all(|(_, target)| *target < self.states.len())
+            })
+    }
+}
+
 /// Model checking error.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ModelCheckingError {
@@ -3020,6 +3539,8 @@ pub enum ModelCheckingError {
     StateSpaceExplosion,
     /// Timeout.
     Timeout,
+    /// Automaton definition is malformed.
+    MalformedAutomaton,
 }
 
 impl RefinementProofVerifier {
@@ -3034,21 +3555,54 @@ impl RefinementProofVerifier {
     pub fn verify_refinements(
         &self,
         _proof: &Proof,
-        _trace: &FormalTrace,
+        trace: &FormalTrace,
     ) -> Result<RefinementVerificationResult, RefinementError> {
-        let result = RefinementVerificationResult {
-            proofs_verified: self.refinement_proofs.len(),
-            obligations_discharged: 0,
-            remaining_obligations: Vec::new(),
-        };
+        let mut obligations_discharged = 0;
+        let mut remaining_obligations = Vec::new();
 
-        // Verify each refinement proof
         for ref_proof in &self.refinement_proofs {
-            // Verify simulation relation
-            // Check proof obligations
+            if ref_proof.from_layer == ref_proof.to_layer {
+                return Err(RefinementError::SimulationFailed {
+                    from: FormalState::default(),
+                    to: FormalState::default(),
+                });
+            }
+
+            let source_state = trace
+                .entries
+                .first()
+                .map(|entry| FormalState {
+                    canonical: entry.post_state.clone(),
+                    ..FormalState::default()
+                })
+                .unwrap_or_default();
+            let _target_state = (ref_proof.simulation_relation.forward)(source_state);
+
+            for obligation in &ref_proof.obligations {
+                if obligation.property.is_empty() {
+                    return Err(RefinementError::ObligationNotDischarged {
+                        obligation: "<empty>".to_string(),
+                    });
+                }
+
+                if obligation.discharged
+                    && obligation
+                        .witness
+                        .as_ref()
+                        .is_some_and(|witness| witness.verified && !witness.data.is_empty())
+                {
+                    obligations_discharged += 1;
+                } else {
+                    remaining_obligations.push(obligation.clone());
+                }
+            }
         }
 
-        Ok(result)
+        Ok(RefinementVerificationResult {
+            proofs_verified: self.refinement_proofs.len(),
+            obligations_discharged,
+            remaining_obligations,
+        })
     }
 }
 
@@ -3076,15 +3630,26 @@ impl AssumeGuaranteeChecker {
         &self,
         _trace: &FormalTrace,
     ) -> Result<ContractVerificationResult, ContractError> {
-        let result = ContractVerificationResult {
+        let mut result = ContractVerificationResult {
             contracts_checked: self.contracts.len(),
             satisfied: 0,
             violated: Vec::new(),
         };
 
-        // Check each contract
         for contract in &self.contracts {
-            // Verify assumptions imply guarantees
+            if contract.component.is_empty() {
+                return Err(ContractError::ContractViolated {
+                    component: "<unnamed>".to_string(),
+                });
+            }
+
+            let has_contract_body =
+                !contract.assumptions.is_empty() || !contract.guarantees.is_empty();
+            if contract.satisfied && has_contract_body {
+                result.satisfied += 1;
+            } else {
+                result.violated.push(contract.clone());
+            }
         }
 
         Ok(result)
@@ -3210,13 +3775,14 @@ impl SemanticConstraintSolver {
         Ok(result)
     }
 
-    fn solve(&self, _constraint: &SymbolicConstraint) -> Result<Solution, SolverError> {
-        // Use SMT solver to solve constraint
-        // Placeholder implementation
-        Ok(Solution {
-            assignments: BTreeMap::new(),
-            proof: Vec::new(),
-        })
+    fn solve(&self, constraint: &SymbolicConstraint) -> Result<Solution, SolverError> {
+        match &self.backend {
+            SolverBackend::Custom(solver) => solver.solve(std::slice::from_ref(constraint)),
+            SolverBackend::Z3 | SolverBackend::Cvc4 => Err(SolverError::BackendError(format!(
+                "{:?} backend is not configured; provide SolverBackend::Custom for authoritative solving",
+                self.backend
+            ))),
+        }
     }
 }
 
@@ -3510,17 +4076,17 @@ pub trait Verifier {
 }
 
 // ---------------------------------------------------------------------------
-// GenericVerifier<B: ZkBackend> — 7-step pipeline implementation
+// GenericVerifier<B: ZkBackend> — legacy hash-placeholder verifier
 // ---------------------------------------------------------------------------
 
-/// Generic verifier parameterized over a ZK backend.
+/// Legacy verifier parameterized over a ZK backend type.
 ///
-/// The 7-step verification pipeline remains identical regardless of
-/// backend. The backend type parameter enables future backends
-/// (Plonky3) to be plugged in without modifying the pipeline logic.
+/// The 7-step legacy inspection pipeline remains identical regardless of
+/// the type parameter, but cryptographic checking is the SHA3-256
+/// hash-placeholder scheme used by `GenericProver`.
 ///
-/// Uses SHA3-256 hash-based verification as a STARK placeholder,
-/// matching the GenericProver's proof generation scheme.
+/// Backend-native proof verification uses `BackendCryptographicVerifier<B>`,
+/// not this type.
 ///
 /// Requirements 1.4, 1.5, 8.1, 8.2, 8.3, 8.4, 8.7, 8.8.
 pub struct GenericVerifier<B: ZkBackend> {
@@ -3537,6 +4103,34 @@ pub struct GenericVerifier<B: ZkBackend> {
 ///
 /// Requirements 1.5, 1.6.
 pub type DefaultVerifier = GenericVerifier<HashBackend>;
+
+/// Cryptographic verifier backed by an actual `ZkBackend` instance.
+///
+/// `GenericVerifier<B>` is retained for backward compatibility and validates
+/// the legacy hash proof shape. This type is the final-acceptance-compatible
+/// verifier for real proof backends: it deserializes the backend artifact,
+/// verifies it through `ZkBackend::verify`, and requires the proof metadata to
+/// name the same backend.
+pub struct BackendCryptographicVerifier<B: ZkBackend> {
+    /// Expected protocol version for version compatibility checking.
+    pub expected_version: ProtocolVersion,
+    /// Concrete backend used for proof verification.
+    pub backend: B,
+}
+
+impl<B: ZkBackend> BackendCryptographicVerifier<B> {
+    /// Create a new backend-backed cryptographic verifier.
+    pub fn new(expected_version: ProtocolVersion, backend: B) -> Self {
+        Self {
+            expected_version,
+            backend,
+        }
+    }
+
+    fn legacy_shape_verifier(&self) -> GenericVerifier<HashBackend> {
+        GenericVerifier::<HashBackend>::new(self.expected_version.clone())
+    }
+}
 
 impl<B: ZkBackend> GenericVerifier<B> {
     /// Create a new GenericVerifier with the expected protocol version.
@@ -3714,20 +4308,7 @@ impl<B: ZkBackend> GenericVerifier<B> {
         // Verify constraint system version matches proof metadata.
         // The constraint commitment in the proof must match the provided
         // constraint system — prevents version mismatch attacks.
-        let expected_constraint_commitment = {
-            use vsel_crypto::domain::{domain_hash, proof_tag as ptag};
-            let proof_domain = ptag();
-            let mut data = Vec::new();
-            data.extend_from_slice(constraints.version.as_bytes());
-            data.extend_from_slice(&(constraints.constraints.len() as u64).to_le_bytes());
-            data.extend_from_slice(&(constraints.witness_variables.len() as u64).to_le_bytes());
-            data.extend_from_slice(&(constraints.public_inputs.len() as u64).to_le_bytes());
-            for constraint in &constraints.constraints {
-                data.extend_from_slice(&constraint.id.0.to_le_bytes());
-                data.extend_from_slice(constraint.description.as_bytes());
-            }
-            domain_hash(&proof_domain, &data)
-        };
+        let expected_constraint_commitment = canonical_constraint_commitment(constraints);
 
         if proof.commitments.constraint_commitment != expected_constraint_commitment {
             return Err(RejectionReason::ConstraintViolation);
@@ -4006,6 +4587,32 @@ impl<B: ZkBackend> ConstraintWitnessVerifier for GenericVerifier<B> {
         constraints: &ConstraintSystem,
     ) -> Result<(), RejectionReason> {
         self.verify_constraint_satisfaction(proof, Some(witness), Some(constraints))
+    }
+
+    fn verify_final_constraint_coverage(
+        &self,
+        constraints: &ConstraintSystem,
+    ) -> Result<(), RejectionReason> {
+        if has_final_acceptance_constraint_coverage(constraints) {
+            Ok(())
+        } else {
+            Err(RejectionReason::ConstraintViolation)
+        }
+    }
+}
+
+impl<B: ZkBackend> ConstraintWitnessVerifier for BackendCryptographicVerifier<B> {
+    fn verify_constraint_witness(
+        &self,
+        proof: &Proof,
+        witness: &Witness,
+        constraints: &ConstraintSystem,
+    ) -> Result<(), RejectionReason> {
+        self.legacy_shape_verifier().verify_constraint_satisfaction(
+            proof,
+            Some(witness),
+            Some(constraints),
+        )
     }
 
     fn verify_final_constraint_coverage(
@@ -4538,12 +5145,35 @@ fn recompute_proof_data(commitments: &ProofCommitments, public_inputs: &PublicIn
     hasher.update(&public_inputs.root_init.0);
     hasher.update(&public_inputs.root_final.0);
     hasher.update(&(public_inputs.observables.len() as u64).to_le_bytes());
+    for observable in &public_inputs.observables {
+        hash_observable_for_proof_data(&mut hasher, observable);
+    }
     hasher.update(&(public_inputs.domain.0).0);
     hasher.update(&public_inputs.version.major.to_le_bytes());
     hasher.update(&public_inputs.version.minor.to_le_bytes());
     hasher.update(&public_inputs.version.patch.to_le_bytes());
 
     hasher.finalize().to_vec()
+}
+
+fn hash_observable_for_proof_data(
+    hasher: &mut Sha3_256,
+    observable: &vsel_core::observable::Observable,
+) {
+    hasher.update(&[observable.transition_class as u8]);
+    hasher.update(&[match observable.status {
+        vsel_core::observable::TransitionStatus::Success => 0,
+        vsel_core::observable::TransitionStatus::Rejected => 1,
+        vsel_core::observable::TransitionStatus::Error => 2,
+    }]);
+    hasher.update(&observable.gas_used.to_le_bytes());
+    hasher.update(&(observable.outputs.len() as u64).to_le_bytes());
+    for output in &observable.outputs {
+        hasher.update(&(output.event_type.len() as u64).to_le_bytes());
+        hasher.update(output.event_type.as_bytes());
+        hasher.update(&(output.data.len() as u64).to_le_bytes());
+        hasher.update(&output.data);
+    }
 }
 
 #[cfg(test)]
@@ -4768,6 +5398,80 @@ mod vsel_001_fail_closed_tests {
         constraints
     }
 
+    fn formal_spec_path() -> String {
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../formal")
+            .canonicalize()
+            .expect("formal spec path")
+            .to_string_lossy()
+            .into_owned()
+    }
+
+    #[derive(Clone)]
+    struct MockBackendProof(Vec<u8>);
+
+    impl AsRef<[u8]> for MockBackendProof {
+        fn as_ref(&self) -> &[u8] {
+            &self.0
+        }
+    }
+
+    #[derive(Debug)]
+    struct MockBackendError(String);
+
+    impl std::fmt::Display for MockBackendError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "mock-stark: {}", self.0)
+        }
+    }
+
+    impl std::error::Error for MockBackendError {}
+
+    struct MockStarkBackend;
+
+    impl ZkBackend for MockStarkBackend {
+        type Proof = MockBackendProof;
+        type Error = MockBackendError;
+
+        fn prove(
+            &self,
+            _witness: &Witness,
+            _constraints: &ConstraintSystem,
+            _public_inputs: &PublicInputs,
+        ) -> Result<Self::Proof, Self::Error> {
+            Ok(MockBackendProof(b"BACKEND-STARK-PROOF".to_vec()))
+        }
+
+        fn verify(
+            &self,
+            proof: &Self::Proof,
+            _public_inputs: &PublicInputs,
+            constraint_commitment: &Hash,
+        ) -> bool {
+            proof.0 == b"BACKEND-STARK-PROOF" && *constraint_commitment != Hash([0u8; 32])
+        }
+
+        fn backend_id(&self) -> &str {
+            "mock-stark"
+        }
+
+        fn is_post_quantum(&self) -> bool {
+            true
+        }
+
+        fn serialize_proof(&self, proof: &Self::Proof) -> Vec<u8> {
+            proof.0.clone()
+        }
+
+        fn deserialize_proof(&self, bytes: &[u8]) -> Result<Self::Proof, Self::Error> {
+            if bytes == b"BACKEND-STARK-PROOF" {
+                Ok(MockBackendProof(bytes.to_vec()))
+            } else {
+                Err(MockBackendError("malformed backend proof".to_string()))
+            }
+        }
+    }
+
     #[test]
     fn fully_verified_requires_constraints_and_authoritative_semantics() {
         let crypto = CryptographicVerificationResult::Consistent {
@@ -4923,6 +5627,192 @@ mod vsel_001_fail_closed_tests {
         assert!(result.is_rejected());
         assert!(!result.is_fully_verified());
     }
+
+    #[test]
+    fn lean_certificate_checker_is_part_of_strict_trace_acceptance() {
+        let trace = executable_trace();
+        let constraints = covered_constraint_system();
+        let mut proof = DefaultProver::new("test")
+            .prove(&trace, &constraints)
+            .expect("proof");
+        proof.metadata.proof_system = "executable-rust-lean".to_string();
+        let witness = construct_witness(&trace);
+        let pipeline = VerificationPipeline::new(
+            GenericVerifier::<HashBackend>::new(ProtocolVersion::default()),
+            Lean4SemanticVerifier::new(ProtocolVersion::default())
+                .with_formal_spec_path(formal_spec_path())
+                .with_timeout(120_000),
+        );
+
+        let result = pipeline.verify_strict_trace(
+            &proof,
+            &proof.public_inputs,
+            &witness,
+            &constraints,
+            &trace,
+        );
+
+        assert!(result.is_fully_verified(), "{:?}", result);
+        match result.semantic {
+            SemanticVerificationResult::Valid {
+                passed_checks,
+                evidence,
+            } => {
+                assert!(passed_checks.contains(&"lean:lake_build".to_string()));
+                assert!(passed_checks.contains(&"lean:certificate_checker".to_string()));
+                assert!(passed_checks.contains(&"lean:no_sorry_or_admit".to_string()));
+                assert!(evidence.is_authoritative());
+            }
+            other => panic!(
+                "expected authoritative Lean semantic evidence, got {:?}",
+                other
+            ),
+        }
+    }
+
+    #[test]
+    fn strict_stark_policy_rejects_hash_backend_proof_relabelled_as_stark() {
+        let trace = executable_trace();
+        let constraints = covered_constraint_system();
+        let mut proof = DefaultProver::new("test")
+            .prove(&trace, &constraints)
+            .expect("proof");
+        proof.metadata.proof_system = "plonky3-stark".to_string();
+        let witness = construct_witness(&trace);
+        let pipeline = VerificationPipeline::new(
+            GenericVerifier::<HashBackend>::new(ProtocolVersion::default()),
+            Lean4SemanticVerifier::new(ProtocolVersion::default())
+                .with_formal_spec_path(formal_spec_path())
+                .requiring_stark_proof_system(),
+        );
+
+        let result = pipeline.verify_strict_trace(
+            &proof,
+            &proof.public_inputs,
+            &witness,
+            &constraints,
+            &trace,
+        );
+
+        assert!(result.is_rejected(), "{:?}", result);
+        assert!(!result.is_fully_verified());
+    }
+
+    #[test]
+    fn stark_policy_rejects_generic_cairo_stark_identifier() {
+        let trace = executable_trace();
+        let constraints = covered_constraint_system();
+        let mut proof = DefaultProver::new("test")
+            .prove(&trace, &constraints)
+            .expect("proof");
+        proof.metadata.proof_system = "cairo-stark".to_string();
+
+        let err = validate_stark_proof_system_binding(&proof)
+            .expect_err("generic cairo-stark identifier must be rejected");
+        assert!(err.contains("ambiguous"), "unexpected error: {}", err);
+    }
+
+    #[test]
+    fn strict_stark_policy_rejects_hash_backend_proof_relabelled_as_cairo_stark() {
+        let trace = executable_trace();
+        let constraints = covered_constraint_system();
+        let mut proof = DefaultProver::new("test")
+            .prove(&trace, &constraints)
+            .expect("proof");
+        proof.metadata.proof_system = "cairo-stark/deterministic-test".to_string();
+        let witness = construct_witness(&trace);
+        let pipeline = VerificationPipeline::new(
+            GenericVerifier::<HashBackend>::new(ProtocolVersion::default()),
+            Lean4SemanticVerifier::new(ProtocolVersion::default())
+                .with_formal_spec_path(formal_spec_path())
+                .requiring_stark_proof_system(),
+        );
+
+        let result = pipeline.verify_strict_trace(
+            &proof,
+            &proof.public_inputs,
+            &witness,
+            &constraints,
+            &trace,
+        );
+
+        assert!(result.is_rejected(), "{:?}", result);
+        assert!(!result.is_fully_verified());
+    }
+
+    #[test]
+    fn cairo_stark_policy_rejects_legacy_textual_envelope() {
+        let trace = executable_trace();
+        let constraints = covered_constraint_system();
+        let mut proof = DefaultProver::new("test")
+            .prove(&trace, &constraints)
+            .expect("proof");
+        proof.metadata.proof_system = "cairo-stark/deterministic-test".to_string();
+        proof.proof_data = b"VSEL-CAIRO-STARK-V1\ncairo_program_hash=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nsierra_program_hash=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\ncasm_program_hash=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\nstark_trace_hash=dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\npublic_input_hash=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\nproof_hash=ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\n".to_vec();
+
+        let err = validate_stark_proof_artifact_binding(&proof)
+            .expect_err("legacy textual Cairo envelope must not satisfy artifact policy");
+        assert!(
+            err.contains("canonical VCAI/v1"),
+            "unexpected error: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn backend_cryptographic_verifier_rejects_relabelled_hash_proof() {
+        let trace = executable_trace();
+        let constraints = covered_constraint_system();
+        let mut hash_proof = DefaultProver::new("test")
+            .prove(&trace, &constraints)
+            .expect("proof");
+        hash_proof.metadata.proof_system = "mock-stark".to_string();
+        let verifier =
+            BackendCryptographicVerifier::new(ProtocolVersion::default(), MockStarkBackend);
+
+        let rejected = verifier.verify_cryptographic(&hash_proof, &hash_proof.public_inputs);
+        assert!(rejected.is_failed(), "{:?}", rejected);
+
+        let mut backend_proof = hash_proof.clone();
+        backend_proof.proof_data = b"BACKEND-STARK-PROOF".to_vec();
+        let accepted = verifier.verify_cryptographic(&backend_proof, &backend_proof.public_inputs);
+        assert!(accepted.is_consistent(), "{:?}", accepted);
+    }
+
+    #[test]
+    fn constraint_commitment_binds_expression_and_category() {
+        let original = covered_constraint_system();
+
+        let mut changed_expr = original.clone();
+        changed_expr.constraints[0].expr = ConstraintExpr::BoolConstant(true);
+        assert_ne!(
+            canonical_constraint_commitment(&original),
+            canonical_constraint_commitment(&changed_expr)
+        );
+
+        let mut changed_category = original.clone();
+        changed_category.constraints[0].category = ConstraintCategory::Structural;
+        assert_ne!(
+            canonical_constraint_commitment(&original),
+            canonical_constraint_commitment(&changed_category)
+        );
+    }
+
+    #[test]
+    fn proof_data_binds_complete_observable_content_not_only_count() {
+        let trace = executable_trace();
+        let constraints = covered_constraint_system();
+        let proof = DefaultProver::new("test")
+            .prove(&trace, &constraints)
+            .expect("proof");
+
+        let original = recompute_proof_data(&proof.commitments, &proof.public_inputs);
+        let mut mutated_public_inputs = proof.public_inputs.clone();
+        mutated_public_inputs.observables[0].gas_used += 1;
+        let mutated = recompute_proof_data(&proof.commitments, &mutated_public_inputs);
+
+        assert_ne!(original, mutated);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -4956,16 +5846,6 @@ mod tests {
             major: 1,
             minor: 0,
             patch: 0,
-        }
-    }
-
-    fn authoritative_semantic_evidence() -> SemanticVerificationEvidence {
-        SemanticVerificationEvidence {
-            mode: SemanticVerificationMode::ExecutableSpecification,
-            verifier_id: "test-executable-semantics".to_string(),
-            specification_commitment: Hash([0xA5; 32]),
-            semantic_context_commitment: Hash([0x5A; 32]),
-            verified_obligations: vec!["state_transition".to_string()],
         }
     }
 
@@ -6914,7 +7794,7 @@ mod recursive_verification_tests {
     #[test]
     fn test_constraint_validation_cannot_be_bypassed() {
         let verifier = default_verifier();
-        let (proof, pub_inputs) = make_valid_proof();
+        let (proof, _pub_inputs) = make_valid_proof();
 
         // Create a witness and constraint system for testing
         let witness = create_test_witness();

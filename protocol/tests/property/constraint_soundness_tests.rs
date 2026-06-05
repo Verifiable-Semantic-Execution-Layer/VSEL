@@ -357,7 +357,7 @@ fn boundary_non_negative() -> impl Strategy<Value = i64> {
         3 => Just(1i64),
         2 => Just(100i64),
         2 => Just(1_000_000i64),
-        10 => (0i64..=1_000_000_000),
+        10 => 0i64..=1_000_000_000,
     ]
 }
 
@@ -367,7 +367,7 @@ fn boundary_positive() -> impl Strategy<Value = i64> {
         3 => Just(1i64),
         2 => Just(100i64),
         2 => Just(10_000i64),
-        10 => (1i64..=1_000_000),
+        10 => 1i64..=1_000_000,
     ]
 }
 

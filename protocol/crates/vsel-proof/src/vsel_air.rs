@@ -18,6 +18,11 @@
 //! | `W+P..W+P+A`         | Auxiliary columns (intermediates)     | A     |
 //! | `W+P+A..W+P+A+1`     | Constraint satisfaction flag          | 1     |
 //!
+//! Public input names are present in the column map for trace-generation
+//! layout, but `ConstraintExpr::PublicInputRef(name)` compiles to
+//! `PolyExpr::PublicInput(index)`. It is not read from a mutable witness
+//! column. Undeclared witness or public input references fail closed.
+//!
 //! # ConstraintExpr → AIR Polynomial Constraint Mapping
 //!
 //! Each `ConstraintExpr` variant maps to polynomial constraints:
@@ -486,20 +491,30 @@ impl CompilationContext {
         idx
     }
 
-    /// Look up a column index by name (witness, public, or aux).
-    fn resolve_col(&self, name: &str) -> Option<usize> {
-        self.witness_cols
-            .get(name)
-            .or_else(|| self.public_cols.get(name))
-            .or_else(|| self.aux_cols.get(name))
-            .copied()
+    /// Resolve a declared witness variable column.
+    fn resolve_witness_col(&self, name: &str) -> Result<usize, Plonky3Error> {
+        self.witness_cols.get(name).copied().ok_or_else(|| {
+            Plonky3Error::UnsupportedGate(format!("undeclared witness variable: {}", name))
+        })
     }
 
-    /// Get or allocate a column for a variable name.
-    /// Witness and public columns are pre-allocated; unknown names
-    /// become auxiliary columns.
-    fn get_or_alloc_col(&mut self, name: &str) -> usize {
-        if let Some(idx) = self.resolve_col(name) {
+    /// Resolve a declared public input as a public statement index.
+    fn resolve_public_input_index(&self, name: &str) -> Result<usize, Plonky3Error> {
+        let col = self.public_cols.get(name).copied().ok_or_else(|| {
+            Plonky3Error::UnsupportedGate(format!("undeclared public input: {}", name))
+        })?;
+
+        col.checked_sub(self.witness_cols.len()).ok_or_else(|| {
+            Plonky3Error::UnsupportedGate(format!(
+                "invalid public input column layout for {}",
+                name
+            ))
+        })
+    }
+
+    /// Get or allocate an internal derived column.
+    fn get_or_alloc_aux_col(&mut self, name: &str) -> usize {
+        if let Some(&idx) = self.aux_cols.get(name) {
             idx
         } else {
             self.alloc_aux_col(name)
@@ -534,16 +549,15 @@ impl CompilationContext {
 
             ConstraintExpr::WitnessRef(name) => {
                 // Wire binding: trace[row][col_map[name]].
-                let col = self.get_or_alloc_col(name);
+                let col = self.resolve_witness_col(name)?;
                 Ok(PolyExpr::Column(col))
             }
 
             ConstraintExpr::PublicInputRef(name) => {
-                // Public input binding.
-                // Public inputs in Plonky3 are accessed via builder.public_values().
-                // We store the index into the public_cols map.
-                let col = self.get_or_alloc_col(name);
-                Ok(PolyExpr::Column(col))
+                // Public input binding: the constraint must read the public
+                // statement vector, not a mutable trace column.
+                let idx = self.resolve_public_input_index(name)?;
+                Ok(PolyExpr::PublicInput(idx))
             }
 
             // ----- Equality / Inequality -----
@@ -773,7 +787,7 @@ impl CompilationContext {
                 // for the field access result.
                 let _base_poly = self.compile_constraint_expr(base)?;
                 let derived_name = format!("__field_access_{}", field);
-                let col = self.get_or_alloc_col(&derived_name);
+                let col = self.get_or_alloc_aux_col(&derived_name);
                 Ok(PolyExpr::Column(col))
             }
         }
@@ -925,6 +939,67 @@ mod tests {
             .get("root_init")
             .expect("root_init should exist");
         assert_eq!(*root_col, 2);
+    }
+
+    #[test]
+    fn test_public_input_ref_compiles_to_public_statement_value() {
+        let mut cs = minimal_constraint_system();
+        cs.add_constraint(Constraint {
+            id: ConstraintId(0),
+            expr: ConstraintExpr::PublicInputRef("root_init".to_string()),
+            category: ConstraintCategory::Structural,
+            description: "root_init public input binding".to_string(),
+        });
+
+        let air = VselAir::compile(&cs).expect("compilation should succeed");
+        let poly = &air.compiled_constraints()[0].poly;
+
+        match poly {
+            PolyExpr::PublicInput(idx) => assert_eq!(*idx, 0),
+            other => panic!("expected public input expression, got: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_undeclared_public_input_ref_rejected() {
+        let mut cs = minimal_constraint_system();
+        cs.add_constraint(Constraint {
+            id: ConstraintId(0),
+            expr: ConstraintExpr::PublicInputRef("missing_public_input".to_string()),
+            category: ConstraintCategory::Structural,
+            description: "missing public input must fail closed".to_string(),
+        });
+
+        let err = match VselAir::compile(&cs) {
+            Ok(_) => panic!("undeclared public input must be rejected"),
+            Err(err) => err,
+        };
+        assert!(
+            err.to_string().contains("undeclared public input"),
+            "unexpected error: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_undeclared_witness_ref_rejected() {
+        let mut cs = minimal_constraint_system();
+        cs.add_constraint(Constraint {
+            id: ConstraintId(0),
+            expr: ConstraintExpr::WitnessRef("missing_witness".to_string()),
+            category: ConstraintCategory::Structural,
+            description: "missing witness must fail closed".to_string(),
+        });
+
+        let err = match VselAir::compile(&cs) {
+            Ok(_) => panic!("undeclared witness must be rejected"),
+            Err(err) => err,
+        };
+        assert!(
+            err.to_string().contains("undeclared witness variable"),
+            "unexpected error: {}",
+            err
+        );
     }
 
     #[test]

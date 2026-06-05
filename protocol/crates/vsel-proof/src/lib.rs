@@ -24,6 +24,10 @@
 //! assert!(result.is_cryptographically_consistent());
 //! ```
 //!
+//! `DefaultProver` and `DefaultVerifier` use the legacy hash-placeholder
+//! proof shape. STARK-backed claims require `BackendProver<B>` paired with
+//! `BackendCryptographicVerifier<B>` over the same concrete `ZkBackend`.
+//!
 //! ### Final Verification (Fail Closed)
 //! ```text
 //! use vsel_proof::verifier::{
@@ -68,6 +72,8 @@
 //! | [`witness`] | Witness construction |
 //! | [`public_inputs`] | Public input types |
 //! | [`backend`] | ZK backend abstraction |
+//! | [`cairo_stark`] | Cairo/STARK proof adapter contract and VCAI artifact binding |
+//! | [`cairo_native`] | Fail-closed Stone/Stwo command adapter constructors (`cairo-stark-backend`) |
 //! | [`hash_backend`] | Hash-based proof backend |
 //! | [`recursive`] | Recursive proof composition |
 //! | [`replay`] | Replay protection |
@@ -100,6 +106,9 @@
 //! ```
 
 pub mod backend;
+#[cfg(feature = "cairo-stark-backend")]
+pub mod cairo_native;
+pub mod cairo_stark;
 pub mod circuit;
 pub mod hash_backend;
 #[cfg(feature = "plonky3-backend")]
@@ -121,10 +130,10 @@ pub mod witness;
 
 // Re-export key types for convenience
 pub use verifier::{
-    AssumeGuaranteeContract, AttackPattern, BuchiAutomaton, ComprehensiveSemanticVerifier,
-    ComprehensiveVerificationResult, ConstraintWitnessVerifier, ContractCondition, ContractError,
-    ContractVerificationResult, CryptographicVerificationResult, CryptographicVerifier,
-    DefaultSemanticVerifier, DifferentialAnalysisResult, DifferentialError,
+    AssumeGuaranteeContract, AttackPattern, BackendCryptographicVerifier, BuchiAutomaton,
+    ComprehensiveSemanticVerifier, ComprehensiveVerificationResult, ConstraintWitnessVerifier,
+    ContractCondition, ContractError, ContractVerificationResult, CryptographicVerificationResult,
+    CryptographicVerifier, DefaultSemanticVerifier, DifferentialAnalysisResult, DifferentialError,
     DifferentialSemanticAnalyzer, IntegratedFormalVerificationResult,
     IntegratedFormalVerificationStatus, IntegratedFormalVerifier, InterpretationError,
     Lean4SemanticVerifier, LtlProperty, ProofCarryingWitness, ProofWitness, RealTimeModelChecker,

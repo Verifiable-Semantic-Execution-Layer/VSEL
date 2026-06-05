@@ -9,17 +9,18 @@
 //! acceptance is a verifier-side decision requiring strict witness/constraint
 //! checks and authoritative semantic evidence.
 //!
-//! The prover is generic over `ZkBackend`, enabling pluggable proof backends.
-//! `GenericProver<B: ZkBackend>` parameterizes proof generation over the
-//! backend, while `DefaultProver` is a backward-compatible type alias for
-//! `GenericProver<HashBackend>`.
+//! `GenericProver<B: ZkBackend>` is the legacy hash-placeholder prover kept
+//! for backward compatibility. It does not produce backend-native proof
+//! bytes. `BackendProver<B: ZkBackend>` owns a concrete backend and delegates
+//! proof generation through `ZkBackend::prove`; this is the prover shape
+//! required for STARK-backed final acceptance.
 
 use std::marker::PhantomData;
 
 use sha3::{Digest, Sha3_256};
 use thiserror::Error;
 
-use vsel_constraints::ConstraintSystem;
+use vsel_constraints::{ConstraintCategory, ConstraintExpr, ConstraintSystem, WitnessVariableKind};
 use vsel_core::types::{DomainTag, Hash};
 use vsel_crypto::domain::{create_domain_tag, domain_hash, proof_tag, DOMAIN_WITNESS};
 use vsel_trace::engine::Trace;
@@ -145,27 +146,40 @@ pub trait Prover {
 }
 
 // ---------------------------------------------------------------------------
-// GenericProver<B: ZkBackend> — prover parameterized over ZK backend
+// GenericProver<B: ZkBackend> — legacy hash-placeholder prover
 // ---------------------------------------------------------------------------
 
-/// Generic prover parameterized over a ZK backend.
+/// Legacy prover parameterized over a ZK backend type.
 ///
 /// The proving pipeline (validate → witness → aux independence →
-/// public inputs → commitments → proof) remains identical regardless
-/// of backend. Only the proof generation step delegates to the backend.
+/// public inputs → commitments → proof) is preserved for compatibility,
+/// but proof bytes are synthetic SHA3-256 binding bytes. The backend type
+/// parameter is retained to avoid breaking existing APIs; it is not used to
+/// generate backend-native proofs.
 ///
-/// Enforces all semantic properties (PROOF-1 through PROOF-4) while
-/// allowing pluggable backends (HashBackend for backward compatibility,
-/// Plonky3Backend for production STARK proofs).
+/// This prover must not be used as evidence for STARK/Cairo final acceptance.
+/// Use `BackendProver<B>` with a concrete `ZkBackend` for backend-native proof
+/// generation.
 ///
 /// Requirements 1.4, 1.5, 7.1, 7.2, 7.5, 7.10.
 pub struct GenericProver<B: ZkBackend> {
     /// Version string for this prover.
     pub version: String,
-    /// Phantom data for the backend type parameter.
-    /// The backend is used at the trait level for future integration;
-    /// the current SHA3-256 logic is inline for backward compatibility.
+    /// Phantom data for the legacy backend type parameter.
     _backend: PhantomData<B>,
+}
+
+/// Backend-backed prover that delegates proof generation to a concrete
+/// `ZkBackend`.
+///
+/// This prover closes the placeholder/proof-system relabel gap: proof metadata
+/// is derived from `backend.backend_id()` and proof bytes are exactly
+/// `backend.serialize_proof(backend.prove(...))`.
+pub struct BackendProver<B: ZkBackend> {
+    /// Version string for this prover.
+    pub version: String,
+    /// Concrete proof backend.
+    pub backend: B,
 }
 
 /// Backward-compatible type alias.
@@ -185,63 +199,6 @@ impl<B: ZkBackend> GenericProver<B> {
         }
     }
 
-    /// Commit to a witness by hashing all its components.
-    ///
-    /// Domain-separated: uses DOMAIN_WITNESS tag.
-    /// Covers intermediate states, input sequence, and auxiliary data
-    /// to enforce knowledge soundness (PROOF-4).
-    fn commit_witness(&self, witness: &Witness) -> Hash {
-        let witness_domain = create_domain_tag(DOMAIN_WITNESS);
-        let mut data = Vec::new();
-
-        // Hash intermediate state count + each state's canonical commitment.
-        data.extend_from_slice(&(witness.intermediate_states.len() as u64).to_le_bytes());
-        for state in &witness.intermediate_states {
-            let state_commit = vsel_core::state::commit(&state.canonical);
-            data.extend_from_slice(&state_commit.0);
-        }
-
-        // Hash input sequence.
-        data.extend_from_slice(&(witness.input_sequence.len() as u64).to_le_bytes());
-        for input in &witness.input_sequence {
-            // Hash payload type + data.
-            data.extend_from_slice(input.payload.payload_type.as_bytes());
-            data.extend_from_slice(&input.payload.data);
-            // Hash auth nonce for binding.
-            data.extend_from_slice(&input.auth.nonce.to_le_bytes());
-        }
-
-        // Hash auxiliary computation values.
-        data.extend_from_slice(&(witness.aux_computation.values.len() as u64).to_le_bytes());
-        for (name, value) in &witness.aux_computation.values {
-            data.extend_from_slice(name.as_bytes());
-            data.extend_from_slice(value);
-        }
-
-        domain_hash(&witness_domain, &data)
-    }
-
-    /// Commit to a constraint system by hashing its structure.
-    ///
-    /// Domain-separated: uses DOMAIN_PROOF tag.
-    fn commit_constraints(&self, constraints: &ConstraintSystem) -> Hash {
-        let proof_domain = proof_tag();
-        let mut data = Vec::new();
-
-        data.extend_from_slice(constraints.version.as_bytes());
-        data.extend_from_slice(&(constraints.constraints.len() as u64).to_le_bytes());
-        data.extend_from_slice(&(constraints.witness_variables.len() as u64).to_le_bytes());
-        data.extend_from_slice(&(constraints.public_inputs.len() as u64).to_le_bytes());
-
-        // Hash each constraint description for binding.
-        for constraint in &constraints.constraints {
-            data.extend_from_slice(&constraint.id.0.to_le_bytes());
-            data.extend_from_slice(constraint.description.as_bytes());
-        }
-
-        domain_hash(&proof_domain, &data)
-    }
-
     /// Generate STARK-style placeholder proof data.
     ///
     /// In a real backend, this would be the STARK proof bytes.
@@ -258,10 +215,13 @@ impl<B: ZkBackend> GenericProver<B> {
         hasher.update(&commitments.witness_commitment.0);
         hasher.update(&commitments.constraint_commitment.0);
 
-        // Bind to public inputs.
+        // Bind to public inputs, including complete observable content.
         hasher.update(&public_inputs.root_init.0);
         hasher.update(&public_inputs.root_final.0);
         hasher.update(&(public_inputs.observables.len() as u64).to_le_bytes());
+        for observable in &public_inputs.observables {
+            hash_observable(&mut hasher, observable);
+        }
         hasher.update(&(public_inputs.domain.0).0);
         hasher.update(&public_inputs.version.major.to_le_bytes());
         hasher.update(&public_inputs.version.minor.to_le_bytes());
@@ -269,6 +229,210 @@ impl<B: ZkBackend> GenericProver<B> {
 
         let result = hasher.finalize();
         result.to_vec()
+    }
+}
+
+impl<B: ZkBackend> BackendProver<B> {
+    /// Create a backend-backed prover with a concrete proof backend.
+    pub fn new(version: &str, backend: B) -> Self {
+        Self {
+            version: version.to_string(),
+            backend,
+        }
+    }
+}
+
+struct PreparedProofStatement {
+    witness: Witness,
+    public_inputs: PublicInputs,
+    commitments: ProofCommitments,
+}
+
+fn prepare_proof_statement(
+    trace: &Trace,
+    constraints: &ConstraintSystem,
+) -> Result<PreparedProofStatement, ProverError> {
+    // 1. Validate trace is non-empty.
+    if trace.entries.is_empty() {
+        return Err(ProverError::EmptyTrace);
+    }
+
+    // 2. Construct witness from trace.
+    let witness = construct_witness(trace);
+
+    // 3. Verify auxiliary independence (THM-4).
+    if !verify_auxiliary_independence(&witness) {
+        return Err(ProverError::AuxiliaryDependenceDetected);
+    }
+
+    // 4. Build public inputs from trace and verify observable binding.
+    let public_inputs = PublicInputs::from_trace(trace);
+    let trace_observables: Vec<_> = trace.entries.iter().map(|e| e.observable.clone()).collect();
+    if !public_inputs.verify_observable_binding(&trace_observables) {
+        return Err(ProverError::InvalidTrace(
+            "observable binding failed: trace observables do not match public inputs".to_string(),
+        ));
+    }
+
+    // 5. Generate proof commitments.
+    let commitments = ProofCommitments {
+        trace_commitment: trace.commitment.clone(),
+        witness_commitment: canonical_witness_commitment(&witness),
+        constraint_commitment: canonical_constraint_commitment(constraints),
+    };
+
+    Ok(PreparedProofStatement {
+        witness,
+        public_inputs,
+        commitments,
+    })
+}
+
+pub(crate) fn canonical_witness_commitment(witness: &Witness) -> Hash {
+    let witness_domain = create_domain_tag(DOMAIN_WITNESS);
+    let mut data = Vec::new();
+
+    // Hash intermediate state count + each state's canonical commitment.
+    data.extend_from_slice(&(witness.intermediate_states.len() as u64).to_le_bytes());
+    for state in &witness.intermediate_states {
+        let state_commit = vsel_core::state::commit(&state.canonical);
+        data.extend_from_slice(&state_commit.0);
+    }
+
+    // Hash input sequence.
+    data.extend_from_slice(&(witness.input_sequence.len() as u64).to_le_bytes());
+    for input in &witness.input_sequence {
+        data.extend_from_slice(input.payload.payload_type.as_bytes());
+        data.extend_from_slice(&input.payload.data);
+        data.extend_from_slice(&input.auth.nonce.to_le_bytes());
+    }
+
+    // Hash auxiliary computation values.
+    data.extend_from_slice(&(witness.aux_computation.values.len() as u64).to_le_bytes());
+    for (name, value) in &witness.aux_computation.values {
+        data.extend_from_slice(name.as_bytes());
+        data.extend_from_slice(value);
+    }
+
+    domain_hash(&witness_domain, &data)
+}
+
+pub(crate) fn canonical_constraint_commitment(constraints: &ConstraintSystem) -> Hash {
+    let proof_domain = proof_tag();
+    let mut data = Vec::new();
+
+    encode_string(&mut data, &constraints.version);
+    data.extend_from_slice(&(constraints.constraints.len() as u64).to_le_bytes());
+    data.extend_from_slice(&(constraints.witness_variables.len() as u64).to_le_bytes());
+    data.extend_from_slice(&(constraints.public_inputs.len() as u64).to_le_bytes());
+
+    for constraint in &constraints.constraints {
+        data.extend_from_slice(&constraint.id.0.to_le_bytes());
+        data.push(encode_constraint_category(constraint.category));
+        encode_string(&mut data, &constraint.description);
+        encode_constraint_expr(&mut data, &constraint.expr);
+    }
+
+    for variable in &constraints.witness_variables {
+        encode_string(&mut data, &variable.name);
+        data.push(encode_witness_kind(variable.kind));
+        encode_string(&mut data, &variable.description);
+    }
+
+    for public_input in &constraints.public_inputs {
+        encode_string(&mut data, &public_input.name);
+        encode_string(&mut data, &public_input.description);
+    }
+
+    domain_hash(&proof_domain, &data)
+}
+
+fn encode_string(buf: &mut Vec<u8>, value: &str) {
+    buf.extend_from_slice(&(value.len() as u64).to_le_bytes());
+    buf.extend_from_slice(value.as_bytes());
+}
+
+fn encode_constraint_category(category: ConstraintCategory) -> u8 {
+    match category {
+        ConstraintCategory::Structural => 0,
+        ConstraintCategory::Semantic => 1,
+        ConstraintCategory::Invariant => 2,
+        ConstraintCategory::CarryOver => 3,
+        ConstraintCategory::Branch => 4,
+    }
+}
+
+fn encode_witness_kind(kind: WitnessVariableKind) -> u8 {
+    match kind {
+        WitnessVariableKind::Semantic => 0,
+        WitnessVariableKind::Auxiliary => 1,
+        WitnessVariableKind::Derived => 2,
+    }
+}
+
+fn encode_constraint_expr(buf: &mut Vec<u8>, expr: &ConstraintExpr) {
+    match expr {
+        ConstraintExpr::Constant(value) => {
+            buf.push(0);
+            buf.extend_from_slice(&value.to_le_bytes());
+        }
+        ConstraintExpr::BoolConstant(value) => {
+            buf.push(1);
+            buf.push(u8::from(*value));
+        }
+        ConstraintExpr::WitnessRef(name) => {
+            buf.push(2);
+            encode_string(buf, name);
+        }
+        ConstraintExpr::PublicInputRef(name) => {
+            buf.push(3);
+            encode_string(buf, name);
+        }
+        ConstraintExpr::Eq(left, right) => encode_binary_expr(buf, 4, left, right),
+        ConstraintExpr::Neq(left, right) => encode_binary_expr(buf, 5, left, right),
+        ConstraintExpr::Lt(left, right) => encode_binary_expr(buf, 6, left, right),
+        ConstraintExpr::Le(left, right) => encode_binary_expr(buf, 7, left, right),
+        ConstraintExpr::Gt(left, right) => encode_binary_expr(buf, 8, left, right),
+        ConstraintExpr::Ge(left, right) => encode_binary_expr(buf, 9, left, right),
+        ConstraintExpr::Add(left, right) => encode_binary_expr(buf, 10, left, right),
+        ConstraintExpr::Sub(left, right) => encode_binary_expr(buf, 11, left, right),
+        ConstraintExpr::Mul(left, right) => encode_binary_expr(buf, 12, left, right),
+        ConstraintExpr::And(left, right) => encode_binary_expr(buf, 13, left, right),
+        ConstraintExpr::Or(left, right) => encode_binary_expr(buf, 14, left, right),
+        ConstraintExpr::IfThenElse(cond, then_, else_) => {
+            buf.push(15);
+            encode_constraint_expr(buf, cond);
+            encode_constraint_expr(buf, then_);
+            encode_constraint_expr(buf, else_);
+        }
+        ConstraintExpr::FieldAccess(base, field) => {
+            buf.push(16);
+            encode_constraint_expr(buf, base);
+            encode_string(buf, field);
+        }
+    }
+}
+
+fn encode_binary_expr(buf: &mut Vec<u8>, tag: u8, left: &ConstraintExpr, right: &ConstraintExpr) {
+    buf.push(tag);
+    encode_constraint_expr(buf, left);
+    encode_constraint_expr(buf, right);
+}
+
+fn hash_observable(hasher: &mut Sha3_256, observable: &vsel_core::observable::Observable) {
+    hasher.update(&[observable.transition_class as u8]);
+    hasher.update(&[match observable.status {
+        vsel_core::observable::TransitionStatus::Success => 0,
+        vsel_core::observable::TransitionStatus::Rejected => 1,
+        vsel_core::observable::TransitionStatus::Error => 2,
+    }]);
+    hasher.update(&observable.gas_used.to_le_bytes());
+    hasher.update(&(observable.outputs.len() as u64).to_le_bytes());
+    for output in &observable.outputs {
+        hasher.update(&(output.event_type.len() as u64).to_le_bytes());
+        hasher.update(output.event_type.as_bytes());
+        hasher.update(&(output.data.len() as u64).to_le_bytes());
+        hasher.update(&output.data);
     }
 }
 
@@ -284,49 +448,11 @@ impl<B: ZkBackend> Prover for GenericProver<B> {
     /// 6. Generate proof data (STARK placeholder)
     /// 7. Assemble and return Proof
     fn prove(&self, trace: &Trace, constraints: &ConstraintSystem) -> Result<Proof, ProverError> {
-        // 1. Validate trace is non-empty.
-        if trace.entries.is_empty() {
-            return Err(ProverError::EmptyTrace);
-        }
-
-        // 2. Construct witness from trace.
-        // PROOF-4 (knowledge soundness): the prover must "know" a valid
-        // witness — we construct it from the actual execution trace.
-        let witness = construct_witness(trace);
-
-        // 3. Verify auxiliary independence (THM-4).
-        // Auxiliary variables must not influence semantic outcome.
-        if !verify_auxiliary_independence(&witness) {
-            return Err(ProverError::AuxiliaryDependenceDetected);
-        }
-
-        // 4. Build public inputs from trace.
-        // PROOF-2 (observable binding): all observables are included in
-        // or derivable from public inputs.
-        let public_inputs = PublicInputs::from_trace(trace);
-
-        // Verify observable binding — all trace observables match public inputs.
-        let trace_observables: Vec<_> =
-            trace.entries.iter().map(|e| e.observable.clone()).collect();
-        if !public_inputs.verify_observable_binding(&trace_observables) {
-            return Err(ProverError::InvalidTrace(
-                "observable binding failed: trace observables do not match public inputs"
-                    .to_string(),
-            ));
-        }
-
-        // 5. Generate proof commitments.
-        // PROOF-1 (full trace binding): the trace commitment is the final
-        // chain hash, which covers ALL intermediate states and transitions.
-        let trace_commitment = trace.commitment.clone();
-        let witness_commitment = self.commit_witness(&witness);
-        let constraint_commitment = self.commit_constraints(constraints);
-
-        let commitments = ProofCommitments {
-            trace_commitment,
-            witness_commitment,
-            constraint_commitment,
-        };
+        let PreparedProofStatement {
+            public_inputs,
+            commitments,
+            ..
+        } = prepare_proof_statement(trace, constraints)?;
 
         // 6. Generate proof data (STARK-style placeholder).
         let proof_data = self.generate_proof_data(&commitments, &public_inputs);
@@ -348,6 +474,47 @@ impl<B: ZkBackend> Prover for GenericProver<B> {
     }
 }
 
+impl<B: ZkBackend> Prover for BackendProver<B> {
+    /// Generate a backend-native proof that `trace` satisfies `constraints`.
+    ///
+    /// The returned proof metadata is bound to the concrete backend id and the
+    /// proof bytes are the backend serialization. No hash-placeholder proof
+    /// data is generated on this path.
+    fn prove(&self, trace: &Trace, constraints: &ConstraintSystem) -> Result<Proof, ProverError> {
+        let PreparedProofStatement {
+            witness,
+            public_inputs,
+            commitments,
+        } = prepare_proof_statement(trace, constraints)?;
+
+        let backend_proof = self
+            .backend
+            .prove(&witness, constraints, &public_inputs)
+            .map_err(|e| ProverError::ProofGenerationFailed(e.to_string()))?;
+        let proof_data = self.backend.serialize_proof(&backend_proof);
+        if proof_data.is_empty() {
+            return Err(ProverError::ProofGenerationFailed(format!(
+                "{} produced empty proof serialization",
+                self.backend.backend_id()
+            )));
+        }
+
+        let metadata = ProofMetadata {
+            prover_version: self.version.clone(),
+            timestamp: 0,
+            domain: proof_tag(),
+            proof_system: self.backend.backend_id().to_string(),
+        };
+
+        Ok(Proof {
+            commitments,
+            proof_data,
+            public_inputs,
+            metadata,
+        })
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -355,7 +522,7 @@ impl<B: ZkBackend> Prover for GenericProver<B> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeMap;
+    use std::{collections::BTreeMap, error::Error, fmt};
     use vsel_constraints::{Constraint, ConstraintCategory, ConstraintExpr, ConstraintId};
     use vsel_core::input::{Authorization, Input};
     use vsel_core::observable::{Observable, TransitionStatus};
@@ -503,8 +670,114 @@ mod tests {
         cs
     }
 
+    #[cfg(feature = "plonky3-backend")]
+    fn plonky3_compatible_constraint_system() -> ConstraintSystem {
+        let mut cs = ConstraintSystem::new("1.0.0");
+        cs.add_witness_variable(vsel_constraints::WitnessVariable {
+            name: "x".to_string(),
+            kind: vsel_constraints::WitnessVariableKind::Semantic,
+            description: "test witness variable".to_string(),
+        });
+        cs.add_constraint(Constraint {
+            id: ConstraintId(0),
+            expr: ConstraintExpr::Eq(
+                Box::new(ConstraintExpr::WitnessRef("x".to_string())),
+                Box::new(ConstraintExpr::WitnessRef("x".to_string())),
+            ),
+            category: ConstraintCategory::Structural,
+            description: "x = x".to_string(),
+        });
+        cs
+    }
+
     fn default_prover() -> DefaultProver {
         DefaultProver::new("0.1.0-test")
+    }
+
+    #[derive(Clone)]
+    struct MockBackendProof(Vec<u8>);
+
+    impl AsRef<[u8]> for MockBackendProof {
+        fn as_ref(&self) -> &[u8] {
+            &self.0
+        }
+    }
+
+    #[derive(Debug)]
+    struct MockBackendError(String);
+
+    impl fmt::Display for MockBackendError {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.write_str(&self.0)
+        }
+    }
+
+    impl Error for MockBackendError {}
+
+    struct MockBackend {
+        proof_bytes: Vec<u8>,
+        fail: bool,
+    }
+
+    impl MockBackend {
+        fn new(proof_bytes: &[u8]) -> Self {
+            Self {
+                proof_bytes: proof_bytes.to_vec(),
+                fail: false,
+            }
+        }
+
+        fn failing() -> Self {
+            Self {
+                proof_bytes: Vec::new(),
+                fail: true,
+            }
+        }
+    }
+
+    impl ZkBackend for MockBackend {
+        type Proof = MockBackendProof;
+        type Error = MockBackendError;
+
+        fn prove(
+            &self,
+            _witness: &Witness,
+            _constraints: &ConstraintSystem,
+            _public_inputs: &PublicInputs,
+        ) -> Result<Self::Proof, Self::Error> {
+            if self.fail {
+                Err(MockBackendError(
+                    "mock-stark: synthetic backend failure".to_string(),
+                ))
+            } else {
+                Ok(MockBackendProof(self.proof_bytes.clone()))
+            }
+        }
+
+        fn verify(
+            &self,
+            proof: &Self::Proof,
+            _public_inputs: &PublicInputs,
+            _constraint_commitment: &Hash,
+        ) -> bool {
+            proof.as_ref() == self.proof_bytes.as_slice()
+        }
+
+        fn backend_id(&self) -> &str {
+            "mock-stark"
+        }
+
+        fn is_post_quantum(&self) -> bool {
+            true
+        }
+
+        fn serialize_proof(&self, proof: &Self::Proof) -> Vec<u8> {
+            proof.0.clone()
+        }
+
+        fn deserialize_proof(&self, data: &[u8]) -> Result<Self::Proof, Self::Error> {
+            Ok(MockBackendProof(data.to_vec()))
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -701,29 +974,25 @@ mod tests {
 
     #[test]
     fn test_witness_commitment_deterministic() {
-        let prover = default_prover();
         let trace = test_trace(2);
         let witness = construct_witness(&trace);
 
-        let c1 = prover.commit_witness(&witness);
-        let c2 = prover.commit_witness(&witness);
+        let c1 = canonical_witness_commitment(&witness);
+        let c2 = canonical_witness_commitment(&witness);
         assert_eq!(c1, c2, "witness commitment must be deterministic");
     }
 
     #[test]
     fn test_constraint_commitment_deterministic() {
-        let prover = default_prover();
         let cs = test_constraint_system();
 
-        let c1 = prover.commit_constraints(&cs);
-        let c2 = prover.commit_constraints(&cs);
+        let c1 = canonical_constraint_commitment(&cs);
+        let c2 = canonical_constraint_commitment(&cs);
         assert_eq!(c1, c2, "constraint commitment must be deterministic");
     }
 
     #[test]
     fn test_different_constraints_different_commitment() {
-        let prover = default_prover();
-
         let cs1 = test_constraint_system();
         let mut cs2 = test_constraint_system();
         cs2.add_constraint(Constraint {
@@ -733,8 +1002,8 @@ mod tests {
             description: "extra constraint".to_string(),
         });
 
-        let c1 = prover.commit_constraints(&cs1);
-        let c2 = prover.commit_constraints(&cs2);
+        let c1 = canonical_constraint_commitment(&cs1);
+        let c2 = canonical_constraint_commitment(&cs2);
         assert_ne!(
             c1, c2,
             "different constraint systems must produce different commitments"
@@ -785,6 +1054,78 @@ mod tests {
         assert_ne!(
             proof1.proof_data, proof2.proof_data,
             "different traces must produce different proof data"
+        );
+    }
+
+    #[test]
+    fn test_backend_prover_delegates_to_concrete_backend() {
+        let backend_bytes = b"native-stark-proof-bytes";
+        let prover = BackendProver::new("0.1.0-test", MockBackend::new(backend_bytes));
+        let trace = test_trace(2);
+        let cs = test_constraint_system();
+
+        let proof = prover.prove(&trace, &cs).expect("backend proof");
+
+        assert_eq!(proof.metadata.proof_system, "mock-stark");
+        assert_eq!(proof.proof_data, backend_bytes);
+        assert_eq!(
+            proof.commitments.constraint_commitment,
+            canonical_constraint_commitment(&cs)
+        );
+        assert!(
+            proof.public_inputs.matches_trace(&trace),
+            "backend prover must preserve trace/public input binding"
+        );
+    }
+
+    #[test]
+    fn test_backend_prover_propagates_backend_failure() {
+        let prover = BackendProver::new("0.1.0-test", MockBackend::failing());
+        let trace = test_trace(1);
+        let cs = test_constraint_system();
+
+        let err = prover
+            .prove(&trace, &cs)
+            .expect_err("backend failure must abort proving");
+
+        match err {
+            ProverError::ProofGenerationFailed(message) => {
+                assert!(message.contains("mock-stark"));
+            }
+            other => panic!("expected ProofGenerationFailed, got: {:?}", other),
+        }
+    }
+
+    #[cfg(feature = "plonky3-backend")]
+    #[test]
+    fn test_backend_prover_plonky3_round_trip_uses_canonical_commitment() {
+        let prover =
+            BackendProver::new("0.1.0-test", crate::plonky3_backend::Plonky3Backend::new());
+        let trace = test_trace(1);
+        let cs = plonky3_compatible_constraint_system();
+
+        let proof = prover.prove(&trace, &cs).expect("plonky3 backend proof");
+
+        assert_eq!(proof.metadata.proof_system, "plonky3-stark");
+        assert_eq!(
+            proof.commitments.constraint_commitment,
+            canonical_constraint_commitment(&cs)
+        );
+
+        let verifier = crate::verifier::BackendCryptographicVerifier::new(
+            test_version(),
+            crate::plonky3_backend::Plonky3Backend::new(),
+        );
+        let result = crate::verifier::CryptographicVerifier::verify_cryptographic(
+            &verifier,
+            &proof,
+            &proof.public_inputs,
+        );
+
+        assert!(
+            result.is_consistent(),
+            "backend-generated Plonky3 proof must verify with canonical commitment: {:?}",
+            result
         );
     }
 }

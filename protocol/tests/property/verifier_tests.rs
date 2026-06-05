@@ -713,9 +713,34 @@ fn recompute_proof_data(
     hasher.update(&public_inputs.root_init.0);
     hasher.update(&public_inputs.root_final.0);
     hasher.update(&(public_inputs.observables.len() as u64).to_le_bytes());
+    for observable in &public_inputs.observables {
+        hash_observable_for_proof_data(&mut hasher, observable);
+    }
     hasher.update(&(public_inputs.domain.0).0);
     hasher.update(&public_inputs.version.major.to_le_bytes());
     hasher.update(&public_inputs.version.minor.to_le_bytes());
     hasher.update(&public_inputs.version.patch.to_le_bytes());
     hasher.finalize().to_vec()
+}
+
+fn hash_observable_for_proof_data(
+    hasher: &mut sha3::Sha3_256,
+    observable: &vsel_core::observable::Observable,
+) {
+    use sha3::Digest;
+
+    hasher.update(&[observable.transition_class as u8]);
+    hasher.update(&[match observable.status {
+        vsel_core::observable::TransitionStatus::Success => 0,
+        vsel_core::observable::TransitionStatus::Rejected => 1,
+        vsel_core::observable::TransitionStatus::Error => 2,
+    }]);
+    hasher.update(&observable.gas_used.to_le_bytes());
+    hasher.update(&(observable.outputs.len() as u64).to_le_bytes());
+    for output in &observable.outputs {
+        hasher.update(&(output.event_type.len() as u64).to_le_bytes());
+        hasher.update(output.event_type.as_bytes());
+        hasher.update(&(output.data.len() as u64).to_le_bytes());
+        hasher.update(&output.data);
+    }
 }

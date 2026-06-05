@@ -352,10 +352,12 @@ fn test_constraint_inversion_noop_program() {
     let mut redundant_count = 0;
 
     for r in &results {
-        let status = if r.is_necessary {
+        let status = if r.is_redundant {
+            "redundant"
+        } else if r.is_necessary {
             "NECESSARY"
         } else {
-            "redundant"
+            "inconclusive"
         };
         println!(
             "  [{}] #{}: {} (adversarial: {}/{})",
@@ -367,7 +369,7 @@ fn test_constraint_inversion_noop_program() {
         );
         if r.is_necessary {
             necessary_count += 1;
-        } else {
+        } else if r.is_redundant {
             redundant_count += 1;
         }
     }
@@ -418,10 +420,12 @@ fn test_constraint_inversion_deposit_program() {
     let mut redundant_count = 0;
 
     for r in &results {
-        let status = if r.is_necessary {
+        let status = if r.is_redundant {
+            "redundant"
+        } else if r.is_necessary {
             "NECESSARY"
         } else {
-            "redundant"
+            "inconclusive"
         };
         println!(
             "  [{}] #{}: {} (adversarial: {}/{})",
@@ -433,7 +437,7 @@ fn test_constraint_inversion_deposit_program() {
         );
         if r.is_necessary {
             necessary_count += 1;
-        } else {
+        } else if r.is_redundant {
             redundant_count += 1;
         }
     }

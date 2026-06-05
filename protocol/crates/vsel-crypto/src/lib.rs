@@ -6,7 +6,7 @@ pub mod goldilocks;
 pub mod hash;
 pub mod keys;
 #[cfg(feature = "poseidon-legacy")]
-#[deprecated(note = "Use poseidon_goldilocks for production")]
+#[cfg_attr(not(test), deprecated(note = "Use poseidon_goldilocks for production"))]
 pub mod legacy_poseidon;
 pub mod migration;
 pub mod poseidon_goldilocks;

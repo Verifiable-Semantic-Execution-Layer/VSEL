@@ -241,7 +241,7 @@ proptest! {
         });
         let result = verifier.verify(&proof, &public_inputs);
         prop_assert!(
-            result.is_accepted(),
+            result.is_cryptographically_consistent(),
             "Structurally valid proof with stark-placeholder should pass \
              the 7-step verification pipeline. Got: {:?}",
             result
@@ -425,7 +425,7 @@ mod unit_tests {
         });
         let result = verifier.verify(&proof, &public_inputs);
         assert!(
-            result.is_accepted(),
+            result.is_cryptographically_consistent(),
             "Proof with stark-placeholder should be accepted by DefaultVerifier: {:?}",
             result
         );

@@ -6,8 +6,9 @@
 //! The `ZkBackend` trait defines the interface for ZK proof backends.
 //! All proof generation and verification flows through this trait,
 //! enabling pluggable backends (HashBackend for backward compatibility,
-//! Plonky3Backend for production STARK proofs) without modifying
-//! semantic verification logic.
+//! Plonky3Backend for native STARK proofs, and CairoStarkBackend for
+//! externally verified Cairo/STARK artifacts) without modifying semantic
+//! verification logic.
 //!
 //! Design invariants:
 //! - Prove-verify round-trip: if `prove` succeeds, `verify` returns true
@@ -58,6 +59,9 @@ use crate::witness::Witness;
 /// - `HashBackend`: SHA3-256 commitment-based backend (backward compatible).
 /// - `Plonky3Backend`: Production STARK backend over Goldilocks field
 ///   (behind `plonky3-backend` feature flag).
+/// - `CairoStarkBackend<A>`: Cairo/STARK artifact backend where `A` is a
+///   concrete adapter returning native verifier certificates. Stone/Stwo
+///   command constructors are exposed behind `cairo-stark-backend`.
 ///
 /// Requirements 1.1, 1.7.
 pub trait ZkBackend: Send + Sync {

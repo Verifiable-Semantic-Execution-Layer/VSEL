@@ -23,7 +23,7 @@ use vsel_core::types::Hash;
 /// suitable for STARK circuit integration. The full Poseidon specification uses
 /// prime-field arithmetic; this implementation provides the correct structure
 /// (absorption, permutation rounds, squeezing) for integration testing.
-#[deprecated(note = "Use poseidon_goldilocks for production")]
+#[cfg_attr(not(test), deprecated(note = "Use poseidon_goldilocks for production"))]
 pub struct LegacyPoseidonState {
     /// Internal state words (rate + capacity).
     state: [u64; 4],
@@ -138,7 +138,7 @@ impl LegacyPoseidonState {
 /// with the Poseidon permutation and squeezes a 32-byte digest.
 ///
 /// For production STARK circuits, use `poseidon_goldilocks::PoseidonGoldilocks`.
-#[deprecated(note = "Use poseidon_goldilocks for production")]
+#[cfg_attr(not(test), deprecated(note = "Use poseidon_goldilocks for production"))]
 pub fn legacy_poseidon_hash(data: &[u8]) -> Hash {
     #[allow(deprecated)]
     let mut state = LegacyPoseidonState::new();
@@ -157,10 +157,11 @@ pub fn legacy_poseidon_hash(data: &[u8]) -> Hash {
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
-    #[allow(deprecated)]
     use super::*;
 
+    #[allow(deprecated)]
     #[test]
     fn test_legacy_poseidon_deterministic() {
         let h1 = legacy_poseidon_hash(b"hello");
@@ -168,6 +169,7 @@ mod tests {
         assert_eq!(h1, h2);
     }
 
+    #[allow(deprecated)]
     #[test]
     fn test_legacy_poseidon_collision_resistance_basic() {
         let h1 = legacy_poseidon_hash(b"input_one");
@@ -175,6 +177,7 @@ mod tests {
         assert_ne!(h1, h2);
     }
 
+    #[allow(deprecated)]
     #[test]
     fn test_legacy_poseidon_non_trivial() {
         let h = legacy_poseidon_hash(b"test");
@@ -184,6 +187,7 @@ mod tests {
         );
     }
 
+    #[allow(deprecated)]
     #[test]
     fn test_legacy_poseidon_empty_input() {
         let h = legacy_poseidon_hash(b"");

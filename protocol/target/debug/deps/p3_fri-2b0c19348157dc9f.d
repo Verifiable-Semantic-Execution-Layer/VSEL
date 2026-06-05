@@ -1,0 +1,14 @@
+/Users/mac/Projects/VSEL/protocol/target/debug/deps/p3_fri-2b0c19348157dc9f.d: /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/lib.rs /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/config.rs /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/hiding_pcs.rs /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/periodic.rs /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/proof.rs /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/prover.rs /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/two_adic_pcs.rs /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/verifier.rs
+
+/Users/mac/Projects/VSEL/protocol/target/debug/deps/libp3_fri-2b0c19348157dc9f.rlib: /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/lib.rs /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/config.rs /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/hiding_pcs.rs /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/periodic.rs /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/proof.rs /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/prover.rs /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/two_adic_pcs.rs /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/verifier.rs
+
+/Users/mac/Projects/VSEL/protocol/target/debug/deps/libp3_fri-2b0c19348157dc9f.rmeta: /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/lib.rs /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/config.rs /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/hiding_pcs.rs /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/periodic.rs /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/proof.rs /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/prover.rs /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/two_adic_pcs.rs /Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/verifier.rs
+
+/Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/lib.rs:
+/Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/config.rs:
+/Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/hiding_pcs.rs:
+/Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/periodic.rs:
+/Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/proof.rs:
+/Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/prover.rs:
+/Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/two_adic_pcs.rs:
+/Users/mac/.cargo/git/checkouts/plonky3-7d8a3b21a665a86f/e99af41/fri/src/verifier.rs:

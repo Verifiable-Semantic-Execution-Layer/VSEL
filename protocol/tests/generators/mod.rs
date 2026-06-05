@@ -13,6 +13,8 @@
 //! use generators::*;
 //! ```
 
+#![allow(dead_code)]
+
 use std::collections::BTreeMap;
 
 use proptest::prelude::*;

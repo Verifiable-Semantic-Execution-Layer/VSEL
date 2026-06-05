@@ -7,6 +7,11 @@ edition = "2021"
 default = ["hash-backend"]
 hash-backend = []
 legacy-verifier-tests = []
+# Exposes fail-closed constructors for command-native Cairo/STARK adapters.
+# This feature does not vendor Stone/Stwo and does not enable mock acceptance:
+# callers must provide pinned external adapter commands by path, version, and
+# SHA3-256 digest before a `CairoStarkBackend` can be constructed.
+cairo-stark-backend = []
 # Enables the Plonky3 STARK proof backend over the Goldilocks field.
 # Opt-in only — not included in default features.
 # All p3-* crates are optional and only pulled in when this feature is active.

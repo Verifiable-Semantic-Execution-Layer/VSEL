@@ -3,14 +3,11 @@
 //! Derived from: ZK_BACKEND_INTEGRATION.md, PROOF_LAYER.md §2,
 //! design.md Component 4, Requirements 2.1, 2.4, 2.5, 2.6, 2.7, 2.8.
 //!
-//! This module implements a STARK proof simulation over the Goldilocks
-//! field (p = 2^64 − 2^32 + 1). The proof generation uses Poseidon/SHA3
-//! hashing over Goldilocks field elements to produce deterministic proofs
-//! that faithfully model the structure of a real Plonky3 STARK backend.
-//!
-//! When the real Plonky3 crate becomes available, the internal proof
-//! generation can be swapped out while keeping the same `ZkBackend`
-//! interface and `StarkProof` data model.
+//! This module wraps Plonky3 `p3-uni-stark` over the Goldilocks field
+//! (p = 2^64 − 2^32 + 1). Legacy compatibility fields such as FRI
+//! commitments and query responses are derived deterministically from the
+//! native proof artifact, but verification ultimately calls the Plonky3
+//! verifier over the native proof and public statement values.
 //!
 //! # Post-Quantum Security
 //!
@@ -30,6 +27,7 @@ use vsel_core::types::Hash;
 use vsel_crypto::goldilocks::GoldilocksField;
 
 use crate::backend::ZkBackend;
+use crate::prover::canonical_constraint_commitment;
 use crate::public_inputs::PublicInputs;
 use crate::trace_gen::generate_trace;
 use crate::vsel_air::VselAir;
@@ -690,9 +688,9 @@ impl Plonky3Backend {
 
     /// Encode public inputs as Goldilocks field elements.
     ///
-    /// Converts the public inputs (root_init, root_final, domain, version)
-    /// into a sequence of Goldilocks field elements for field-native
-    /// proof binding.
+    /// Converts the public inputs (root_init, root_final, domain, version,
+    /// observable count, and complete observable digest) into Goldilocks
+    /// field elements for field-native proof binding.
     pub fn encode_public_inputs(public_inputs: &PublicInputs) -> Vec<GoldilocksField> {
         let mut elements = Vec::new();
 
@@ -719,7 +717,40 @@ impl Plonky3Backend {
         // Encode observable count
         elements.push(GoldilocksField(public_inputs.observables.len() as u64));
 
+        // Encode complete observable content digest (32 bytes -> 4 field elements).
+        let observable_digest = Self::observable_digest(public_inputs);
+        for chunk in observable_digest.chunks(8) {
+            elements.push(GoldilocksField::from_bytes(chunk));
+        }
+
         elements
+    }
+
+    fn observable_digest(public_inputs: &PublicInputs) -> [u8; 32] {
+        let mut hasher = Sha3_256::new();
+        hasher.update(b"vsel-public-observables-v1");
+        hasher.update(&(public_inputs.observables.len() as u64).to_le_bytes());
+        for observable in &public_inputs.observables {
+            hasher.update(&[observable.transition_class as u8]);
+            hasher.update(&[match observable.status {
+                vsel_core::observable::TransitionStatus::Success => 0,
+                vsel_core::observable::TransitionStatus::Rejected => 1,
+                vsel_core::observable::TransitionStatus::Error => 2,
+            }]);
+            hasher.update(&observable.gas_used.to_le_bytes());
+            hasher.update(&(observable.outputs.len() as u64).to_le_bytes());
+            for output in &observable.outputs {
+                hasher.update(&(output.event_type.len() as u64).to_le_bytes());
+                hasher.update(output.event_type.as_bytes());
+                hasher.update(&(output.data.len() as u64).to_le_bytes());
+                hasher.update(&output.data);
+            }
+        }
+
+        let digest = hasher.finalize();
+        let mut out = [0u8; 32];
+        out.copy_from_slice(&digest);
+        out
     }
 
     /// Serialize a native proof bundle containing both the constraint system
@@ -1078,19 +1109,10 @@ impl ZkBackend for Plonky3Backend {
                 Err(_) => return false,
             };
 
-        // Check 6: Verify the constraint commitment matches the stored
-        // constraint system. This ensures the proof was generated for the
-        // constraint system the verifier expects.
-        let cs_bytes = match bincode::serialize(&constraint_system) {
-            Ok(b) => b,
-            Err(_) => return false,
-        };
-        let mut cs_hasher = Sha3_256::new();
-        cs_hasher.update(b"vsel-constraint-system-v1");
-        cs_hasher.update(&cs_bytes);
-        let cs_hash = cs_hasher.finalize();
-        let mut expected_commitment = [0u8; 32];
-        expected_commitment.copy_from_slice(&cs_hash);
+        // Check 6: Verify the canonical constraint commitment matches the
+        // stored constraint system. This is the same commitment used by
+        // `BackendProver` and strict witness/constraint verification.
+        let expected_commitment = canonical_constraint_commitment(&constraint_system);
         // AUDIT FINDING 1 FIX: Enforce strict constraint commitment matching.
         // The proof must have been generated against the constraint system
         // the verifier expects. A mismatch means the proof attests to a
@@ -1099,7 +1121,7 @@ impl ZkBackend for Plonky3Backend {
         // This prevents constraint substitution attacks where an attacker
         // generates a proof against a weakened constraint system and
         // presents it to a verifier expecting the full constraint system.
-        if constraint_commitment.0 != expected_commitment {
+        if constraint_commitment != &expected_commitment {
             return false;
         }
 
@@ -1724,22 +1746,10 @@ mod tests {
         cs
     }
 
-    /// Compute the real constraint commitment for a constraint system,
-    /// using the same SHA3-256 algorithm as `verify()`:
-    ///
-    ///   SHA3-256(b"vsel-constraint-system-v1" || bincode::serialize(cs))
-    ///
-    /// This replaces the old `Hash([1u8; 32])` placeholder that was
-    /// accepted by the backward-compatibility bypass (now removed).
+    /// Compute the canonical constraint commitment used by `BackendProver`,
+    /// `BackendCryptographicVerifier`, and the Plonky3 backend verifier.
     fn compute_test_constraint_commitment(cs: &ConstraintSystem) -> Hash {
-        let cs_bytes = bincode::serialize(cs).unwrap();
-        let mut hasher = Sha3_256::new();
-        hasher.update(b"vsel-constraint-system-v1");
-        hasher.update(&cs_bytes);
-        let hash = hasher.finalize();
-        let mut commitment = [0u8; 32];
-        commitment.copy_from_slice(&hash);
-        Hash(commitment)
+        canonical_constraint_commitment(cs)
     }
 
     // -----------------------------------------------------------------------
@@ -2235,11 +2245,12 @@ mod tests {
             .expect("prove");
 
         // Public input values should encode root_init (4) + root_final (4) +
-        // domain (4) + version (3) + observable_count (1) = 16
+        // domain (4) + version (3) + observable_count (1) +
+        // observable_digest (4) = 20.
         assert_eq!(
             proof.public_input_values.len(),
-            16,
-            "should have 16 public input field elements"
+            20,
+            "should have 20 public input field elements"
         );
 
         // All values should be valid Goldilocks field elements
@@ -2249,6 +2260,32 @@ mod tests {
                 "public input value must be in field range"
             );
         }
+    }
+
+    #[test]
+    fn test_public_input_values_bind_complete_observable_content() {
+        let mut first = test_public_inputs();
+        first.observables = vec![vsel_core::observable::Observable {
+            transition_class: vsel_core::transition::TransitionClass::Update,
+            outputs: vec![vsel_core::types::OutputEvent {
+                event_type: "balance_change".to_string(),
+                data: vec![1, 2, 3],
+            }],
+            gas_used: 21_000,
+            status: vsel_core::observable::TransitionStatus::Success,
+        }];
+
+        let mut second = first.clone();
+        second.observables[0].gas_used = 21_001;
+
+        let first_values = Plonky3Backend::encode_public_inputs(&first);
+        let second_values = Plonky3Backend::encode_public_inputs(&second);
+
+        assert_eq!(first_values.len(), second_values.len());
+        assert_ne!(
+            first_values, second_values,
+            "observable content mutation must alter public input encoding"
+        );
     }
 
     // -----------------------------------------------------------------------
