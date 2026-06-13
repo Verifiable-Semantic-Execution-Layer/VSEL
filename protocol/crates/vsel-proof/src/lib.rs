@@ -73,7 +73,7 @@
 //! | [`public_inputs`] | Public input types |
 //! | [`backend`] | ZK backend abstraction |
 //! | [`cairo_stark`] | Cairo/STARK proof adapter contract and VCAI artifact binding |
-//! | [`cairo_native`] | Fail-closed Stone/Stwo command adapter constructors (`cairo-stark-backend`) |
+//! | [`cairo_native`] | Fail-closed Stone/Stwo/Scarb command adapter constructors (`cairo-stark-backend`) |
 //! | [`hash_backend`] | Hash-based proof backend |
 //! | [`recursive`] | Recursive proof composition |
 //! | [`replay`] | Replay protection |

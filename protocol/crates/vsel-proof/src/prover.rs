@@ -288,7 +288,12 @@ fn prepare_proof_statement(
     })
 }
 
-pub(crate) fn canonical_witness_commitment(witness: &Witness) -> Hash {
+/// Compute the canonical witness commitment used by backend-native proof
+/// adapters and strict verification.
+///
+/// External VSEL-aware adapters may use this value as an allowlist input when
+/// binding native proof artifacts to a concrete VSEL witness.
+pub fn canonical_witness_commitment(witness: &Witness) -> Hash {
     let witness_domain = create_domain_tag(DOMAIN_WITNESS);
     let mut data = Vec::new();
 
@@ -317,7 +322,13 @@ pub(crate) fn canonical_witness_commitment(witness: &Witness) -> Hash {
     domain_hash(&witness_domain, &data)
 }
 
-pub(crate) fn canonical_constraint_commitment(constraints: &ConstraintSystem) -> Hash {
+/// Compute the canonical constraint-system commitment used by backend-native
+/// proof adapters and strict verification.
+///
+/// This is part of the public integration contract for native proof adapters:
+/// a native verifier wrapper must reject artifacts whose attested constraint
+/// commitment is not this value for the supplied constraint system.
+pub fn canonical_constraint_commitment(constraints: &ConstraintSystem) -> Hash {
     let proof_domain = proof_tag();
     let mut data = Vec::new();
 

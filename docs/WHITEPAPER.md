@@ -203,7 +203,7 @@ Where:
 
 Key property:
 
-> The proof attests semantic validity, not just computational correctness.
+> A proof alone does not attest semantic validity. Semantic validity is established only by the strict verification path that binds the proof, public inputs, witness, non-vacuous constraints, deterministic trace replay, and authoritative executable or mechanized semantic evidence to the same context.
 
 ---
 

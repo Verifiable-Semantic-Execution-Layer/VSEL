@@ -53,7 +53,8 @@ formal/          Lean 4 formal specification and proofs (L0-L1)
 │   ├── Mapping/        Semantic mapping proofs (THM-1, THM-2)
 │   ├── Invariants/     Local, Global, Temporal invariant proofs
 │   ├── Composition/    Assume-guarantee soundness
-│   └── Witness/        Witness uniqueness (LEM-6)
+│   ├── Witness/        Witness uniqueness (LEM-6)
+│   └── Checker/        Executable semantic-certificate checker (`vselCheck`)
 
 protocol/        Rust Cargo workspace (L2-L4)
 ├── crates/
@@ -128,13 +129,32 @@ cd protocol && cargo test --test integration_long_trace -- --ignored
 # Lean 4 — build formal proofs (requires Lean 4 toolchain)
 cd formal && lake build
 
+# Lean 4 — build executable semantic certificate checker
+cd formal && lake build vselCheck
+
 # TLA+ — run model checking (requires TLC)
 cd tla && tlc Properties -config MC.cfg
 ```
 
 ## Current Status
 
-VSEL-001 remediation is implemented at the verifier-contract level. `verify()` remains cryptographic-only, `verify_strict()` remains fail-closed without trace context, and `verify_strict_trace()` is the final semantic-acceptance path: it replays the supplied trace deterministically, checks witness/constraint binding, and requires authoritative semantic evidence.
+VSEL-001 remediation is implemented at the verifier-contract level. `verify()` remains cryptographic-only, `verify_strict()` remains fail-closed without trace context, and `verify_strict_trace()` is the final semantic-acceptance path: it replays the supplied trace deterministically, checks witness/constraint binding, and requires authoritative semantic evidence. The Lean path invokes an executable certificate checker (`lake env lean --run VSEL/Checker/Main.lean`) over a canonical semantic certificate bound to proof, public inputs, witness, constraints, trace, formal-spec commitment, and discharged obligations. STARK final acceptance must use `BackendProver<B>` and `BackendCryptographicVerifier<B>` with the same real `ZkBackend`; `GenericProver<HashBackend>` and `GenericVerifier<HashBackend>` remain legacy cryptographic-consistency tools only. Relabeling hash-placeholder proofs as STARK is rejected. Plonky3 public inputs bind the complete ordered observable content through an observable digest, not only observable count. Cairo/STARK evidence uses the `CairoStarkBackend` adapter contract: metadata must be `cairo-stark/<adapter-id>`, proof bytes must be canonical VCAI/v1, and the adapter certificate must bind a canonical Cairo source-manifest hash, Sierra/CASM/executable hashes, Cairo semantic-binding report hash, Cairo trace hash, public input hash, constraint commitment, statement hash, and proof hash. The Lean semantic certificate additionally requires `cairo_source_manifest_hash`, `cairo_semantic_binding_hash`, `cairo:source_manifest_binding`, and `cairo:semantic_binding_report_binding`. Legacy `VSEL-CAIRO-STARK-V1` text envelopes and bare `cairo-stark` identifiers are rejected. The opt-in `cairo-stark-backend` feature exposes fail-closed Stone/Stwo/Scarb command adapter constructors and the checked-in `vsel-cairo-native-wrapper`; it does not vendor native tooling or imply that a Cairo proof exists without configured native commands. See `docs/CAIRO_STARK_BACKEND.md`.
+
+The pre-production acceptance gate is `bash scripts/preproduction_acceptance.sh`.
+It builds the Lean checker, builds and tests the Cairo reference target,
+generates a fresh Scarb/Stwo proof, verifies it natively, packages it as
+VCAI/v1 through the checked-in wrapper, verifies it through
+`BackendCryptographicVerifier`, runs `verify_strict_trace`, executes the Lean
+semantic-certificate checker, and runs adversarial proof-tampering tests. The
+gate writes `target/preproduction/acceptance-report.json` with toolchain
+versions, native execution id, SHA-3/SHA-256 hashes for the canonical Cairo
+source manifest, SHA-3/SHA-256 hashes for the Cairo semantic-binding report,
+and SHA-256 hashes for the generated `proof.json` and `prover_input.json`. This
+gate passes the same source-manifest and semantic-binding artifacts into the
+VCAI acceptance drill, where the wrapper and Lean certificate check their
+hashes. It is operational evidence for the native-proof path; it is not a claim that
+Lean independently replays the full VSEL semantics without the Rust executable
+trace checker.
 
 ## Roadmap
 
@@ -151,8 +171,8 @@ VSEL follows an 11-phase roadmap with audit gates at every phase boundary. Each 
 | 6 | Composition Survival | ✅ Complete |
 | 7 | Cryptographic Resilience | ✅ Complete |
 | 8 | Temporal Robustness | ✅ Complete |
-| 9 | System Hardening: Adversarial Testing | 🔲 Next |
-| 10 | Pre-Production: Compliance + Final Validation | 🔲 Planned |
+| 9 | System Hardening: Adversarial Testing | ✅ Complete — includes native proof boundary hardening |
+| 10 | Pre-Production: Compliance + Final Validation | ✅ Complete — Scarb proof gate passing with VCAI/Lean acceptance |
 
 ## Phase Completion Summary
 

@@ -25,3 +25,6 @@ import VSEL.Composition.Soundness
 
 -- Witness
 import VSEL.Witness.Uniqueness
+
+-- Executable checker
+import VSEL.Checker.Certificate

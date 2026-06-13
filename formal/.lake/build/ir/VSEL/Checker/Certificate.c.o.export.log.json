@@ -1,0 +1,5 @@
+{"log":
+ [{"message":
+   ".> /Users/mac/.elan/toolchains/leanprover--lean4---v4.8.0/bin/leanc -c -o ././.lake/build/ir/VSEL/Checker/Certificate.c.o.export ././.lake/build/ir/VSEL/Checker/Certificate.c -O3 -DNDEBUG -DLEAN_EXPORTING",
+   "level": "trace"}],
+ "depHash": "11165275232395470964"}

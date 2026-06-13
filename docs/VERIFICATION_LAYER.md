@@ -35,7 +35,7 @@ Verification must ensure:
 StrictTraceVerify(\pi, Pub, W, C, \tau, E_{sem}) = FullyVerified \Rightarrow ValidTrace(\tau)
 ]
 
-Where ( \tau ) is the complete execution trace supplied to the final semantic verifier. Commitments alone are not sufficient for deterministic semantic replay.
+Where ( \tau ) is the complete execution trace supplied to the final semantic verifier. Commitments alone are not sufficient for deterministic semantic replay. The Lean-backed semantic path checks a canonical semantic certificate with `lake env lean --run VSEL/Checker/Main.lean`; compiling the Lean library is necessary evidence of spec elaboration, but not sufficient evidence of trace validity.
 
 The verifier does not trust:
 
@@ -47,6 +47,9 @@ It only trusts:
 
 * cryptographic assumptions
 * formally defined verification logic
+* executable semantic-certificate checking bound to the same proof context
+
+For STARK claims, proof generation and verification must both use a concrete backend-backed path: `BackendProver<B>` emits backend-native proof bytes and `BackendCryptographicVerifier<B>` verifies those bytes against the same backend id and canonical constraint commitment. `GenericProver<HashBackend>` and `GenericVerifier<HashBackend>` remain legacy cryptographic-consistency paths and cannot satisfy STARK final acceptance by metadata relabeling. Cairo/STARK artifacts are accepted only through `CairoStarkBackend<A>` with a concrete `cairo-stark/<adapter-id>` backend id. The VCAI/v1 artifact and adapter certificate must bind verifier version/hash, canonical Cairo source-manifest hash, Sierra hash, CASM hash, executable program hash, Cairo semantic-binding report hash, Cairo trace hash, public input hash, constraint commitment, statement hash, proof hash, and verifier transcript. The Lean semantic certificate requires that `cairo_source_manifest_hash` equals the Cairo program commitment, that `cairo_semantic_binding_hash` equals the native verifier certificate value, and that both `cairo:source_manifest_binding` and `cairo:semantic_binding_report_binding` are discharged. The native verifier command must also emit a `VSEL_CAIRO_NATIVE_CONTEXT_ATTESTATION_V1` binding those statement fields after native acceptance; a raw native verifier that ignores VSEL environment fields is not sufficient evidence. Bare `cairo-stark` and legacy textual envelopes are invalid. The opt-in `cairo-stark-backend` feature exposes fail-closed Stone/Stwo/Scarb pinned command adapter constructors only after configured prover/verifier commands match their pinned version and SHA3-256 digests; missing native commands, digest mismatch, context-attestation drift, certificate version drift, and certificate verifier-binary drift are verification blockers, not skipped tests or mock acceptance.
 
 ---
 

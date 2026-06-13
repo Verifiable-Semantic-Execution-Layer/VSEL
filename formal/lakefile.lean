@@ -10,3 +10,6 @@ package VSEL where
 lean_lib VSEL where
   srcDir := "."
   roots := #[`VSEL]
+
+lean_exe vselCheck where
+  root := `VSEL.Checker.Main

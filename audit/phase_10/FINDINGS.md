@@ -89,6 +89,34 @@ The Rust constraint system enforces these constraints correctly. CONST-1 (zero f
 | F-005 | Informational | Formal Verification | ACKNOWLEDGED |
 | F-002 | Informational | Tooling | ACKNOWLEDGED (carried) |
 | F-003 | Informational | Tooling | ACKNOWLEDGED (carried) |
+| F-006 | Serious | Pre-Production Acceptance | **RESOLVED** |
 
 **Unresolved findings (severity ≥ Serious): 0**
-**All findings are Informational severity — no action required for production readiness.**
+**All non-informational findings are resolved — no open action blocks production readiness.**
+
+---
+
+## Finding F-006: Native Cairo Acceptance Was Not Enforced End-to-End
+
+**Severity:** Serious
+**Category:** Pre-Production Acceptance
+**Status:** RESOLVED
+
+### Description
+
+The final gate needed to force a real native Scarb proof through VCAI, backend
+verification, strict trace replay, and the Lean semantic certificate. Without a
+hard-fail native acceptance drill, the system could retain strong local wrapper
+tests while still allowing the native proof path to be skipped in
+pre-production.
+
+### Remediation
+
+The gap is covered by `scripts/preproduction_acceptance.sh`,
+`cairo_native_wrapper`, `cairo_acceptance_drill`, and the typed Cairo fields in
+`formal/VSEL/Checker/Certificate.lean`. The 2026-06-13 gate passed with
+`VSEL_REQUIRE_REAL_SCARB_ACCEPTANCE=1` and `execution9`.
+
+### Current Status
+
+Resolved. Unresolved findings of severity ≥ Serious remain 0.

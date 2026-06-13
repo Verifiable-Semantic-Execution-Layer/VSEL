@@ -26,6 +26,7 @@ const HEX_LEN_SHA3_256: usize = 64;
 pub enum NativeCairoBackendKind {
     Stone,
     Stwo,
+    Scarb,
 }
 
 impl NativeCairoBackendKind {
@@ -33,6 +34,7 @@ impl NativeCairoBackendKind {
         match self {
             Self::Stone => "stone",
             Self::Stwo => "stwo",
+            Self::Scarb => "scarb",
         }
     }
 
@@ -40,6 +42,7 @@ impl NativeCairoBackendKind {
         match self {
             Self::Stone => "VSEL_STONE_CAIRO",
             Self::Stwo => "VSEL_STWO_CAIRO",
+            Self::Scarb => "VSEL_SCARB_CAIRO",
         }
     }
 }
@@ -69,6 +72,10 @@ impl NativeCairoCommandConfig {
         Self::from_env(NativeCairoBackendKind::Stwo)
     }
 
+    pub fn scarb_from_env() -> Result<Self, CairoStarkError> {
+        Self::from_env(NativeCairoBackendKind::Scarb)
+    }
+
     /// Load a pinned command adapter configuration from environment variables.
     ///
     /// For Stone:
@@ -79,7 +86,7 @@ impl NativeCairoCommandConfig {
     /// * `VSEL_STONE_CAIRO_VERIFIER`
     /// * `VSEL_STONE_CAIRO_VERIFIER_SHA3_256`
     ///
-    /// For Stwo, replace `STONE` with `STWO`.
+    /// For Stwo or Scarb, replace `STONE` with `STWO` or `SCARB`.
     pub fn from_env(kind: NativeCairoBackendKind) -> Result<Self, CairoStarkError> {
         let prefix = kind.env_prefix();
         Self::from_env_prefix(kind, prefix)
@@ -218,6 +225,7 @@ impl CairoProofAdapter for PinnedNativeCairoAdapter {
 
 pub type StoneCairoAdapter = PinnedNativeCairoAdapter;
 pub type StwoCairoAdapter = PinnedNativeCairoAdapter;
+pub type ScarbCairoAdapter = PinnedNativeCairoAdapter;
 
 pub fn stone_adapter_from_env() -> Result<StoneCairoAdapter, CairoStarkError> {
     NativeCairoCommandConfig::stone_from_env()?.into_adapter()
@@ -225,6 +233,10 @@ pub fn stone_adapter_from_env() -> Result<StoneCairoAdapter, CairoStarkError> {
 
 pub fn stwo_adapter_from_env() -> Result<StwoCairoAdapter, CairoStarkError> {
     NativeCairoCommandConfig::stwo_from_env()?.into_adapter()
+}
+
+pub fn scarb_adapter_from_env() -> Result<ScarbCairoAdapter, CairoStarkError> {
+    NativeCairoCommandConfig::scarb_from_env()?.into_adapter()
 }
 
 fn read_env(prefix: &str, suffix: &str) -> Result<String, CairoStarkError> {
@@ -423,13 +435,14 @@ mod tests {
                 Hash([0x02; 32]),
                 Hash([0x03; 32]),
                 Hash([0x04; 32]),
+                Hash([0x05; 32]),
             ),
-            cairo_trace_hash: Hash([0x05; 32]),
-            public_input_hash: Hash([0x06; 32]),
-            constraint_commitment: Hash([0x07; 32]),
-            statement_hash: Hash([0x08; 32]),
-            proof_hash: Hash([0x09; 32]),
-            transcript_hash: Hash([0x0a; 32]),
+            cairo_trace_hash: Hash([0x06; 32]),
+            public_input_hash: Hash([0x07; 32]),
+            constraint_commitment: Hash([0x08; 32]),
+            statement_hash: Hash([0x09; 32]),
+            proof_hash: Hash([0x0a; 32]),
+            transcript_hash: Hash([0x0b; 32]),
             accepted: true,
         };
 

@@ -24,7 +24,7 @@ VSEL for Cairo/STARK is an open-source semantic assurance toolkit that helps Sta
 
 > **What exactly does the proof prove, and does that statement preserve the intended application semantics?**
 
-The toolkit provides reusable methodology, templates, and a reference Cairo implementation covering:
+The toolkit provides reusable methodology, templates, and a planned reference Cairo implementation covering:
 
 1. **Semantic gap analysis** — systematic identification of mismatches between intended behavior and what the proof actually attests
 2. **Proof obligation schemas** — formal documentation of what each proof must guarantee
@@ -32,7 +32,7 @@ The toolkit provides reusable methodology, templates, and a reference Cairo impl
 4. **Constraint coverage matrices** — mapping every semantic requirement to its constraint enforcement
 5. **Witness uniqueness analysis** — detecting ambiguous or malleable witnesses
 6. **Verifier binding checklists** — confirming that verifier acceptance implies semantic correctness
-7. **Minimal Cairo reference state machine** — a working example showing the methodology applied to a real Cairo contract
+7. **Minimal Cairo reference state machine** — a planned working example showing the methodology applied to a real Cairo contract
 
 ### Why This Matters for Starknet
 
@@ -106,7 +106,7 @@ The Seed Grant turns this existing formal corpus into a Starknet-specific, pract
 
 ## Deployment Plan
 
-1. **Local development** — Cairo reference state machine implemented and tested locally with Scarb + Starknet Foundry
+1. **Local development** — Cairo reference state machine to be implemented and tested locally with Scarb + Starknet Foundry as part of the milestone
 2. **Starknet Sepolia** — Deployed to testnet as a public, inspectable example linked to VSEL assurance artifacts
 3. **Mainnet** — Only considered after testnet reference is complete, reviewed, and shown useful to builders. Not required for Seed Grant scope.
 

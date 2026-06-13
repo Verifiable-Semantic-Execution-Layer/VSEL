@@ -63,5 +63,42 @@ The Lean 4 v4.8.0 toolchain with `autoImplicit=false` requires explicit type cla
 |-------|---------|----------|-------------|--------|
 | 9 | F-001: Poseidon domain separation collision | Critical | SHA3-256-derived domain IV approach | **RESOLVED** |
 | 10 | R-010-001: Lean 4 type class synthesis | N/A | ByteArray32 wrapper, identifier renaming, Inhabited instances | **RESOLVED** |
+| 10 | R-010-002: Native Cairo VCAI acceptance gate | Serious | Real Scarb proof gate, VCAI wrapper, semantic-binding certificate fields | **RESOLVED** |
 
 **No unresolved remediations.**
+
+---
+
+## Remediation R-010-002: Native Cairo VCAI Acceptance Gate
+
+**Finding:** Operational gap in final native Cairo proof acceptance
+**Severity:** Serious
+**Status:** RESOLVED
+
+### Remediation Applied
+
+1. Added the VSEL-aware native Cairo wrapper path that consumes native proof
+   bytes, executes native verification, requires
+   `VSEL_CAIRO_NATIVE_CONTEXT_ATTESTATION_V1`, packages canonical VCAI/v1, and
+   emits a verifier certificate.
+2. Bound the Cairo semantic-binding report hash through the VCAI statement,
+   wrapper request, native attestation, verifier certificate, strict trace
+   certificate emission, and Lean checker fields.
+3. Added adversarial checks for malformed semantic-binding reports, stale native
+   proof bytes, stale native trace bindings, mutated executable artifacts,
+   mutated semantic-binding artifacts, missing context attestation, and
+   attestation drift.
+4. Extended `scripts/preproduction_acceptance.sh` to regenerate a real Scarb
+   proof, verify it natively, require real-native acceptance, and emit a
+   parseable report binding native artifact hashes.
+
+### Verification
+
+* `bash scripts/preproduction_acceptance.sh` — PASS on 2026-06-13 with
+  `execution9`
+* `cargo test -p vsel-proof --features cairo-stark-backend --test cairo_native_wrapper`
+  — 6/6 PASS
+* `cargo test -p vsel-proof --features cairo-stark-backend --test cairo_acceptance_drill`
+  — 6/6 PASS
+* `cargo test -p vsel-proof --features cairo-stark-backend --lib` — 164/164 PASS
+* `lake build vselCheck` — PASS

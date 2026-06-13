@@ -1,0 +1,8 @@
+[package]
+name = "vsel_reference_state_machine_core"
+version = "0.1.0"
+edition = "2024_07"
+cairo-version = "2.16.0"
+
+[dev-dependencies]
+cairo_test = "2.16.0"

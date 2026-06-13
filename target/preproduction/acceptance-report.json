@@ -1,0 +1,33 @@
+{
+  "schema": "vsel.preproduction_acceptance.v1",
+  "generated_at_utc": "2026-06-13T14:47:40Z",
+  "status": "passed",
+  "exit_code": 0,
+  "toolchain": {
+    "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
+    "lake": "Lake version 5.0.0-src+d024af0 (Lean version 4.30.0)",
+    "scarb": "scarb 2.16.0 (231227f3f 2026-02-18)\ncairo: 2.16.0 (https://crates.io/crates/cairo-lang-compiler/2.16.0)\nsierra: 1.7.0\narch: aarch64-apple-darwin",
+    "snforge": "snforge 0.57.0"
+  },
+  "native_cairo": {
+    "package_dir": "/Users/mac/Projects/VSEL/examples/cairo/reference_state_machine/executable",
+    "source_manifest": "/Users/mac/Projects/VSEL/target/preproduction/cairo-source-manifest.txt",
+    "source_manifest_sha3_256": "ba513b0afc21dc19324a674cb44957e0401bee0ee52bc9886fe315f37edf80af",
+    "source_manifest_sha256": "c3349a40d613790a547b5f2445b794c4172d61fc1a9b1b5177706e8bdaa2bd5b",
+    "semantic_binding": "/Users/mac/Projects/VSEL/target/preproduction/cairo-semantic-binding.txt",
+    "semantic_binding_sha3_256": "a480a50b0481f9afafa54a9466897375b52f44e5502dbc12099cf2b857b6d321",
+    "semantic_binding_sha256": "c89313fa51555b324b88192c072dcf59371894989d812e195a1e8c88df5e51fe",
+    "execution_id": "9",
+    "execution_dir": "/Users/mac/Projects/VSEL/examples/cairo/reference_state_machine/executable/target/execute/vsel_reference_state_machine_exec/execution9",
+    "proof_json": "/Users/mac/Projects/VSEL/examples/cairo/reference_state_machine/executable/target/execute/vsel_reference_state_machine_exec/execution9/proof/proof.json",
+    "proof_json_sha256": "b0ce830c242671e1051e6a43ec4a94452e1b6b67619dc1172f78ec169587a685",
+    "prover_input_json": "/Users/mac/Projects/VSEL/examples/cairo/reference_state_machine/executable/target/execute/vsel_reference_state_machine_exec/execution9/prover_input.json",
+    "prover_input_json_sha256": "51b1e7d80ec95b20c5bb5700f5bd582353f3aefdb5c45ffd1716a2c74fb65631"
+  },
+  "acceptance_path": {
+    "native_verifier": "scarb verify",
+    "vcai_backend": "vsel-proof/cairo-stark-backend",
+    "strict_trace": "VerificationPipeline::verify_strict_trace",
+    "lean_checker": "lake build vselCheck"
+  }
+}

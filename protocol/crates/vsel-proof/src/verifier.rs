@@ -1751,6 +1751,8 @@ fn verify_executable_trace_semantics(
         checks.push("stark:artifact_shape_binding".to_string());
         if proof.metadata.proof_system.starts_with("cairo-stark/") {
             checks.push("cairo:program_binding".to_string());
+            checks.push("cairo:source_manifest_binding".to_string());
+            checks.push("cairo:semantic_binding_report_binding".to_string());
             checks.push("cairo:sierra_casm_binding".to_string());
             checks.push("cairo:public_input_hash_binding".to_string());
             checks.push("cairo:constraint_commitment_binding".to_string());
@@ -2101,10 +2103,153 @@ fn build_semantic_certificate(
         "public_constraint_input_count",
         &constraints.public_inputs.len().to_string(),
     );
+    if require_stark_proof_system && proof.metadata.proof_system.starts_with("cairo-stark/") {
+        append_cairo_semantic_certificate_fields(&mut certificate, proof);
+    }
     for obligation in obligations {
         push_certificate_field(&mut certificate, "obligation", obligation);
     }
     certificate
+}
+
+fn append_cairo_semantic_certificate_fields(certificate: &mut String, proof: &Proof) {
+    let artifact = CairoStarkProof::from_bytes(&proof.proof_data)
+        .expect("verified Cairo/STARK proof data must decode before certificate emission");
+    push_certificate_field(certificate, "cairo_backend_id", &artifact.backend_id);
+    push_certificate_field(
+        certificate,
+        "cairo_program_hash",
+        &hex32(&artifact.program.cairo_program_hash),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_source_manifest_hash",
+        &hex32(&artifact.program.cairo_program_hash),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_sierra_program_hash",
+        &hex32(&artifact.program.sierra_program_hash),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_casm_program_hash",
+        &hex32(&artifact.program.casm_program_hash),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_executable_program_hash",
+        &hex32(&artifact.program.executable_program_hash),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_semantic_binding_hash",
+        &hex32(&artifact.program.semantic_binding_hash),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_trace_hash",
+        &hex32(&artifact.cairo_trace_hash),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_public_input_hash",
+        &hex32(&artifact.public_input_hash),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_constraint_commitment",
+        &hex32(&artifact.constraint_commitment),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_statement_hash",
+        &hex32(&artifact.statement_hash),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_proof_hash",
+        &hex32(&artifact.proof_hash),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_proof_byte_len",
+        &artifact.proof_bytes.len().to_string(),
+    );
+
+    let native = &artifact.verifier_certificate;
+    push_certificate_field(certificate, "cairo_verifier_adapter_id", &native.adapter_id);
+    push_certificate_field(
+        certificate,
+        "cairo_verifier_version",
+        &native.verifier_version,
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_verifier_binary_hash",
+        &hex32(&native.verifier_binary_hash),
+    );
+    push_certificate_field(certificate, "cairo_verifier_backend_id", &native.backend_id);
+    push_certificate_field(
+        certificate,
+        "cairo_verifier_program_hash",
+        &hex32(&native.program.cairo_program_hash),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_verifier_sierra_program_hash",
+        &hex32(&native.program.sierra_program_hash),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_verifier_casm_program_hash",
+        &hex32(&native.program.casm_program_hash),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_verifier_executable_program_hash",
+        &hex32(&native.program.executable_program_hash),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_verifier_semantic_binding_hash",
+        &hex32(&native.program.semantic_binding_hash),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_verifier_trace_hash",
+        &hex32(&native.cairo_trace_hash),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_verifier_public_input_hash",
+        &hex32(&native.public_input_hash),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_verifier_constraint_commitment",
+        &hex32(&native.constraint_commitment),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_verifier_statement_hash",
+        &hex32(&native.statement_hash),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_verifier_proof_hash",
+        &hex32(&native.proof_hash),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_verifier_transcript_hash",
+        &hex32(&native.transcript_hash),
+    );
+    push_certificate_field(
+        certificate,
+        "cairo_verifier_accepted",
+        if native.accepted { "true" } else { "false" },
+    );
 }
 
 fn push_certificate_field(certificate: &mut String, key: &str, value: &str) {
@@ -5179,9 +5324,14 @@ fn hash_observable_for_proof_data(
 #[cfg(test)]
 mod vsel_001_fail_closed_tests {
     use super::*;
+    use crate::cairo_stark::{
+        public_inputs_commitment, CairoProgramCommitments, CairoStarkProof, CairoStatement,
+        CairoVerifierCertificate,
+    };
     use crate::prover::{DefaultProver, ProofCommitments, ProofMetadata, Prover};
     use crate::witness::{construct_witness, AuxiliaryComputation};
     use std::collections::BTreeMap;
+    use std::path::Path;
     use vsel_constraints::{Constraint, ConstraintCategory, ConstraintExpr, ConstraintId};
     use vsel_core::input::{Authorization, Input};
     use vsel_core::observable::obs;
@@ -5197,6 +5347,17 @@ mod vsel_001_fail_closed_tests {
 
     fn hash(byte: u8) -> Hash {
         Hash([byte; 32])
+    }
+
+    fn test_domain_hash(domain: &[u8], bytes: &[u8]) -> Hash {
+        let mut hasher = Sha3_256::new();
+        hasher.update(domain);
+        hasher.update(&(bytes.len() as u64).to_le_bytes());
+        hasher.update(bytes);
+        let digest = hasher.finalize();
+        let mut out = [0u8; 32];
+        out.copy_from_slice(&digest);
+        Hash(out)
     }
 
     fn public_inputs() -> PublicInputs {
@@ -5396,6 +5557,66 @@ mod vsel_001_fail_closed_tests {
             description: "invariant observable count binding".to_string(),
         });
         constraints
+    }
+
+    fn cairo_vcai_proof(trace: &Trace, constraints: &ConstraintSystem) -> Proof {
+        let mut proof = DefaultProver::new("test")
+            .prove(trace, constraints)
+            .expect("base proof");
+        let backend_id = "cairo-stark/lean-contract-test".to_string();
+        let program = CairoProgramCommitments::new(
+            hash(0x41),
+            hash(0x42),
+            hash(0x43),
+            hash(0x44),
+            hash(0x45),
+        );
+        let public_input_hash = public_inputs_commitment(&proof.public_inputs);
+        let cairo_trace_hash = test_domain_hash(b"vsel-test-cairo-trace", &trace.commitment.0);
+        let statement = CairoStatement {
+            backend_id: backend_id.clone(),
+            program: program.clone(),
+            cairo_trace_hash: cairo_trace_hash.clone(),
+            public_input_hash: public_input_hash.clone(),
+            constraint_commitment: proof.commitments.constraint_commitment.clone(),
+        };
+        let statement_hash = statement.hash();
+        let mut proof_material = Vec::new();
+        proof_material.extend_from_slice(&statement_hash.0);
+        proof_material.extend_from_slice(&proof.commitments.witness_commitment.0);
+        let proof_bytes = test_domain_hash(b"vsel-test-cairo-native-proof", &proof_material)
+            .0
+            .to_vec();
+        let proof_hash = test_domain_hash(b"vsel-cairo-proof-bytes-v1", &proof_bytes);
+        let transcript_hash = test_domain_hash(b"vsel-test-cairo-native-transcript", &proof_hash.0);
+        let verifier_certificate = CairoVerifierCertificate {
+            adapter_id: "lean-contract-test".to_string(),
+            verifier_version: "lean-contract-test/1".to_string(),
+            verifier_binary_hash: hash(0x77),
+            backend_id: backend_id.clone(),
+            program: program.clone(),
+            cairo_trace_hash: cairo_trace_hash.clone(),
+            public_input_hash: public_input_hash.clone(),
+            constraint_commitment: proof.commitments.constraint_commitment.clone(),
+            statement_hash: statement_hash.clone(),
+            proof_hash: proof_hash.clone(),
+            transcript_hash,
+            accepted: true,
+        };
+        let vcai = CairoStarkProof::new(
+            backend_id.clone(),
+            program,
+            cairo_trace_hash,
+            public_input_hash,
+            proof.commitments.constraint_commitment.clone(),
+            proof_bytes,
+            verifier_certificate,
+        )
+        .expect("syntactically valid VCAI proof");
+
+        proof.metadata.proof_system = backend_id;
+        proof.proof_data = vcai.to_bytes();
+        proof
     }
 
     fn formal_spec_path() -> String {
@@ -5668,6 +5889,96 @@ mod vsel_001_fail_closed_tests {
                 other
             ),
         }
+    }
+
+    #[test]
+    fn lean_certificate_checker_requires_typed_cairo_vcai_fields() {
+        let trace = executable_trace();
+        let constraints = covered_constraint_system();
+        let proof = cairo_vcai_proof(&trace, &constraints);
+        let witness = construct_witness(&trace);
+        let obligations = verify_executable_trace_semantics(
+            &proof,
+            &proof.public_inputs,
+            &witness,
+            &constraints,
+            &trace,
+            true,
+        )
+        .expect("Cairo executable trace obligations");
+        assert!(obligations.contains(&"cairo:native_verifier_success".to_string()));
+
+        let certificate = build_semantic_certificate(
+            &proof,
+            &proof.public_inputs,
+            &witness,
+            &constraints,
+            &trace,
+            true,
+            &obligations,
+            &hash(9),
+        );
+        assert!(certificate.contains("cairo_verifier_proof_hash="));
+        assert!(certificate.contains("cairo_source_manifest_hash="));
+        assert!(certificate.contains("cairo_semantic_binding_hash="));
+        assert!(certificate.contains("cairo_verifier_semantic_binding_hash="));
+
+        let formal = formal_spec_path();
+        let verifier = Lean4SemanticVerifier::new(ProtocolVersion::default())
+            .with_formal_spec_path(formal.clone())
+            .with_timeout(120_000);
+        verifier
+            .run_lake_certificate_check(Path::new(&formal), &certificate)
+            .expect("typed Cairo certificate must pass Lean checker");
+
+        let missing_native_proof_hash = certificate
+            .lines()
+            .filter(|line| !line.starts_with("cairo_verifier_proof_hash="))
+            .collect::<Vec<_>>()
+            .join("\n")
+            + "\n";
+        let err = verifier
+            .run_lake_certificate_check(Path::new(&formal), &missing_native_proof_hash)
+            .expect_err("Lean checker must reject Cairo certificates without native proof binding");
+        assert!(
+            err.contains("missing certificate field: cairo_verifier_proof_hash"),
+            "unexpected error: {}",
+            err
+        );
+
+        let missing_source_manifest_hash = certificate
+            .lines()
+            .filter(|line| !line.starts_with("cairo_source_manifest_hash="))
+            .collect::<Vec<_>>()
+            .join("\n")
+            + "\n";
+        let err = verifier
+            .run_lake_certificate_check(Path::new(&formal), &missing_source_manifest_hash)
+            .expect_err(
+                "Lean checker must reject Cairo certificates without source manifest binding",
+            );
+        assert!(
+            err.contains("missing certificate field: cairo_source_manifest_hash"),
+            "unexpected error: {}",
+            err
+        );
+
+        let missing_semantic_binding_hash = certificate
+            .lines()
+            .filter(|line| !line.starts_with("cairo_semantic_binding_hash="))
+            .collect::<Vec<_>>()
+            .join("\n")
+            + "\n";
+        let err = verifier
+            .run_lake_certificate_check(Path::new(&formal), &missing_semantic_binding_hash)
+            .expect_err(
+                "Lean checker must reject Cairo certificates without semantic binding report hash",
+            );
+        assert!(
+            err.contains("missing certificate field: cairo_semantic_binding_hash"),
+            "unexpected error: {}",
+            err
+        );
     }
 
     #[test]

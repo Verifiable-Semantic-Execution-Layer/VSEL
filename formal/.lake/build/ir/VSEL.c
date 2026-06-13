@@ -1,6 +1,6 @@
 // Lean compiler output
 // Module: VSEL
-// Imports: Init VSEL.Foundations.State VSEL.Foundations.Input VSEL.Foundations.Transition VSEL.Foundations.Invariants VSEL.Refinement.FormalToSIR VSEL.Refinement.SIRToConcrete VSEL.Refinement.ConcreteToConstraint VSEL.Mapping.SemanticMapping VSEL.Mapping.Commutativity VSEL.Mapping.Observable VSEL.Composition.Contract VSEL.Composition.Soundness VSEL.Witness.Uniqueness
+// Imports: Init VSEL.Foundations.State VSEL.Foundations.Input VSEL.Foundations.Transition VSEL.Foundations.Invariants VSEL.Refinement.FormalToSIR VSEL.Refinement.SIRToConcrete VSEL.Refinement.ConcreteToConstraint VSEL.Mapping.SemanticMapping VSEL.Mapping.Commutativity VSEL.Mapping.Observable VSEL.Composition.Contract VSEL.Composition.Soundness VSEL.Witness.Uniqueness VSEL.Checker.Certificate
 #include <lean/lean.h>
 #if defined(__clang__)
 #pragma clang diagnostic ignored "-Wunused-parameter"
@@ -27,6 +27,7 @@ lean_object* initialize_VSEL_Mapping_Observable(uint8_t builtin, lean_object*);
 lean_object* initialize_VSEL_Composition_Contract(uint8_t builtin, lean_object*);
 lean_object* initialize_VSEL_Composition_Soundness(uint8_t builtin, lean_object*);
 lean_object* initialize_VSEL_Witness_Uniqueness(uint8_t builtin, lean_object*);
+lean_object* initialize_VSEL_Checker_Certificate(uint8_t builtin, lean_object*);
 static bool _G_initialized = false;
 LEAN_EXPORT lean_object* initialize_VSEL(uint8_t builtin, lean_object* w) {
 lean_object * res;
@@ -72,6 +73,9 @@ res = initialize_VSEL_Composition_Soundness(builtin, lean_io_mk_world());
 if (lean_io_result_is_error(res)) return res;
 lean_dec_ref(res);
 res = initialize_VSEL_Witness_Uniqueness(builtin, lean_io_mk_world());
+if (lean_io_result_is_error(res)) return res;
+lean_dec_ref(res);
+res = initialize_VSEL_Checker_Certificate(builtin, lean_io_mk_world());
 if (lean_io_result_is_error(res)) return res;
 lean_dec_ref(res);
 return lean_io_result_mk_ok(lean_box(0));

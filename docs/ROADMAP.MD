@@ -470,6 +470,16 @@ Prepare system for hostile environment.
 
 ---
 
+#### 9.4 Native Proof Boundary Hardening
+
+* reject native verifier success without VSEL context attestation
+* reject stale native trace bindings
+* reject VCAI/certificate drift across program, executable, semantic-binding,
+  public input, constraint, statement, proof, verifier, and transcript
+  commitments
+
+---
+
 ### Audit (Phase 9)
 
 Attack goals:
@@ -493,6 +503,27 @@ Final validation.
 * all phases passed
 * all audits resolved
 * zero unresolved findings
+* `bash scripts/preproduction_acceptance.sh` passes on a clean environment with
+  Scarb, SNForge, Cargo, and Lake installed
+* the pre-production gate regenerates a native Scarb/Stwo proof and rejects
+  skipped real-native acceptance tests
+* the pre-production gate emits a parseable
+  `target/preproduction/acceptance-report.json` binding the native execution id
+  to generated proof hashes, the canonical Cairo source-manifest hash, and the
+  Cairo semantic-binding report hash
+
+### Current Native Cairo Evidence
+
+As of 2026-06-13, `bash scripts/preproduction_acceptance.sh` passes with Scarb
+2.16.0/SNForge 0.57.0/Cargo 1.95.0/Lake 5.0.0. The gate generated and verified
+`execution9`, packaged the native proof as canonical VCAI/v1, verified it through
+`BackendCryptographicVerifier<CairoStarkBackend<_>>`, ran `verify_strict_trace`,
+and executed the Lean semantic-certificate checker. The report binds:
+
+* `proof_json_sha256=b0ce830c242671e1051e6a43ec4a94452e1b6b67619dc1172f78ec169587a685`
+* `prover_input_json_sha256=51b1e7d80ec95b20c5bb5700f5bd582353f3aefdb5c45ffd1716a2c74fb65631`
+* `source_manifest_sha3_256=ba513b0afc21dc19324a674cb44957e0401bee0ee52bc9886fe315f37edf80af`
+* `semantic_binding_sha3_256=a480a50b0481f9afafa54a9466897375b52f44e5502dbc12099cf2b857b6d321`
 
 ---
 

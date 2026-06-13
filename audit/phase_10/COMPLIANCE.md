@@ -205,3 +205,28 @@ This document certifies compliance of the VSEL protocol implementation against a
 ## Certification
 
 The VSEL protocol implementation is certified as **FULLY COMPLIANT** with all requirements. All 11 phases have passed their audit gates. All 46 proof obligations are discharged. The end-to-end guarantee `Verify(π) ⟹ ValidFormalTrace(τ_f)` is established. The system is ready for external security audit and production deployment.
+
+---
+
+## 2026-06-13 Addendum: Native Cairo Pre-Production Acceptance
+
+The final gate now includes a real native Cairo/STARK execution path:
+
+| Requirement | Evidence | Status |
+|-------------|----------|--------|
+| Native toolchain execution uses real Scarb/SNForge tooling | Scarb 2.16.0 and SNForge 0.57.0 recorded in `target/preproduction/acceptance-report.json` | **PASS** |
+| Native proof is freshly generated and verified | `execution9/proof/proof.json`, `scarb verify --execution-id 9` | **PASS** |
+| VCAI packaging requires native verifier acceptance and context attestation | `cairo_native_wrapper` integration tests and wrapper use in gate | **PASS** |
+| Backend verifier consumes canonical VCAI/v1 | `cairo_acceptance_drill` with `VSEL_REQUIRE_REAL_SCARB_ACCEPTANCE=1` | **PASS** |
+| Strict trace path reaches final acceptance | `VerificationPipeline::verify_strict_trace` inside `cairo_acceptance_drill` | **PASS** |
+| Lean semantic certificate binds Cairo source manifest and semantic-binding report | `cairo_source_manifest_hash`, `cairo_semantic_binding_hash`, `cairo:source_manifest_binding`, `cairo:semantic_binding_report_binding` | **PASS** |
+| Report is parseable and binds native artifacts | `target/preproduction/acceptance-report.json` parsed successfully | **PASS** |
+
+Bound artifact digests:
+
+| Artifact | Digest |
+|----------|--------|
+| Source manifest SHA3-256 | `ba513b0afc21dc19324a674cb44957e0401bee0ee52bc9886fe315f37edf80af` |
+| Semantic-binding SHA3-256 | `a480a50b0481f9afafa54a9466897375b52f44e5502dbc12099cf2b857b6d321` |
+| Native proof JSON SHA256 | `b0ce830c242671e1051e6a43ec4a94452e1b6b67619dc1172f78ec169587a685` |
+| Native prover input SHA256 | `51b1e7d80ec95b20c5bb5700f5bd582353f3aefdb5c45ffd1716a2c74fb65631` |

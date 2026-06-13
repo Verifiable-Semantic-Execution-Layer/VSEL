@@ -138,3 +138,27 @@ All 8 invalid witness families have both property-based tests (100 random cases 
 | 18.6 Full-System Fuzzing | **COMPLIANT** |
 
 **Phase 9 Compliance: FULL COMPLIANCE — all requirements satisfied.**
+
+---
+
+## 2026-06-13 Addendum: Native Cairo Proof Boundary Hardening
+
+The native Cairo/STARK boundary added after the original Phase 9 audit is now
+covered by explicit fail-closed tests and the pre-production gate.
+
+| Boundary Control | Evidence | Status |
+|------------------|----------|--------|
+| Native verifier cannot be bypassed by a self-contained VCAI artifact | `cairo_stark_backend_rejects_unconfigured_native_commands` | **PASS** |
+| Wrapper rejects native success without VSEL context attestation | `native_wrapper_rejects_native_acceptance_without_context_attestation` | **PASS** |
+| Wrapper rejects malformed source manifest | `native_wrapper_rejects_malformed_cairo_source_manifest` | **PASS** |
+| Wrapper rejects malformed semantic-binding report | `native_wrapper_rejects_malformed_cairo_semantic_binding` | **PASS** |
+| Wrapper rejects context-attestation drift | `native_wrapper_rejects_mismatched_native_context_attestation` | **PASS** |
+| Backend rejects stale native trace binding | `deterministic_fixture_rejects_stale_native_trace_binding` | **PASS** |
+| Backend rejects stale native proof bytes | `deterministic_fixture_rejects_stale_native_proof_binding` | **PASS** |
+| Wrapper rejects mutated executable artifact | `deterministic_fixture_rejects_mutated_executable_artifact` | **PASS** |
+| Wrapper rejects mutated semantic-binding artifact | `deterministic_fixture_rejects_mutated_semantic_binding_artifact` | **PASS** |
+| Lean certificate requires typed Cairo semantic-binding hash | `lean_certificate_checker_requires_typed_cairo_vcai_fields` | **PASS** |
+
+Additional gate evidence: `bash scripts/preproduction_acceptance.sh` passed on
+2026-06-13 with a freshly generated Scarb proof (`execution9`) and hard-fail
+real-native acceptance (`VSEL_REQUIRE_REAL_SCARB_ACCEPTANCE=1`).

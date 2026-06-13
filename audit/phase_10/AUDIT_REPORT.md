@@ -142,3 +142,34 @@ Evidence:
 ## Compliance Decision
 
 **PASS** — Phase 10 Final Audit Gate is satisfied. The VSEL protocol implementation meets all requirements across all 11 phases. The end-to-end guarantee `Verify(π) ⟹ ValidFormalTrace(τ_f)` is established through the complete refinement chain with Lean 4 formal proofs, Rust property-based tests, and adversarial testing. All 46 proof obligations are discharged. All 1,219 tests pass. Zero unresolved findings of severity ≥ Serious. The system is ready for production deployment pending external security audit.
+
+---
+
+## 2026-06-13 Native Cairo Acceptance Addendum
+
+The final audit gate now exercises the real native Cairo/STARK proof boundary.
+`bash scripts/preproduction_acceptance.sh` passed on 2026-06-13 after generating
+`execution9` with Scarb 2.16.0, verifying it with `scarb verify --execution-id
+9`, packaging the accepted native proof as canonical VCAI/v1 through
+`vsel-cairo-native-wrapper`, verifying the artifact through
+`BackendCryptographicVerifier<CairoStarkBackend<_>>`, running
+`VerificationPipeline::verify_strict_trace`, and executing the Lean semantic
+certificate checker.
+
+The acceptance drill ran with `VSEL_REQUIRE_REAL_SCARB_ACCEPTANCE=1`, so missing
+Scarb proof fixtures or skipped native acceptance would fail the gate. The
+wrapper and backend adversarial tests also reject native acceptance without
+context attestation, malformed source manifests, malformed semantic-binding
+reports, stale native trace bindings, stale native proof bytes, mutated
+executable artifacts, mutated semantic-binding artifacts, and VCAI/certificate
+drift.
+
+The generated `target/preproduction/acceptance-report.json` is parseable and
+binds the native execution id to the following artifacts:
+
+| Artifact | Digest |
+|----------|--------|
+| Source manifest SHA3-256 | `ba513b0afc21dc19324a674cb44957e0401bee0ee52bc9886fe315f37edf80af` |
+| Semantic-binding SHA3-256 | `a480a50b0481f9afafa54a9466897375b52f44e5502dbc12099cf2b857b6d321` |
+| Native proof JSON SHA256 | `b0ce830c242671e1051e6a43ec4a94452e1b6b67619dc1172f78ec169587a685` |
+| Native prover input SHA256 | `51b1e7d80ec95b20c5bb5700f5bd582353f3aefdb5c45ffd1716a2c74fb65631` |

@@ -57,9 +57,9 @@ jobs:
         working-directory: formal
         run: lake build
 
-      - name: Run Lean 4 tests
+      - name: Build Lean semantic certificate checker
         working-directory: formal
-        run: lake test || echo "::warning::lake test returned non-zero (tests may not be configured yet)"
+        run: lake build vselCheck
 
   # ─────────────────────────────────────────────
   # Rust Pipeline (multi-OS)
@@ -163,7 +163,7 @@ jobs:
           restore-keys: rust-diff-
       - name: Run differential tests (Rust vs SIR interpreter)
         working-directory: protocol
-        run: cargo test --test differential_tests || echo "::warning::Differential tests not yet available"
+        run: cargo test -p vsel-proof --test property_differential_tests -- --nocapture
 
   rust-adversarial:
     name: Rust — Adversarial Tests
@@ -183,7 +183,7 @@ jobs:
           restore-keys: rust-adv-
       - name: Run adversarial tests (invalid witness suite)
         working-directory: protocol
-        run: cargo test --test adversarial_tests || echo "::warning::Adversarial tests not yet available"
+        run: cargo test -p vsel-proof --test adversarial_proof_tampering -- --nocapture
 
   rust-integration:
     name: Rust — Integration Tests
@@ -203,7 +203,51 @@ jobs:
           restore-keys: rust-integ-
       - name: Run integration tests
         working-directory: protocol
-        run: cargo test --test '*' -- --ignored || echo "::warning::No integration tests marked with #[ignore] yet"
+        run: |
+          cargo test -p vsel-proof --features cairo-stark-backend --test cairo_native_wrapper -- --nocapture
+          cargo test -p vsel-proof --features cairo-stark-backend --test cairo_acceptance_drill -- --nocapture
+
+  # ─────────────────────────────────────────────
+  # Native Cairo/STARK Pre-Production Gate
+  # ─────────────────────────────────────────────
+  native-cairo-preproduction:
+    name: Native Cairo/STARK — Pre-Production Acceptance
+    runs-on: ubuntu-latest
+    needs: [lean4, rust-integration]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Install elan (Lean 4 toolchain manager)
+        run: |
+          curl -sSf https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - uses: software-mansion/setup-scarb@v1
+        with:
+          scarb-version: "2.16.0"
+
+      - uses: foundry-rs/setup-snfoundry@v4
+        with:
+          starknet-foundry-version: "0.57.0"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            protocol/target
+            formal/.lake
+            ~/.elan
+          key: native-cairo-preprod-${{ hashFiles('protocol/Cargo.lock', 'formal/lean-toolchain', 'formal/lakefile.lean', 'examples/cairo/reference_state_machine/**/Scarb.lock') }}
+          restore-keys: native-cairo-preprod-
+
+      - name: Run pre-production acceptance gate
+        run: bash ./scripts/preproduction_acceptance.sh
 
   # ─────────────────────────────────────────────
   # Rust — Poseidon Goldilocks Field Tests
@@ -293,7 +337,13 @@ jobs:
 
       - name: Run adversarial tooling tests
         working-directory: tools
-        run: python -m pytest -v || echo "::warning::Python tests not yet configured"
+        run: |
+          python -m compileall -q .
+          if find . -path '*/__pycache__' -prune -o -name 'test_*.py' -print -quit | grep -q .; then
+            python -m pytest -v
+          else
+            echo "No Python pytest suite configured; compile smoke passed."
+          fi
 
   # ─────────────────────────────────────────────
   # Version Consistency Check
@@ -332,6 +382,7 @@ jobs:
       - rust-differential
       - rust-adversarial
       - rust-integration
+      - native-cairo-preproduction
       - tlaplus
       - python
       - version-check
@@ -360,8 +411,36 @@ jobs:
             echo "::error::Rust property tests failed"
             exit 1
           fi
+          if [ "${{ needs.rust-poseidon-goldilocks.result }}" != "success" ]; then
+            echo "::error::Rust Poseidon Goldilocks tests failed"
+            exit 1
+          fi
+          if [ "${{ needs.rust-differential.result }}" != "success" ]; then
+            echo "::error::Rust differential tests failed"
+            exit 1
+          fi
+          if [ "${{ needs.rust-adversarial.result }}" != "success" ]; then
+            echo "::error::Rust adversarial tests failed"
+            exit 1
+          fi
+          if [ "${{ needs.rust-integration.result }}" != "success" ]; then
+            echo "::error::Rust integration tests failed"
+            exit 1
+          fi
+          if [ "${{ needs.native-cairo-preproduction.result }}" != "success" ]; then
+            echo "::error::Native Cairo/STARK pre-production gate failed"
+            exit 1
+          fi
           if [ "${{ needs.tlaplus.result }}" != "success" ]; then
             echo "::error::TLA+ model checking failed"
+            exit 1
+          fi
+          if [ "${{ needs.python.result }}" != "success" ]; then
+            echo "::error::Python adversarial tooling failed"
+            exit 1
+          fi
+          if [ "${{ needs.version-check.result }}" != "success" ]; then
+            echo "::error::Version consistency check failed"
             exit 1
           fi
           echo "All CI pipelines passed."
@@ -370,7 +449,7 @@ jobs:
         if: failure()
         run: |
           echo "::error::CI Gate failed. Failing components:"
-          for job in lean4 rust-fmt rust-clippy rust-test rust-property rust-poseidon-goldilocks rust-differential rust-adversarial rust-integration tlaplus python version-check; do
+          for job in lean4 rust-fmt rust-clippy rust-test rust-property rust-poseidon-goldilocks rust-differential rust-adversarial rust-integration native-cairo-preproduction tlaplus python version-check; do
             echo "  $job: check workflow logs for details"
           done
           echo ""

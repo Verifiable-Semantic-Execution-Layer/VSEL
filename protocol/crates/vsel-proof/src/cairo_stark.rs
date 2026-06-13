@@ -4,8 +4,9 @@
 //! A Cairo artifact is accepted only when a concrete adapter verifies the
 //! underlying Cairo/STARK proof and returns a certificate bound to the exact
 //! verifier version/hash, Cairo source hash, Sierra hash, CASM hash,
-//! executable program hash, Cairo trace hash, public input hash, constraint
-//! commitment, VSEL statement hash, proof hash, and verifier transcript hash.
+//! executable program hash, semantic binding hash, Cairo trace hash, public
+//! input hash, constraint commitment, VSEL statement hash, proof hash, and
+//! verifier transcript hash.
 
 use std::io::Write;
 use std::path::PathBuf;
@@ -45,6 +46,7 @@ pub struct CairoProgramCommitments {
     pub sierra_program_hash: Hash,
     pub casm_program_hash: Hash,
     pub executable_program_hash: Hash,
+    pub semantic_binding_hash: Hash,
 }
 
 impl CairoProgramCommitments {
@@ -53,12 +55,14 @@ impl CairoProgramCommitments {
         sierra_program_hash: Hash,
         casm_program_hash: Hash,
         executable_program_hash: Hash,
+        semantic_binding_hash: Hash,
     ) -> Self {
         Self {
             cairo_program_hash,
             sierra_program_hash,
             casm_program_hash,
             executable_program_hash,
+            semantic_binding_hash,
         }
     }
 
@@ -68,6 +72,7 @@ impl CairoProgramCommitments {
             ("sierra_program_hash", &self.sierra_program_hash),
             ("casm_program_hash", &self.casm_program_hash),
             ("executable_program_hash", &self.executable_program_hash),
+            ("semantic_binding_hash", &self.semantic_binding_hash),
         ] {
             if hash.0 == [0u8; 32] {
                 return Err(CairoStarkError::VerificationFailed(format!(
@@ -116,6 +121,7 @@ impl CairoStatement {
         update_hash(&mut hasher, &self.program.sierra_program_hash);
         update_hash(&mut hasher, &self.program.casm_program_hash);
         update_hash(&mut hasher, &self.program.executable_program_hash);
+        update_hash(&mut hasher, &self.program.semantic_binding_hash);
         update_hash(&mut hasher, &self.cairo_trace_hash);
         update_hash(&mut hasher, &self.public_input_hash);
         update_hash(&mut hasher, &self.constraint_commitment);
@@ -314,6 +320,7 @@ impl CairoStarkProof {
         write_hash(&mut buf, &self.program.sierra_program_hash);
         write_hash(&mut buf, &self.program.casm_program_hash);
         write_hash(&mut buf, &self.program.executable_program_hash);
+        write_hash(&mut buf, &self.program.semantic_binding_hash);
         write_hash(&mut buf, &self.cairo_trace_hash);
         write_hash(&mut buf, &self.public_input_hash);
         write_hash(&mut buf, &self.constraint_commitment);
@@ -339,6 +346,10 @@ impl CairoStarkProof {
         write_hash(
             &mut buf,
             &self.verifier_certificate.program.executable_program_hash,
+        );
+        write_hash(
+            &mut buf,
+            &self.verifier_certificate.program.semantic_binding_hash,
         );
         write_hash(&mut buf, &self.verifier_certificate.cairo_trace_hash);
         write_hash(&mut buf, &self.verifier_certificate.public_input_hash);
@@ -372,6 +383,7 @@ impl CairoStarkProof {
             sierra_program_hash: read_hash(bytes, &mut cursor)?,
             casm_program_hash: read_hash(bytes, &mut cursor)?,
             executable_program_hash: read_hash(bytes, &mut cursor)?,
+            semantic_binding_hash: read_hash(bytes, &mut cursor)?,
         };
         let cairo_trace_hash = read_hash(bytes, &mut cursor)?;
         let public_input_hash = read_hash(bytes, &mut cursor)?;
@@ -389,6 +401,7 @@ impl CairoStarkProof {
                 sierra_program_hash: read_hash(bytes, &mut cursor)?,
                 casm_program_hash: read_hash(bytes, &mut cursor)?,
                 executable_program_hash: read_hash(bytes, &mut cursor)?,
+                semantic_binding_hash: read_hash(bytes, &mut cursor)?,
             },
             cairo_trace_hash: read_hash(bytes, &mut cursor)?,
             public_input_hash: read_hash(bytes, &mut cursor)?,
@@ -694,13 +707,14 @@ fn format_verify_request(request: &CairoVerifyRequest) -> String {
 
 fn format_expected(header: &str, expected: &CairoExpectedStatement) -> String {
     format!(
-        "{}\nbackend_id={}\ncairo_program_hash={}\nsierra_program_hash={}\ncasm_program_hash={}\nexecutable_program_hash={}\npublic_input_hash={}\nconstraint_commitment={}\n",
+        "{}\nbackend_id={}\ncairo_program_hash={}\nsierra_program_hash={}\ncasm_program_hash={}\nexecutable_program_hash={}\nsemantic_binding_hash={}\npublic_input_hash={}\nconstraint_commitment={}\n",
         header,
         expected.backend_id,
         hex_hash(&expected.program.cairo_program_hash),
         hex_hash(&expected.program.sierra_program_hash),
         hex_hash(&expected.program.casm_program_hash),
         hex_hash(&expected.program.executable_program_hash),
+        hex_hash(&expected.program.semantic_binding_hash),
         hex_hash(&expected.public_input_hash),
         hex_hash(&expected.constraint_commitment)
     )
@@ -725,6 +739,7 @@ fn parse_certificate(text: &str) -> Result<CairoVerifierCertificate, CairoStarkE
             sierra_program_hash: parse_hash_field(text, "sierra_program_hash=")?,
             casm_program_hash: parse_hash_field(text, "casm_program_hash=")?,
             executable_program_hash: parse_hash_field(text, "executable_program_hash=")?,
+            semantic_binding_hash: parse_hash_field(text, "semantic_binding_hash=")?,
         },
         cairo_trace_hash: parse_hash_field(text, "cairo_trace_hash=")?,
         public_input_hash: parse_hash_field(text, "public_input_hash=")?,
@@ -928,6 +943,7 @@ mod tests {
             update_hash(&mut hasher, &statement.program.sierra_program_hash);
             update_hash(&mut hasher, &statement.program.casm_program_hash);
             update_hash(&mut hasher, &statement.program.executable_program_hash);
+            update_hash(&mut hasher, &statement.program.semantic_binding_hash);
             update_hash(&mut hasher, &statement.cairo_trace_hash);
             update_hash(&mut hasher, &statement.public_input_hash);
             update_hash(&mut hasher, &statement.constraint_commitment);
@@ -1009,7 +1025,7 @@ mod tests {
     }
 
     fn program() -> CairoProgramCommitments {
-        CairoProgramCommitments::new(hash(1), hash(2), hash(3), hash(4))
+        CairoProgramCommitments::new(hash(1), hash(2), hash(3), hash(4), hash(5))
     }
 
     fn public_inputs() -> PublicInputs {
@@ -1133,6 +1149,13 @@ mod tests {
             .executable_program_hash = hash(0xab);
         assert!(wrong_executable_program.validate_static().is_err());
 
+        let mut wrong_semantic_binding = proof.clone();
+        wrong_semantic_binding
+            .verifier_certificate
+            .program
+            .semantic_binding_hash = hash(0xac);
+        assert!(wrong_semantic_binding.validate_static().is_err());
+
         let mut wrong_trace = proof.clone();
         wrong_trace.verifier_certificate.cairo_trace_hash = hash(0xbb);
         assert!(wrong_trace.validate_static().is_err());
@@ -1166,7 +1189,7 @@ mod tests {
             .expect("proof");
         let cert = &proof.verifier_certificate;
         let text = format!(
-            "VSEL_CAIRO_VERIFIER_CERTIFICATE_V1\nadapter_id={}\nverifier_version={}\nverifier_binary_hash={}\nbackend_id={}\ncairo_program_hash={}\nsierra_program_hash={}\ncasm_program_hash={}\nexecutable_program_hash={}\ncairo_trace_hash={}\npublic_input_hash={}\nconstraint_commitment={}\nstatement_hash={}\nproof_hash={}\ntranscript_hash={}\naccepted=true\n",
+            "VSEL_CAIRO_VERIFIER_CERTIFICATE_V1\nadapter_id={}\nverifier_version={}\nverifier_binary_hash={}\nbackend_id={}\ncairo_program_hash={}\nsierra_program_hash={}\ncasm_program_hash={}\nexecutable_program_hash={}\nsemantic_binding_hash={}\ncairo_trace_hash={}\npublic_input_hash={}\nconstraint_commitment={}\nstatement_hash={}\nproof_hash={}\ntranscript_hash={}\naccepted=true\n",
             cert.adapter_id,
             cert.verifier_version,
             hex_hash(&cert.verifier_binary_hash),
@@ -1175,6 +1198,7 @@ mod tests {
             hex_hash(&cert.program.sierra_program_hash),
             hex_hash(&cert.program.casm_program_hash),
             hex_hash(&cert.program.executable_program_hash),
+            hex_hash(&cert.program.semantic_binding_hash),
             hex_hash(&cert.cairo_trace_hash),
             hex_hash(&cert.public_input_hash),
             hex_hash(&cert.constraint_commitment),
@@ -1254,6 +1278,7 @@ mod cairo_stark_backend_e2e_tests {
     const NATIVE_TEST_ADAPTER_ID: &str = "native-command-e2e";
     const STONE_PREFIX: &str = "VSEL_STONE_CAIRO";
     const STWO_PREFIX: &str = "VSEL_STWO_CAIRO";
+    const SCARB_PREFIX: &str = "VSEL_SCARB_CAIRO";
     const REQUIRED_NATIVE_SUFFIXES: [&str; 5] = [
         "VERSION",
         "PROVER",
@@ -1337,7 +1362,7 @@ mod cairo_stark_backend_e2e_tests {
         let Some((program, prover_adapter, verifier_adapter)) = configured_native_e2e() else {
             eprintln!(
                 "skipping positive Cairo/STARK E2E: no complete pinned \
-                 VSEL_STONE_CAIRO_* or VSEL_STWO_CAIRO_* adapter configuration"
+                 VSEL_STONE_CAIRO_*, VSEL_STWO_CAIRO_*, or VSEL_SCARB_CAIRO_* adapter configuration"
             );
             return;
         };
@@ -1401,29 +1426,49 @@ mod cairo_stark_backend_e2e_tests {
     }
 
     fn configured_native_adapter() -> Option<PinnedNativeCairoAdapter> {
-        let stone = prefix_state(STONE_PREFIX);
-        let stwo = prefix_state(STWO_PREFIX);
-        match (stone, stwo) {
-            (NativeEnvState::Absent, NativeEnvState::Absent) => None,
-            (NativeEnvState::Complete, NativeEnvState::Absent) => Some(
-                NativeCairoCommandConfig::stone_from_env()
-                    .and_then(NativeCairoCommandConfig::into_adapter)
-                    .expect("complete Stone Cairo adapter config must validate"),
-            ),
-            (NativeEnvState::Absent, NativeEnvState::Complete) => Some(
-                NativeCairoCommandConfig::stwo_from_env()
-                    .and_then(NativeCairoCommandConfig::into_adapter)
-                    .expect("complete Stwo Cairo adapter config must validate"),
-            ),
-            (NativeEnvState::Partial(prefix), _) | (_, NativeEnvState::Partial(prefix)) => {
+        let states = [
+            (STONE_PREFIX, prefix_state(STONE_PREFIX)),
+            (STWO_PREFIX, prefix_state(STWO_PREFIX)),
+            (SCARB_PREFIX, prefix_state(SCARB_PREFIX)),
+        ];
+
+        for (_, state) in states {
+            if let NativeEnvState::Partial(prefix) = state {
                 panic!(
                     "partial native Cairo/STARK adapter configuration for {}; \
                      either set all required variables or none",
                     prefix
                 );
             }
-            (NativeEnvState::Complete, NativeEnvState::Complete) => {
-                panic!("ambiguous native Cairo/STARK config: both Stone and Stwo are configured");
+        }
+
+        let complete = states
+            .iter()
+            .filter(|(_, state)| matches!(state, NativeEnvState::Complete))
+            .map(|(prefix, _)| *prefix)
+            .collect::<Vec<_>>();
+
+        match complete.as_slice() {
+            [] => None,
+            [STONE_PREFIX] => Some(
+                NativeCairoCommandConfig::stone_from_env()
+                    .and_then(NativeCairoCommandConfig::into_adapter)
+                    .expect("complete Stone Cairo adapter config must validate"),
+            ),
+            [STWO_PREFIX] => Some(
+                NativeCairoCommandConfig::stwo_from_env()
+                    .and_then(NativeCairoCommandConfig::into_adapter)
+                    .expect("complete Stwo Cairo adapter config must validate"),
+            ),
+            [SCARB_PREFIX] => Some(
+                NativeCairoCommandConfig::scarb_from_env()
+                    .and_then(NativeCairoCommandConfig::into_adapter)
+                    .expect("complete Scarb Cairo adapter config must validate"),
+            ),
+            _ => {
+                panic!(
+                    "ambiguous native Cairo/STARK config: configure exactly one of Stone, Stwo, or Scarb"
+                );
             }
         }
     }
@@ -1455,6 +1500,7 @@ mod cairo_stark_backend_e2e_tests {
             env_hash("VSEL_CAIRO_SIERRA_PROGRAM_HASH"),
             env_hash("VSEL_CAIRO_CASM_PROGRAM_HASH"),
             env_hash("VSEL_CAIRO_EXECUTABLE_PROGRAM_HASH"),
+            env_hash("VSEL_CAIRO_SEMANTIC_BINDING_HASH"),
         )
     }
 
@@ -1648,7 +1694,7 @@ mod cairo_stark_backend_e2e_tests {
     }
 
     fn deterministic_program() -> CairoProgramCommitments {
-        CairoProgramCommitments::new(hash(0x41), hash(0x42), hash(0x43), hash(0x44))
+        CairoProgramCommitments::new(hash(0x41), hash(0x42), hash(0x43), hash(0x44), hash(0x45))
     }
 
     fn hash(byte: u8) -> Hash {
