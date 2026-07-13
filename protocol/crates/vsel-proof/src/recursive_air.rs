@@ -1,10 +1,11 @@
 //! # ⚠️ Integration Status
 //!
 //! This module is implemented and unit-tested but NOT integrated into
-//! the proving pipeline. `compose_binary()` in `plonky3_backend.rs`
-//! constructs a `RecursiveVerifierAir` but assigns it to `_recursive_air`
-//! (unused). Composition currently uses semantic (SHA3-256 hash-based)
-//! state chaining.
+//! the recursive proving pipeline. Semantic composition in
+//! `plonky3_backend.rs` uses SHA3-256 hash-based state chaining and emits a
+//! `plonky3-stark-semantic-composed` artifact that native verification
+//! rejects. Final circuit-recursive entrypoints fail closed until this AIR is
+//! wired into `p3_uni_stark::prove()`.
 //!
 //! See `docs/PROOF_LAYER.md` §Composition Architecture Status for the
 //! integration roadmap.
@@ -80,15 +81,18 @@
 //!
 //! # Trust Assumptions (Audit Finding 5)
 //!
-//! **Merkle path verification relies on Poseidon2 collision resistance.**
+//! **Merkle path verification is not yet connected to the Poseidon2 companion AIR.**
 //!
-//! The current implementation constrains the *structural relationships*
-//! of Merkle path verification (path bit booleanness, ordering via
-//! selector constraints, root consistency) but does NOT inline the
-//! full Poseidon2 permutation as degree-7 polynomial constraints
-//! within the AIR. Instead, intermediate hash values are provided as
-//! witness data and verified via root consistency: the final
-//! intermediate hash must equal the expected Merkle root.
+//! The current recursive verifier constrains the *structural relationships*
+//! of Merkle path verification (path bit booleanness, ordering via selector
+//! constraints, root consistency). This module now also exposes the official
+//! Plonky3 `p3-poseidon2-air` configuration for Goldilocks width-8 Poseidon2
+//! with degree-7 S-box constraints, so recursive composition can be wired to a
+//! real Poseidon2 AIR rather than a locally invented hash model.
+//!
+//! The final end-to-end Merkle path proof is still fail-closed at the backend
+//! boundary until the recursive composition prover emits a native proof over
+//! both `RecursiveVerifierAir` and the Poseidon2 companion AIR.
 //!
 //! **Soundness argument**: If a malicious prover provides incorrect
 //! intermediate hashes, the final root will not match the committed
@@ -137,6 +141,30 @@ const POSEIDON2_WIDTH: usize = 8;
 /// Poseidon2 rate (number of input elements per permutation call).
 #[allow(dead_code)]
 const POSEIDON2_RATE: usize = 4;
+
+/// Goldilocks Poseidon2 S-box degree.
+const POSEIDON2_SBOX_DEGREE: u64 = p3_goldilocks::poseidon1::GOLDILOCKS_S_BOX_DEGREE;
+
+/// Direct degree-7 S-box constraints. No auxiliary S-box registers are used.
+const POSEIDON2_SBOX_REGISTERS: usize = 0;
+
+/// Full rounds per half for Plonky3's Goldilocks Poseidon2 width-8 config.
+const POSEIDON2_HALF_FULL_ROUNDS: usize = p3_goldilocks::GOLDILOCKS_POSEIDON2_HALF_FULL_ROUNDS;
+
+/// Partial rounds for Plonky3's Goldilocks Poseidon2 width-8 config.
+const POSEIDON2_PARTIAL_ROUNDS: usize = p3_goldilocks::GOLDILOCKS_POSEIDON2_PARTIAL_ROUNDS_8;
+
+/// Official Plonky3 Poseidon2 AIR used as the companion hash-permutation AIR
+/// for recursive Merkle verification.
+pub type GoldilocksPoseidon2Air = p3_poseidon2_air::Poseidon2Air<
+    Goldilocks,
+    p3_goldilocks::GenericPoseidon2LinearLayersGoldilocks,
+    POSEIDON2_WIDTH,
+    POSEIDON2_SBOX_DEGREE,
+    POSEIDON2_SBOX_REGISTERS,
+    POSEIDON2_HALF_FULL_ROUNDS,
+    POSEIDON2_PARTIAL_ROUNDS,
+>;
 
 /// Number of field elements encoding a state root commitment.
 ///
@@ -326,6 +354,34 @@ pub struct RecursiveVerifierAir {
 }
 
 impl RecursiveVerifierAir {
+    /// Construct the official Plonky3 Goldilocks Poseidon2 companion AIR.
+    ///
+    /// This uses the same width-8 constants and linear layer as the Plonky3
+    /// Merkle MMCS used by `Plonky3Backend`. The AIR is intentionally exposed
+    /// here so recursive composition can depend on a reviewed primitive instead
+    /// of reimplementing Poseidon2 constraints locally.
+    pub fn goldilocks_poseidon2_air() -> GoldilocksPoseidon2Air {
+        let constants = p3_poseidon2_air::RoundConstants::new(
+            p3_goldilocks::GOLDILOCKS_POSEIDON2_RC_8_EXTERNAL_INITIAL,
+            p3_goldilocks::GOLDILOCKS_POSEIDON2_RC_8_INTERNAL,
+            p3_goldilocks::GOLDILOCKS_POSEIDON2_RC_8_EXTERNAL_FINAL,
+        );
+        GoldilocksPoseidon2Air::new(constants)
+    }
+
+    /// Return the trace width of the official Goldilocks Poseidon2 AIR.
+    pub fn goldilocks_poseidon2_air_width() -> usize {
+        let air = Self::goldilocks_poseidon2_air();
+        BaseAir::<Goldilocks>::width(&air)
+    }
+
+    /// Return whether this recursive verifier has the native Poseidon2
+    /// companion AIR available.
+    pub fn has_native_poseidon2_companion_air(&self) -> bool {
+        let _ = self;
+        true
+    }
+
     /// Create a new `RecursiveVerifierAir` with the specified parameters.
     ///
     /// # Parameters
@@ -1058,6 +1114,24 @@ mod tests {
         assert!(width > 100, "width {} should be > 100", width);
         // Upper bound sanity check: should be less than 1M columns.
         assert!(width < 1_000_000, "width {} should be < 1M", width);
+    }
+
+    #[test]
+    fn test_goldilocks_poseidon2_companion_air_available() {
+        let air = test_air();
+        assert!(air.has_native_poseidon2_companion_air());
+
+        let poseidon_air = RecursiveVerifierAir::goldilocks_poseidon2_air();
+        let width = BaseAir::<Goldilocks>::width(&poseidon_air);
+        assert_eq!(
+            width,
+            RecursiveVerifierAir::goldilocks_poseidon2_air_width()
+        );
+        assert!(width > POSEIDON2_WIDTH);
+        assert_eq!(
+            BaseAir::<Goldilocks>::max_constraint_degree(&poseidon_air),
+            Some(POSEIDON2_SBOX_DEGREE as usize)
+        );
     }
 
     // -----------------------------------------------------------------------

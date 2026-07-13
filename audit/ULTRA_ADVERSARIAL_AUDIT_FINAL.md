@@ -1,5 +1,11 @@
 # VSEL Ultra-Adversarial Audit — Protocol Finalization Gate
 
+> Historical snapshot: the composition finding text below predates the
+> fail-closed recursive-composition hardening. Current code no longer constructs
+> an unused `_recursive_air`; semantic composition emits
+> `plonky3-stark-semantic-composed` and native recursive composition entrypoints
+> fail closed until `RecursiveVerifierAir` is wired into `p3_uni_stark::prove()`.
+
 **Audit Board**: Principal Formal Methods Auditor · Senior Cryptographic Protocol Analyst · zk-System Red Team · Distributed Systems Failure Engineer · Smart Contract Security Auditor
 
 **Date**: 2026-04-30

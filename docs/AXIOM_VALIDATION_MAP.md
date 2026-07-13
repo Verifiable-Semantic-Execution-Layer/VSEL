@@ -417,6 +417,26 @@ axiom mu_Sigma_ignores_aux (p : Payload) (a : Authorization) (aux₁ aux₂ : Au
 
 **File:** `formal/VSEL/Refinement/FormalToSIR.lean`
 
+### `SIRState.inhabited` / `SIRInput.inhabited` — Proof Infrastructure Inhabited Instances
+
+```lean
+axiom SIRState.inhabited : Inhabited SIRState
+axiom SIRInput.inhabited : Inhabited SIRInput
+```
+
+These axioms are Lean proof-infrastructure assumptions for opaque SIR types.
+They do not alter runtime semantics and are validated structurally by the Rust
+SIR representation being constructible.
+
+| Evidence | Cases | Description |
+|----------|-------|-------------|
+| Rust SIR type construction | Structural | Opaque SIR boundary has concrete Rust representations |
+| `lake build` | Full formal build | Proof obligations depending on inhabitedness compile |
+
+**Total:** Structural | **Confidence:** Medium
+
+---
+
 ### R01-1: `r01_state_validity` — Valid SIR States Map to Valid Formal States
 
 ```lean
@@ -602,6 +622,25 @@ axiom const3_branch_completeness (cs : ConstraintSystemR23) :
 
 ---
 
+### `ConstraintSystemR23.inhabited` — Proof Infrastructure Inhabited Instance
+
+```lean
+axiom ConstraintSystemR23.inhabited : Inhabited ConstraintSystemR23
+```
+
+This axiom is a Lean proof-infrastructure assumption for the opaque constraint
+system boundary. Runtime soundness is carried by LEM-4/LEM-5 and the constraint
+coverage tests above.
+
+| Evidence | Cases | Description |
+|----------|-------|-------------|
+| Constraint compiler unit/property tests | 47,800+ / 15,200+ inherited | Constraint systems are constructible and semantically validated |
+| `lake build` | Full formal build | Proof obligations depending on inhabitedness compile |
+
+**Total:** Structural + inherited constraint coverage | **Confidence:** Medium
+
+---
+
 ### CONST-4: `const4_derivation_determinism` — Constraint Derivation Determinism
 
 ```lean
@@ -651,6 +690,25 @@ The detailed per-test tables for LEM-4 and LEM-5 are extensive. See the constrai
 ## 10. Witness — Uniqueness.lean
 
 **File:** `formal/VSEL/Witness/Uniqueness.lean`
+
+### `WitnessConstraintSystem.inhabited` — Proof Infrastructure Inhabited Instance
+
+```lean
+axiom WitnessConstraintSystem.inhabited : Inhabited WitnessConstraintSystem
+```
+
+This axiom is a Lean proof-infrastructure assumption for the opaque witness
+constraint system. Runtime witness validity is validated by witness construction,
+constraint satisfaction, and strict verifier tests.
+
+| Evidence | Cases | Description |
+|----------|-------|-------------|
+| Witness/proof property tests | 200+ inherited | Witness constraint systems are exercised through semantic uniqueness tests |
+| `lake build` | Full formal build | Proof obligations depending on inhabitedness compile |
+
+**Total:** Structural + inherited witness coverage | **Confidence:** Medium
+
+---
 
 ### `constraint_satisfaction_implies_valid_execution` — Constraint Satisfaction Implies Valid Execution
 
@@ -723,7 +781,9 @@ theorem tp16_witness_semantic_uniqueness
     extractSemanticExecution s₀ w₁ = extractSemanticExecution s₀ w₂
 ```
 
-**Note:** Proven from the three axioms above. Contains one `sorry` in sub-lemma `semantic_execution_determined_by_inputs` (structural induction over `buildStates`).
+**Note:** Proven from the three axioms above. The previous `sorry` in
+`semantic_execution_determined_by_inputs` has been discharged; the axiom ledger
+gate enforces zero `sorry` under `formal/VSEL/**/*.lean`.
 
 | Test File | Test Name | Cases | Description |
 |-----------|-----------|-------|-------------|
@@ -731,7 +791,7 @@ theorem tp16_witness_semantic_uniqueness
 | `proof_tests.rs` | `prop_witness_semantic_uniqueness_same_commitment` | 100 | Same commitment (Property 36b) |
 | `proof_tests.rs` | `prop_witness_semantic_uniqueness_different_traces_differ` | 100 | Different traces differ (Property 36c) |
 
-**Total:** 300 | **Confidence:** High (empirically validated; `sorry` is for structural induction only)
+**Total:** 300 | **Confidence:** High
 
 ---
 
@@ -886,7 +946,11 @@ Every `opaque` function in the Lean 4 specification has a corresponding Rust imp
 | CONST-1 (`const1_zero_unconstrained`) | `ConcreteToConstraint.lean` | PBT (3 test functions) | 300 | **High** |
 | CONST-2 (`const2_no_unused_inputs`) | `ConcreteToConstraint.lean` | PBT (indirect via CONST-1) | 300 | **Medium** |
 | CONST-3 (`const3_branch_completeness`) | `ConcreteToConstraint.lean` | Unit tests | 2 | **Medium** |
+| `ConstraintSystemR23.inhabited` | `ConcreteToConstraint.lean` | Structural + inherited constraint coverage | Structural | **Medium** |
 | CONST-4 (`const4_derivation_determinism`) | `ConcreteToConstraint.lean` | Theorem (rfl) + PBT | 202 | **High** |
+| `SIRState.inhabited` | `FormalToSIR.lean` | Structural + `lake build` | Structural | **Medium** |
+| `SIRInput.inhabited` | `FormalToSIR.lean` | Structural + `lake build` | Structural | **Medium** |
+| `WitnessConstraintSystem.inhabited` | `Uniqueness.lean` | Structural + inherited witness coverage | Structural | **Medium** |
 | `constraint_satisfaction_implies_valid_execution` | `Uniqueness.lean` | PBT (2 test functions) | 200 | **High** |
 | `commitment_determines_initial_state` | `Uniqueness.lean` | PBT (2 test functions) | 200 | **High** |
 | `constraints_determine_input_sequence` | `Uniqueness.lean` | PBT (2 test functions) | 200 | **High** |
@@ -925,7 +989,7 @@ Every `opaque` function in the Lean 4 specification has a corresponding Rust imp
 
 4. **CONST-3 (branch completeness)** has only 2 unit tests. **Risk:** Medium — complex nested conditionals may have untested edge cases. Mitigated by random SIR program generation in constraint_tests.rs.
 
-5. **TP-16 `sorry`:** The sub-lemma `semantic_execution_determined_by_inputs` uses `sorry` for structural induction over `buildStates`. The theorem is empirically validated by 300 PBT cases. **Risk:** Low — the `sorry` is for a structural induction that is evident from the definition. Tracked for discharge in task 25.10.
+5. **Opaque inhabited axioms:** `SIRState.inhabited`, `SIRInput.inhabited`, `ConstraintSystemR23.inhabited`, and `WitnessConstraintSystem.inhabited` are proof-infrastructure assumptions for opaque Lean boundaries. **Risk:** Low — no direct runtime behavior; guarded by `lake build` and the machine-checked axiom ledger.
 
 6. **Full algebraic evaluation:** The constraint evaluator uses structured data (Maps), not field elements. Body constraint type mismatch (Map vs scalar) means LEM-5 completeness for Update/Init/Batch is not fully tested at the evaluator level. **Risk:** Medium — addressed by the algebraic evaluation path in the ZK backend.
 
@@ -939,7 +1003,7 @@ Every `opaque` function in the Lean 4 specification has a corresponding Rust imp
 | TP-8 indirect validation | Low | Canonicalization is structurally simple |
 | CONST-2 indirect | Low | Implied by CONST-1 |
 | CONST-3 limited tests | Medium | Random SIR program generation covers complex cases |
-| TP-16 sorry | Low | 300 PBT cases + tracked for discharge (task 25.10) |
+| Opaque inhabited axioms | Low | Structural evidence + `lake build` + axiom ledger gate |
 | Body constraint type mismatch | Medium | Algebraic evaluation path in ZK backend |
 | ZK circuit correctness | Medium | Future Plonky3 integration testing |
 

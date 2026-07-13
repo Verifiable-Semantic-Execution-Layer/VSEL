@@ -231,14 +231,14 @@ Requirements:
 
 ## 10.1 Composition Architecture Status
 
-> ⚠️ This section documents the actual state of the composition implementation as of v1.0.
-> It distinguishes what is implemented, what exists but is unused, and what is planned.
+> This section documents the actual state of the composition implementation.
+> It distinguishes semantic hash-only aggregation from final circuit-recursive proof composition.
 
 ### 10.1.1 Implemented (v1.0): Semantic Composition
 
-The v1.0 composition pipeline in `compose_binary()` (`protocol/crates/vsel-proof/src/plonky3_backend.rs`) uses **semantic composition** — not circuit-level recursion. The mechanism:
+The compatibility composition pipeline in `compose_binary_semantic_hash_only()` (`protocol/crates/vsel-proof/src/plonky3_backend.rs`) uses **semantic composition** — not circuit-level recursion. The mechanism:
 
-1. **SHA3-256 hash-based state chaining**: The composed proof's FRI commitments are derived from SHA3-256 hashing of the two input proofs' commitments. This provides binding between the composed proof and its constituents, but the binding is hash-based, not enforced by STARK constraints.
+1. **SHA3-256 hash-based state chaining**: The composed artifact's FRI commitments are derived from SHA3-256 hashing of the two input proofs' commitments. This provides binding between the composed artifact and its constituents, but the binding is hash-based, not enforced by STARK constraints.
 
 2. **Runtime state chain verification**: Before composition, the function verifies `left.root_final == right.root_init` at runtime. This ensures state continuity between the two proofs being composed, but the check is a runtime assertion — not a polynomial identity enforced within a proof circuit.
 
@@ -246,24 +246,27 @@ The v1.0 composition pipeline in `compose_binary()` (`protocol/crates/vsel-proof
 
 4. **Domain and version consistency**: Runtime checks verify that both proofs share the same domain separator and protocol version before composition proceeds.
 
-### 10.1.2 Exists but Unused: `RecursiveVerifierAir`
+The output backend id is `plonky3-stark-semantic-composed`, not `plonky3-stark`. The native verifier rejects this id, so semantic composition cannot be promoted to final Plonky3 acceptance by accident.
+
+### 10.1.2 Implemented in Isolation: `RecursiveVerifierAir` and Poseidon2 Companion AIR
 
 The `RecursiveVerifierAir` struct in `protocol/crates/vsel-proof/src/recursive_air.rs` encodes correct AIR constraints for recursive STARK verification:
 
 * **Merkle path verification**: Constraints enforce that committed trace values are consistent with Merkle tree openings at queried positions.
 * **FRI folding consistency**: Constraints enforce that FRI layer reductions follow the correct folding polynomial identity.
 * **State chaining as polynomial identity**: The state continuity check (`left.root_final == right.root_init`) is encoded as a polynomial constraint, not a runtime assertion.
+* **Poseidon2 companion AIR**: The module exposes the official Plonky3 `p3-poseidon2-air` Goldilocks width-8 AIR with degree-7 S-box constraints and the same constants/linear layer as the Plonky3 Merkle MMCS.
 
-**Status**: 33 unit tests pass. The module is implemented and tested in isolation. However, `compose_binary()` constructs a `RecursiveVerifierAir` instance but assigns it to `_recursive_air` (an unused variable). The composed proof is assembled via SHA3-256 hashing — `p3_uni_stark::prove()` is never called over the `RecursiveVerifierAir` circuit.
+**Status**: implemented and tested in isolation. The final entrypoints `compose_proofs_circuit_recursive()` and `compose_incremental_circuit_recursive()` intentionally return `CircuitRecursiveCompositionUnavailable` until `p3_uni_stark::prove()` is wired over the recursive verifier trace and the Poseidon2 companion AIR.
 
 ### 10.1.3 Planned (v1.1): Circuit-Level Recursive Composition
 
 The v1.1 release will integrate `RecursiveVerifierAir` into the proving pipeline:
 
-1. Replace SHA3-256 hash composition in `compose_binary()` with `p3_uni_stark::prove()` over `RecursiveVerifierAir`.
+1. Replace SHA3-256 hash composition in `compose_binary_semantic_hash_only()` with `p3_uni_stark::prove()` over `RecursiveVerifierAir`.
 2. Generate an execution trace for the recursive verifier from inner proof data (FRI commitments → Merkle path witness columns, query responses → FRI folding witness columns).
 3. Verify composed proofs using `p3_uni_stark::verify()` with the recursive verifier AIR.
-4. Inline Poseidon2 as degree-7 AIR constraints for defense-in-depth.
+4. Wire the existing `p3-poseidon2-air` Goldilocks width-8 companion AIR into the recursive Merkle path trace.
 
 This will upgrade composition from semantic (hash-based) binding to cryptographic (STARK-enforced) binding, enabling cross-trust-domain verification.
 
@@ -291,9 +294,9 @@ In **circuit-level recursion** (v1.1), the statement `Verify(π_inner) = true` i
 
 In **semantic composition** (v1.0), the composed proof's FRI commitments are derived from SHA3-256 hashing of the inner proofs' commitments. The binding is hash-based, not enforced by STARK constraints. This creates a critical trust model difference:
 
-> **A malicious composer who controls proof generation can forge a composed proof that passes `verify()` without the inner proof being independently valid.**
+> **A malicious composer who controls proof generation can forge a semantic aggregate artifact, but that artifact no longer passes native `verify()` because it carries the `plonky3-stark-semantic-composed` backend id.**
 
-Specifically: because the composed proof's FRI commitments are derived from hashing (not from running `p3_uni_stark::prove()` over the `RecursiveVerifierAir` circuit), a composer can construct arbitrary FRI commitment values, hash them together, and produce a `StarkProof` struct that is structurally valid. The verifier checks the composed proof's internal consistency — but that consistency was manufactured by the composer, not derived from a real STARK proof over a recursive verifier circuit that checked the inner proofs.
+Specifically: because the semantic aggregate's FRI commitments are derived from hashing (not from running `p3_uni_stark::prove()` over the `RecursiveVerifierAir` circuit), a composer can construct arbitrary FRI commitment values and hash them together. The mitigation is fail-closed type separation: final Plonky3 verification accepts only `plonky3-stark` native proof bundles, while semantic aggregates carry a distinct backend id.
 
 This is not a vulnerability in the hash function. SHA3-256 binding is cryptographically sound for what it does — it binds the composed proof to specific input commitments. The gap is that nothing enforces those input commitments correspond to valid inner proofs.
 
@@ -302,7 +305,7 @@ This is not a vulnerability in the hash function. SHA3-256 binding is cryptograp
 In the v1.0 deployment model, the prover and verifier operate within the **same trust boundary**. The entity generating proofs is the same entity (or a trusted peer) that verifies them. Under this model:
 
 - The prover has **no incentive** to forge composed proofs — forging a proof that attests to an invalid execution would only deceive the prover itself.
-- Semantic composition provides **equivalent practical security** to circuit-level recursion because the trust assumption (honest prover) eliminates the forgery attack vector.
+- Semantic composition provides audit aggregation inside one trust boundary, but not final cryptographic acceptance.
 - Individual STARK proofs retain full cryptographic soundness: Pr[invalid τ accepted] ≤ 2^(−100) via Plonky3 FRI. The composition layer does not weaken individual proof guarantees.
 
 This is analogous to TLS within a data center: the transport security properties are weaker than end-to-end encryption, but within a single trust domain the threat model does not require the stronger guarantee.
@@ -315,7 +318,7 @@ Circuit-level recursion becomes a **security prerequisite** when the prover and 
 - **Cross-organization proof exchange**: When organization A composes proofs and organization B verifies them, B cannot trust A's composition integrity without circuit-level enforcement.
 - **Delegated proving**: When proof generation is outsourced to an untrusted third party, the verifier needs cryptographic assurance that composition was performed over valid inner proofs.
 
-In all these scenarios, semantic composition is **insufficient** — a malicious prover can forge composed proofs that pass verification without valid inner proofs.
+In all these scenarios, semantic composition is **insufficient** and final composition must use `compose_*_circuit_recursive()`. Those entrypoints currently fail closed until the recursive prover path is complete.
 
 ### 10.2.5 Deployment Gate
 
@@ -326,8 +329,8 @@ The following conditions trigger this gate:
 
 | Condition | Gate Status |
 |-----------|-------------|
-| Prover and verifier are the same entity | **CLEAR** — semantic composition is sufficient |
-| Prover and verifier are in the same trust boundary | **CLEAR** — semantic composition is sufficient |
+| Prover and verifier are the same entity | **CLEAR FOR AUDIT AGGREGATION** — semantic composition is not final proof acceptance |
+| Prover and verifier are in the same trust boundary | **CLEAR FOR AUDIT AGGREGATION** — semantic composition is not final proof acceptance |
 | Verifier receives proofs from untrusted provers | **BLOCKED** — circuit-level recursion required |
 | On-chain verification of off-chain composed proofs | **BLOCKED** — circuit-level recursion required |
 | Delegated proving to third-party services | **BLOCKED** — circuit-level recursion required |

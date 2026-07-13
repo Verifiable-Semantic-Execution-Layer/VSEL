@@ -1,5 +1,10 @@
 # Phase 10 — Final Audit Gate Report
 
+> Historical snapshot: Phase 10 predates Phase 11 hardening. Statements below
+> about one remaining Lean `sorry` are superseded by `audit/phase_11/*` and by
+> the machine-checked `scripts/check_axiom_ledger.sh` gate, which currently
+> enforces zero `sorry` and the exact 38-axiom ledger.
+
 **Audit Date:** 2026-04-27
 **Phase:** 10 — Final Audit Gate
 **Status:** PASS

@@ -1,5 +1,9 @@
 # Phase 10 — Final Audit Gate Compliance Matrix
 
+> Historical snapshot: Phase 10 compliance entries are superseded by Phase 11
+> hardening for Lean proof status. Current gates enforce zero `sorry` through
+> `scripts/check_axiom_ledger.sh`.
+
 **Phase:** 10 — Final Audit Gate
 **Date:** 2026-04-27
 

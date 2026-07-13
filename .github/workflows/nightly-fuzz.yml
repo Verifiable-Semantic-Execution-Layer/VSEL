@@ -1,7 +1,7 @@
 # VSEL Protocol — Nightly Fuzzing Pipeline
 # Requirements: 6.6
 #
-# Runs each cargo-fuzz target for 5 minutes on nightly builds using the
+# Runs each cargo-fuzz target for 1 hour on nightly builds using the
 # accumulated corpus for regression detection. Any crash is treated as a
 # CI failure and the crash artifact is uploaded for investigation.
 #
@@ -28,8 +28,8 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
-  # Duration per fuzz target in seconds (5 minutes)
-  FUZZ_DURATION: "300"
+  # Duration per fuzz target in seconds (1 hour)
+  FUZZ_DURATION: "3600"
 
 jobs:
   # ─────────────────────────────────────────────
@@ -76,7 +76,7 @@ jobs:
     name: Fuzz — ${{ matrix.target }}
     runs-on: ubuntu-latest
     needs: fuzz-build
-    timeout-minutes: 15
+    timeout-minutes: 80
     strategy:
       fail-fast: false
       matrix:

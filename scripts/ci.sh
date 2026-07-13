@@ -17,6 +17,7 @@
 #   ./scripts/ci.sh              # Run full CI pipeline
 #   ./scripts/ci.sh --quick      # Skip slow checks (TLA+, differential, adversarial)
 #   ./scripts/ci.sh --rust-only  # Rust pipeline only
+#   ./scripts/ci.sh --strict     # Treat every skipped check as a failure
 
 set -euo pipefail
 
@@ -47,18 +48,21 @@ PASSED=0
 START_TIME="$(date +%s)"
 QUICK=false
 RUST_ONLY=false
+STRICT="${VSEL_STRICT_CI:-false}"
 
 # Parse arguments
 for arg in "$@"; do
   case "$arg" in
     --quick)     QUICK=true ;;
     --rust-only) RUST_ONLY=true ;;
+    --strict)    STRICT=true ;;
     --help|-h)
       echo "Usage: $0 [--quick] [--rust-only]"
       echo ""
       echo "Options:"
       echo "  --quick      Skip slow checks (TLA+ model checking, differential, adversarial)"
       echo "  --rust-only  Run Rust pipeline only"
+      echo "  --strict     Treat every skipped check as a failure"
       exit 0
       ;;
     *)
@@ -71,7 +75,14 @@ done
 # Track step results
 step_pass() { ((PASSED++)) || true; log_ok "$1"; }
 step_fail() { ((FAILED++)) || true; log_error "$1"; }
-step_skip() { ((SKIPPED++)) || true; log_warn "SKIPPED: $1"; }
+step_skip() {
+  if [ "$STRICT" = true ]; then
+    step_fail "STRICT: skipped check is forbidden: $1"
+  else
+    ((SKIPPED++)) || true
+    log_warn "SKIPPED: $1"
+  fi
+}
 
 # ─────────────────────────────────────────────
 # Step 1: Version Consistency
@@ -130,6 +141,13 @@ run_lean_pipeline() {
   else
     log_warn "lake test returned non-zero (tests may not be configured)"
     step_pass "Lean 4 test (no test target)"
+  fi
+
+  log_info "Lean axiom ledger"
+  if (cd "$PROJECT_ROOT" && bash ./scripts/check_axiom_ledger.sh 2>&1); then
+    step_pass "Lean axiom ledger"
+  else
+    step_fail "Lean axiom ledger"
   fi
 }
 
@@ -363,6 +381,7 @@ main() {
   log_section "VSEL Protocol — CI Pipeline"
   log_info "Project root: $PROJECT_ROOT"
   log_info "Mode: $([ "$QUICK" = true ] && echo 'quick' || echo 'full')$([ "$RUST_ONLY" = true ] && echo ' (rust-only)' || echo '')"
+  log_info "Strict skips: $STRICT"
   log_info "PROPTEST_CASES: ${PROPTEST_CASES:-100}"
 
   check_versions

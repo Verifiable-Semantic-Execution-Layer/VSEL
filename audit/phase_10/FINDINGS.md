@@ -1,5 +1,9 @@
 # Phase 10 — Final Audit Gate Findings
 
+> Historical snapshot: Phase 10 findings about Lean `sorry` are superseded by
+> Phase 11 remediation and by `scripts/check_axiom_ledger.sh`, which fails on
+> any `sorry` under `formal/VSEL/**/*.lean`.
+
 **Phase:** 10 — Final Audit Gate
 **Date:** 2026-04-27
 

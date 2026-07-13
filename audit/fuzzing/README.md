@@ -73,13 +73,22 @@ When a crash is discovered:
 
 ### CI Nightly Regression
 
-Each fuzz target runs for **5 minutes** on nightly CI builds using the accumulated corpus:
+Each fuzz target now runs for **1 hour** on nightly CI builds using the accumulated corpus:
 
 ```bash
-cargo fuzz run <target> -- -max_total_time=300
+cargo fuzz run <target> -- -max_total_time=3600
 ```
 
 See `.github/workflows/nightly-fuzz.yml` for the CI configuration.
+
+For local or dedicated pre-release campaigns, use the repository runner:
+
+```bash
+FUZZ_DURATION_SECONDS=3600 ./scripts/run_extended_fuzz.sh
+```
+
+The runner emits `target/fuzzing/extended-fuzz-report.json` with one result
+record per target.
 
 ## Evidence Files
 
@@ -110,17 +119,13 @@ cd protocol
 ### Run All Targets
 
 ```bash
-for target in fuzz_goldilocks_arith fuzz_poseidon_permute fuzz_poseidon_hash_bytes \
-              fuzz_proof_deser fuzz_constraint_eval fuzz_witness_construct fuzz_sir_deser; do
-    echo "=== Running $target ==="
-    cargo fuzz run "$target" -- -max_total_time=60
-done
+FUZZ_DURATION_SECONDS=3600 ./scripts/run_extended_fuzz.sh
 ```
 
 ### Run Single Target
 
 ```bash
-cargo fuzz run fuzz_goldilocks_arith -- -max_total_time=60
+cargo fuzz run fuzz_goldilocks_arith -- -max_total_time=3600
 ```
 
 ### Minimize a Crash

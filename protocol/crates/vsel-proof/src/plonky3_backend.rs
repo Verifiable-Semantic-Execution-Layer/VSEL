@@ -100,7 +100,25 @@ pub enum Plonky3Error {
         /// Index of the proof with a different version.
         index: usize,
     },
+
+    /// Circuit-level recursive composition is not wired into the proving pipeline.
+    #[error(
+        "plonky3-stark: circuit-level recursive composition unavailable; semantic hash-only composition is not valid across trust boundaries"
+    )]
+    CircuitRecursiveCompositionUnavailable,
 }
+
+/// Backend identifier for native single-proof Plonky3 STARK artifacts.
+pub const PLONKY3_BACKEND_ID: &str = "plonky3-stark";
+
+/// Backend identifier for explicit semantic hash-only composition artifacts.
+///
+/// These artifacts preserve state-chain and observable semantics, but they are
+/// not native Plonky3 proofs over `RecursiveVerifierAir`. `verify()` rejects
+/// them by backend id; callers that need cross-trust-domain composition must
+/// use `compose_*_circuit_recursive`, which currently fails closed until the
+/// recursive prover path is connected.
+pub const PLONKY3_SEMANTIC_COMPOSED_BACKEND_ID: &str = "plonky3-stark-semantic-composed";
 
 // ---------------------------------------------------------------------------
 // Plonky3Config — proof configuration
@@ -670,6 +688,8 @@ pub struct Plonky3Backend {
 }
 
 impl Plonky3Backend {
+    const SEMANTIC_COMPOSITION_BUNDLE_MAGIC: &'static [u8] = b"VSEL_SEMANTIC_HASH_COMPOSITION_V1";
+
     /// Create a new Plonky3Backend with default configuration.
     pub fn new() -> Self {
         Self {
@@ -1032,7 +1052,7 @@ impl ZkBackend for Plonky3Backend {
             fri_commitments,
             query_responses,
             public_input_values,
-            backend_id: "plonky3-stark".to_string(),
+            backend_id: PLONKY3_BACKEND_ID.to_string(),
             serialized: Vec::new(),
             native_proof_bytes,
         };
@@ -1080,7 +1100,7 @@ impl ZkBackend for Plonky3Backend {
         }
 
         // Check 2: Backend ID
-        if proof.backend_id != "plonky3-stark" {
+        if proof.backend_id != PLONKY3_BACKEND_ID {
             return false;
         }
 
@@ -1160,7 +1180,7 @@ impl ZkBackend for Plonky3Backend {
     ///
     /// Requirement 1.7, 2.7.
     fn backend_id(&self) -> &str {
-        "plonky3-stark"
+        PLONKY3_BACKEND_ID
     }
 
     /// Return whether this backend provides post-quantum security.
@@ -1215,17 +1235,23 @@ impl ZkBackend for Plonky3Backend {
 }
 
 // ---------------------------------------------------------------------------
-// Recursive Proof Composition — Plonky3Backend
+// Proof Composition — Plonky3Backend
 // ---------------------------------------------------------------------------
 //
 // THM-10: Compose(π₁, π₂, ..., πₙ) with consistent state chaining.
 // THM-13: Verify(π_inner) encoded as circuit constraints within π_outer.
 //
-// The composition uses RecursiveVerifierAir to encode inner proof
-// verification as AIR constraints within the outer proof circuit.
-// The outer proof proves both:
-//   (a) The outer execution trace satisfies outer constraints (VselAir)
-//   (b) The inner proof is valid (RecursiveVerifierAir)
+// IMPORTANT: THM-13 is intentionally fail-closed in this module. The current
+// implementation can build semantic hash-only composition artifacts that bind
+// endpoints, observables, and input proof bytes, but it does not yet call
+// p3_uni_stark::prove() over RecursiveVerifierAir. Final/cross-trust callers
+// must use compose_*_circuit_recursive(), which currently returns
+// CircuitRecursiveCompositionUnavailable rather than silently degrading to
+// hash-only composition.
+//
+// The explicit semantic hash-only path remains available for testing and
+// single-trust-boundary aggregation, and emits a distinct backend id rejected
+// by verify().
 //
 // N-proof composition is implemented as a chain of binary compositions:
 //   Compose(π₁, π₂, ..., πₙ) = Compose(...Compose(Compose(π₁, π₂), π₃)..., πₙ)
@@ -1306,7 +1332,7 @@ impl Plonky3Backend {
     }
 
     // -----------------------------------------------------------------------
-    // Binary composition — core building block (Task 11.3)
+    // Semantic hash-only binary composition — compatibility path
     // -----------------------------------------------------------------------
 
     // ⚠️ COMPOSITION STATUS: SEMANTIC (not circuit-level)
@@ -1316,32 +1342,20 @@ impl Plonky3Backend {
     // - Runtime verification of state chain continuity
     // - Observable concatenation preserving order
     //
-    // RecursiveVerifierAir is constructed below but assigned to _recursive_air
-    // (UNUSED). The composed proof's FRI commitments are derived from SHA3-256
-    // hashing of the two proofs' commitments — NOT from p3_uni_stark::prove()
-    // over the RecursiveVerifierAir circuit.
+    // The composed proof's FRI commitments are derived from SHA3-256 hashing
+    // of the two proofs' commitments — NOT from p3_uni_stark::prove() over
+    // the RecursiveVerifierAir circuit. Final recursive composition is exposed
+    // through compose_*_circuit_recursive(), which currently fails closed.
     //
     // See docs/PROOF_LAYER.md §Composition Architecture Status for the full
     // architecture description and v1.1 integration roadmap.
-    fn compose_binary(
+    fn compose_binary_semantic_hash_only(
         &self,
         left: &StarkProof,
         right: &StarkProof,
         left_pub: &PublicInputs,
         right_pub: &PublicInputs,
     ) -> Result<StarkProof, Plonky3Error> {
-        // RecursiveVerifierAir is constructed here but NOT used in the
-        // proving pipeline. See the composition status block above.
-        let _recursive_air = crate::recursive_air::RecursiveVerifierAir::with_defaults(
-            // UNUSED — see §Composition Architecture Status
-            // Inner AIR width: estimated from the inner proof's structure.
-            // For composition, we use a conservative width based on the
-            // number of public input values in the inner proof.
-            left.public_input_values.len().max(1),
-            // Number of public values from the inner proof.
-            left.public_input_values.len(),
-        );
-
         // Combine observables from both proofs in order (PROOF-2).
         let mut combined_observables = left_pub.observables.clone();
         combined_observables.extend(right_pub.observables.clone());
@@ -1358,27 +1372,25 @@ impl Plonky3Backend {
         // Encode composed public inputs as Goldilocks field elements.
         let composed_pub_values = Self::encode_public_inputs(&composed_public_inputs);
 
-        // Derive composed FRI commitments using RecursiveVerifierAir-aware
-        // composition. The composed commitments bind to both the left and
-        // right proofs' FRI data, with the recursive verifier's Merkle
-        // path verification encoded in the commitment structure.
-        let composed_fri = Self::compose_fri_commitments_recursive(left, right);
+        // Derive composed FRI commitments using explicit semantic hash-only
+        // composition. These commitments bind to the left and right proof
+        // bytes, but they are not produced by a STARK proof over the
+        // RecursiveVerifierAir.
+        let composed_fri = Self::compose_fri_commitments_semantic_hash_only(left, right);
 
         // Derive composed query responses.
         let composed_queries = self.generate_query_responses(&composed_fri, &composed_pub_values);
 
-        // Build the native proof bundle for the composed proof.
-        // The bundle encodes the recursive verification: the outer proof
-        // contains both the VselAir constraints AND the RecursiveVerifierAir
-        // constraints, proving that the inner proof is valid at the circuit level.
-        let native_bundle = Self::build_recursive_native_bundle(left, right)?;
+        // Build an audit bundle for semantic composition. This is not a native
+        // Plonky3 proof bundle and is intentionally rejected by verify().
+        let native_bundle = Self::build_semantic_composition_bundle(left, right)?;
 
         // Assemble composed proof.
         let mut composed = StarkProof {
             fri_commitments: composed_fri,
             query_responses: composed_queries,
             public_input_values: composed_pub_values,
-            backend_id: "plonky3-stark".to_string(),
+            backend_id: PLONKY3_SEMANTIC_COMPOSED_BACKEND_ID.to_string(),
             serialized: Vec::new(),
             native_proof_bytes: native_bundle,
         };
@@ -1387,20 +1399,22 @@ impl Plonky3Backend {
         Ok(composed)
     }
 
-    /// Build a native proof bundle for recursive composition.
+    /// Build an audit bundle for semantic hash-only composition.
     ///
-    /// The bundle format encodes both the left and right proofs' native
-    /// data, enabling the verifier to reconstruct the recursive
-    /// verification circuit.
+    /// The bundle format encodes both the left and right proof bytes so audit
+    /// tooling can reconstruct the aggregation lineage. It is deliberately not
+    /// the native Plonky3 proof bundle format used by `verify()`.
     ///
     /// Bundle format:
+    ///   [magic bytes: VSEL_SEMANTIC_HASH_COMPOSITION_V1]
     ///   [4 bytes: left_len (u32 LE)][left_native_bytes]
     ///   [4 bytes: right_len (u32 LE)][right_native_bytes]
-    fn build_recursive_native_bundle(
+    fn build_semantic_composition_bundle(
         left: &StarkProof,
         right: &StarkProof,
     ) -> Result<Vec<u8>, Plonky3Error> {
         let mut bundle = Vec::new();
+        bundle.extend_from_slice(Self::SEMANTIC_COMPOSITION_BUNDLE_MAGIC);
 
         // Encode left proof's native bytes.
         bundle.extend_from_slice(&(left.native_proof_bytes.len() as u32).to_le_bytes());
@@ -1413,23 +1427,25 @@ impl Plonky3Backend {
         Ok(bundle)
     }
 
-    /// Derive composed FRI commitments from two proofs using
-    /// RecursiveVerifierAir-aware composition.
+    /// Derive composed FRI commitments from two proofs using explicit
+    /// semantic hash-only composition.
     ///
     /// The composition hashes both proofs' FRI commitment layers with
-    /// domain separation that includes the recursive verifier context,
-    /// binding the composed commitments to the circuit-level verification.
+    /// domain separation that names this artifact as semantic composition.
     ///
     /// PROOF-1 (trace binding): composed commitments bind to both traces.
     /// PROOF-3 (domain separation): recursive composition domain tag.
-    fn compose_fri_commitments_recursive(left: &StarkProof, right: &StarkProof) -> Vec<Vec<u8>> {
+    fn compose_fri_commitments_semantic_hash_only(
+        left: &StarkProof,
+        right: &StarkProof,
+    ) -> Vec<Vec<u8>> {
         let max_layers = left.fri_commitments.len().max(right.fri_commitments.len());
         let mut composed = Vec::with_capacity(max_layers);
 
         for layer_idx in 0..max_layers {
             let mut hasher = Sha3_256::new();
-            // Domain separation for recursive composition.
-            hasher.update(b"plonky3-stark-recursive-compose-fri");
+            // Domain separation for semantic hash-only composition.
+            hasher.update(b"plonky3-stark-semantic-hash-compose-fri");
             hasher.update(&(layer_idx as u64).to_le_bytes());
 
             // Hash left proof's commitment at this layer.
@@ -1456,8 +1472,7 @@ impl Plonky3Backend {
     // N-proof composition — chain of binary compositions (Task 11.4)
     // -----------------------------------------------------------------------
 
-    /// Compose N ≥ 2 STARK proofs into a single composed proof using
-    /// a chain of binary compositions with RecursiveVerifierAir.
+    /// Compose N >= 2 STARK proofs into a semantic hash-only aggregate.
     ///
     /// THM-10 (compositional correctness): the composed proof attests that
     /// the concatenation of all individual executions is a valid trace with
@@ -1466,10 +1481,10 @@ impl Plonky3Backend {
     /// Implementation: `Compose(π₁, π₂, ..., πₙ)` is computed as:
     ///   `Compose(...Compose(Compose(π₁, π₂), π₃)..., πₙ)`
     ///
-    /// Each binary composition step produces a proof that verifies the
-    /// previous composed proof plus the next individual proof via
-    /// RecursiveVerifierAir. The final composed proof is verifiable in
-    /// a single verification pass.
+    /// Each binary composition step produces a semantic artifact that binds
+    /// the previous composed proof plus the next individual proof by hash. The
+    /// result is not a native Plonky3 proof over RecursiveVerifierAir and is
+    /// rejected by `verify()` through its distinct backend id.
     ///
     /// Validates:
     /// - At least 2 proofs provided
@@ -1495,6 +1510,33 @@ impl Plonky3Backend {
         proofs: &[StarkProof],
         public_inputs: &[PublicInputs],
     ) -> Result<StarkProof, Plonky3Error> {
+        self.compose_proofs_semantic_hash_only(proofs, public_inputs)
+    }
+
+    /// Final/cross-trust recursive composition entrypoint.
+    ///
+    /// This function fails closed until the proving pipeline calls
+    /// `p3_uni_stark::prove()` over `RecursiveVerifierAir` and emits a native
+    /// proof bundle that `verify()` can check with `p3_uni_stark::verify()`.
+    pub fn compose_proofs_circuit_recursive(
+        &self,
+        proofs: &[StarkProof],
+        public_inputs: &[PublicInputs],
+    ) -> Result<StarkProof, Plonky3Error> {
+        Self::validate_composition_sequence(proofs, public_inputs)?;
+        Err(Plonky3Error::CircuitRecursiveCompositionUnavailable)
+    }
+
+    /// Explicit semantic hash-only composition path.
+    ///
+    /// This preserves the historical composition behavior for tests, local
+    /// aggregation, and audit lineage. It is not valid evidence across trust
+    /// boundaries.
+    pub fn compose_proofs_semantic_hash_only(
+        &self,
+        proofs: &[StarkProof],
+        public_inputs: &[PublicInputs],
+    ) -> Result<StarkProof, Plonky3Error> {
         // Validate all preconditions.
         Self::validate_composition_sequence(proofs, public_inputs)?;
 
@@ -1503,8 +1545,12 @@ impl Plonky3Backend {
         //   acc = Compose(acc, π₃)
         //   ...
         //   acc = Compose(acc, πₙ)
-        let mut acc_proof =
-            self.compose_binary(&proofs[0], &proofs[1], &public_inputs[0], &public_inputs[1])?;
+        let mut acc_proof = self.compose_binary_semantic_hash_only(
+            &proofs[0],
+            &proofs[1],
+            &public_inputs[0],
+            &public_inputs[1],
+        )?;
 
         // Build the accumulated public inputs after the first binary composition.
         let mut acc_pub = PublicInputs {
@@ -1521,7 +1567,12 @@ impl Plonky3Backend {
 
         // Chain remaining proofs one at a time.
         for i in 2..proofs.len() {
-            acc_proof = self.compose_binary(&acc_proof, &proofs[i], &acc_pub, &public_inputs[i])?;
+            acc_proof = self.compose_binary_semantic_hash_only(
+                &acc_proof,
+                &proofs[i],
+                &acc_pub,
+                &public_inputs[i],
+            )?;
 
             // Update accumulated public inputs.
             acc_pub = PublicInputs {
@@ -1544,7 +1595,7 @@ impl Plonky3Backend {
     // Incremental composition (Task 11.5)
     // -----------------------------------------------------------------------
 
-    /// Incrementally compose an existing composed proof with a new proof.
+    /// Incrementally compose an existing semantic hash-only aggregate with a new proof.
     ///
     /// Given an existing composed proof `π_{1..k}` and a new proof `π_{k+1}`,
     /// produce `π_{1..k+1}` without re-proving the entire sequence from scratch.
@@ -1567,6 +1618,31 @@ impl Plonky3Backend {
         existing_pub: &PublicInputs,
         new_pub: &PublicInputs,
     ) -> Result<StarkProof, Plonky3Error> {
+        self.compose_incremental_semantic_hash_only(existing, new_proof, existing_pub, new_pub)
+    }
+
+    /// Final/cross-trust incremental recursive composition entrypoint.
+    ///
+    /// Fails closed for the same reason as `compose_proofs_circuit_recursive`.
+    pub fn compose_incremental_circuit_recursive(
+        &self,
+        _existing: &StarkProof,
+        _new_proof: &StarkProof,
+        existing_pub: &PublicInputs,
+        new_pub: &PublicInputs,
+    ) -> Result<StarkProof, Plonky3Error> {
+        Self::validate_composition_pair(existing_pub, new_pub, 0, 1)?;
+        Err(Plonky3Error::CircuitRecursiveCompositionUnavailable)
+    }
+
+    /// Explicit semantic hash-only incremental composition path.
+    pub fn compose_incremental_semantic_hash_only(
+        &self,
+        existing: &StarkProof,
+        new_proof: &StarkProof,
+        existing_pub: &PublicInputs,
+        new_pub: &PublicInputs,
+    ) -> Result<StarkProof, Plonky3Error> {
         // Validate the composition pair.
         Self::validate_composition_pair(existing_pub, new_pub, 0, 1)?;
 
@@ -1574,7 +1650,7 @@ impl Plonky3Backend {
         // This produces π_{1..k+1} from π_{1..k} and π_{k+1} without
         // re-proving the entire sequence — only the new binary composition
         // step is computed.
-        self.compose_binary(existing, new_proof, existing_pub, new_pub)
+        self.compose_binary_semantic_hash_only(existing, new_proof, existing_pub, new_pub)
     }
 
     // -----------------------------------------------------------------------
@@ -2419,9 +2495,50 @@ mod tests {
         };
         let expected_pub_values = Plonky3Backend::encode_public_inputs(&composed_pub);
         assert_eq!(composed.public_input_values, expected_pub_values);
-        assert_eq!(composed.backend_id, "plonky3-stark");
+        assert_eq!(composed.backend_id, PLONKY3_SEMANTIC_COMPOSED_BACKEND_ID);
         assert!(!composed.fri_commitments.is_empty());
         assert!(!composed.query_responses.is_empty());
+    }
+
+    #[test]
+    fn test_semantic_composed_proof_is_rejected_by_native_verify() {
+        let backend = Plonky3Backend::new();
+        let constraints = test_constraint_system();
+        let constraint_commitment = canonical_constraint_commitment(&constraints);
+        let (proofs, pub_inputs) = make_chain_proofs(&backend, 2);
+
+        let composed = backend
+            .compose_proofs(&proofs, &pub_inputs)
+            .expect("semantic composition should succeed");
+
+        let composed_pub = PublicInputs {
+            root_init: pub_inputs[0].root_init.clone(),
+            root_final: pub_inputs[1].root_final.clone(),
+            observables: pub_inputs
+                .iter()
+                .flat_map(|p| p.observables.clone())
+                .collect(),
+            domain: pub_inputs[0].domain.clone(),
+            version: pub_inputs[0].version.clone(),
+        };
+
+        assert_eq!(composed.backend_id, PLONKY3_SEMANTIC_COMPOSED_BACKEND_ID);
+        assert!(
+            !backend.verify(&composed, &composed_pub, &constraint_commitment),
+            "semantic hash-only composition must not verify as a native Plonky3 STARK proof"
+        );
+    }
+
+    #[test]
+    fn test_circuit_recursive_composition_fails_closed() {
+        let backend = Plonky3Backend::new();
+        let (proofs, pub_inputs) = make_chain_proofs(&backend, 2);
+
+        let result = backend.compose_proofs_circuit_recursive(&proofs, &pub_inputs);
+        assert!(matches!(
+            result,
+            Err(Plonky3Error::CircuitRecursiveCompositionUnavailable)
+        ));
     }
 
     #[test]
@@ -2593,6 +2710,7 @@ mod tests {
             Plonky3Error::StateChainBroken { left: 0, right: 1 },
             Plonky3Error::CompositionDomainMismatch { index: 1 },
             Plonky3Error::CompositionVersionMismatch { index: 1 },
+            Plonky3Error::CircuitRecursiveCompositionUnavailable,
         ];
 
         for err in errors {
@@ -3184,7 +3302,7 @@ mod tests {
         };
         let expected_values = Plonky3Backend::encode_public_inputs(&expected_pub);
         assert_eq!(composed.public_input_values, expected_values);
-        assert_eq!(composed.backend_id, "plonky3-stark");
+        assert_eq!(composed.backend_id, PLONKY3_SEMANTIC_COMPOSED_BACKEND_ID);
     }
 
     #[test]
