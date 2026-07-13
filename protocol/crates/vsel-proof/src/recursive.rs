@@ -9,6 +9,10 @@
 //!
 //! Recursive proofs: Verify(π_inner) ⊆ Constraints(π_outer) — inner
 //! proof validity is embedded without external trust (THM-13).
+//!
+//! The hash-embedding helpers in this module are semantic/audit utilities, not
+//! THM-13 evidence. Cross-trust-domain recursive composition must be enforced by
+//! a backend-native proof over `RecursiveVerifierAir`.
 
 use sha3::{Digest, Sha3_256};
 
@@ -120,7 +124,7 @@ pub fn compose(proofs: &[Proof]) -> Result<Proof, ProverError> {
         prover_version: first.metadata.prover_version.clone(),
         timestamp: 0,
         domain: first.metadata.domain.clone(),
-        proof_system: "stark-placeholder-composed".to_string(),
+        proof_system: "stark-placeholder-semantic-composed".to_string(),
     };
 
     Ok(Proof {
@@ -321,7 +325,7 @@ pub fn create_recursive_proof(
         prover_version: inner_proof.metadata.prover_version.clone(),
         timestamp: 0,
         domain: inner_proof.metadata.domain.clone(),
-        proof_system: "stark-placeholder-recursive".to_string(),
+        proof_system: "stark-placeholder-semantic-recursive".to_string(),
     };
 
     Ok(Proof {
@@ -351,19 +355,25 @@ pub mod plonky3_recursive {
     use crate::public_inputs::PublicInputs;
     use crate::recursive_air::RecursiveVerifierAir;
 
-    /// Verify that a composed proof was created using RecursiveVerifierAir.
+    /// Verify that a composed proof was created by the semantic hash-only
+    /// composition path.
     ///
-    /// Checks that the composed proof's native_proof_bytes contain a
-    /// valid recursive verification bundle (left + right native proofs).
+    /// Checks that the composed proof's native_proof_bytes contain a valid
+    /// semantic composition bundle (left + right native proofs). This is not a
+    /// circuit-level RecursiveVerifierAir proof.
     ///
     /// Returns `true` if the bundle structure is valid.
     pub fn verify_recursive_bundle(composed: &StarkProof) -> bool {
-        if composed.native_proof_bytes.len() < 8 {
+        const MAGIC: &[u8] = b"VSEL_SEMANTIC_HASH_COMPOSITION_V1";
+        if composed.native_proof_bytes.len() < MAGIC.len() + 8 {
             return false;
         }
 
         let bundle = &composed.native_proof_bytes;
-        let mut pos = 0;
+        if !bundle.starts_with(MAGIC) {
+            return false;
+        }
+        let mut pos = MAGIC.len();
 
         // Read left proof length.
         if pos + 4 > bundle.len() {
@@ -763,7 +773,10 @@ mod tests {
         let outer =
             create_recursive_proof(&inner, outer_pub, outer_commitments).expect("should succeed");
 
-        assert_eq!(outer.metadata.proof_system, "stark-placeholder-recursive");
+        assert_eq!(
+            outer.metadata.proof_system,
+            "stark-placeholder-semantic-recursive"
+        );
         assert!(!outer.proof_data.is_empty());
     }
 

@@ -16,6 +16,7 @@
 #   ./scripts/test.sh lean         # Lean 4 tests only
 #   ./scripts/test.sh tla          # TLA+ model checking only
 #   ./scripts/test.sh python       # Python tests only
+#   ./scripts/test.sh --strict     # Treat every skipped/missing suite as failure
 
 set -euo pipefail
 
@@ -39,8 +40,18 @@ log_warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
 
 FAILED=0
+STRICT="${VSEL_STRICT_TEST:-false}"
 PROPTEST_CASES="${PROPTEST_CASES:-10000}"
 export PROPTEST_CASES
+
+skip_or_fail() {
+  if [ "$STRICT" = true ]; then
+    log_error "STRICT: skipped check is forbidden: $*"
+    FAILED=1
+  else
+    log_warn "$*"
+  fi
+}
 
 # ─────────────────────────────────────────────
 # Rust Tests
@@ -58,27 +69,27 @@ test_rust_property() {
 test_rust_differential() {
   log_info "Rust — Differential tests (Rust vs SIR interpreter)"
   if [ -f "$PROJECT_ROOT/protocol/tests/differential/.gitkeep" ] && [ "$(find "$PROJECT_ROOT/protocol/tests/differential" -name '*.rs' ! -name '.gitkeep' | head -1)" = "" ]; then
-    log_warn "No differential test files found — skipping"
+    skip_or_fail "No differential test files found — skipping"
   else
-    (cd "$PROJECT_ROOT/protocol" && cargo test --test differential_tests 2>&1) || { log_warn "Differential tests failed or not available"; }
+    (cd "$PROJECT_ROOT/protocol" && cargo test --test differential_tests 2>&1) || { skip_or_fail "Differential tests failed or not available"; }
   fi
 }
 
 test_rust_adversarial() {
   log_info "Rust — Adversarial tests (invalid witness suite)"
   if [ -d "$PROJECT_ROOT/protocol/tests/adversarial" ]; then
-    (cd "$PROJECT_ROOT/protocol" && cargo test --test adversarial_tests 2>&1) || { log_warn "Adversarial tests failed or not available"; }
+    (cd "$PROJECT_ROOT/protocol" && cargo test --test adversarial_tests 2>&1) || { skip_or_fail "Adversarial tests failed or not available"; }
   else
-    log_warn "No adversarial test directory found — skipping"
+    skip_or_fail "No adversarial test directory found — skipping"
   fi
 }
 
 test_rust_integration() {
   log_info "Rust — Integration tests"
   if [ -d "$PROJECT_ROOT/protocol/tests/integration" ]; then
-    (cd "$PROJECT_ROOT/protocol" && cargo test --test '*' -- --ignored 2>&1) || { log_warn "Integration tests failed or not available"; }
+    (cd "$PROJECT_ROOT/protocol" && cargo test --test '*' -- --ignored 2>&1) || { skip_or_fail "Integration tests failed or not available"; }
   else
-    log_warn "No integration test directory found — skipping"
+    skip_or_fail "No integration test directory found — skipping"
   fi
 }
 
@@ -88,7 +99,7 @@ test_rust_crate_property() {
     crate_name="$(basename "$crate_dir")"
     if [ -d "$crate_dir/tests" ]; then
       log_info "  Testing $crate_name"
-      (cd "$PROJECT_ROOT/protocol" && cargo test -p "$crate_name" --tests 2>&1) || { log_warn "Crate tests failed: $crate_name"; }
+      (cd "$PROJECT_ROOT/protocol" && cargo test -p "$crate_name" --tests 2>&1) || { skip_or_fail "Crate tests failed: $crate_name"; }
     fi
   done
 }
@@ -109,10 +120,11 @@ test_lean() {
   log_info "Lean 4 — Proof checking"
   if command -v lake &>/dev/null; then
     (cd "$PROJECT_ROOT/formal" && lake build) || { log_error "Lean 4 build failed"; FAILED=1; return; }
-    (cd "$PROJECT_ROOT/formal" && lake test) || { log_warn "Lean 4 tests returned non-zero"; }
+    (cd "$PROJECT_ROOT/formal" && lake test) || { skip_or_fail "Lean 4 tests returned non-zero"; }
+    (cd "$PROJECT_ROOT" && bash ./scripts/check_axiom_ledger.sh) || { log_error "Lean axiom ledger failed"; FAILED=1; return; }
     log_ok "Lean 4 proof checking succeeded"
   else
-    log_warn "lake not found — skipping Lean 4 tests"
+    skip_or_fail "lake not found — skipping Lean 4 tests"
   fi
 }
 
@@ -122,7 +134,7 @@ test_lean() {
 test_tla() {
   log_info "TLA+ — Model checking"
   if ! command -v java &>/dev/null; then
-    log_warn "java not found — skipping TLA+ model checking"
+    skip_or_fail "java not found — skipping TLA+ model checking"
     return
   fi
 
@@ -137,7 +149,7 @@ test_tla() {
   fi
 
   if [ -z "$TLA2TOOLS" ] || [ ! -f "$TLA2TOOLS" ]; then
-    log_warn "tla2tools.jar not found — set TLA2TOOLS env var"
+    skip_or_fail "tla2tools.jar not found — set TLA2TOOLS env var"
     return
   fi
 
@@ -152,7 +164,7 @@ test_tla() {
       log_info "  Checking $model with $config"
       (cd "$tla_dir" && java -cp "$TLA2TOOLS" tlc2.TLC "$model" -config "$config" -workers auto 2>&1) || { log_error "TLA+ model check failed: $model"; FAILED=1; }
     else
-      log_warn "  Missing $model or $config — skipping"
+      skip_or_fail "  Missing $model or $config — skipping"
     fi
   done
 
@@ -165,10 +177,10 @@ test_tla() {
 test_python() {
   log_info "Python — Adversarial tooling tests"
   if command -v python3 &>/dev/null; then
-    (cd "$PROJECT_ROOT/tools" && python3 -m pytest -v 2>&1) || { log_warn "Python tests failed or not configured"; }
+    (cd "$PROJECT_ROOT/tools" && python3 -m pytest -v 2>&1) || { skip_or_fail "Python tests failed or not configured"; }
     log_ok "Python tests completed"
   else
-    log_warn "python3 not found — skipping Python tests"
+    skip_or_fail "python3 not found — skipping Python tests"
   fi
 }
 
@@ -181,7 +193,13 @@ main() {
   log_info "PROPTEST_CASES: $PROPTEST_CASES"
   echo ""
 
+  if [ "${1:-}" = "--strict" ]; then
+    STRICT=true
+    shift
+  fi
+
   local target="${1:-all}"
+  log_info "Strict skips: $STRICT"
 
   case "$target" in
     rust)           test_rust_all ;;

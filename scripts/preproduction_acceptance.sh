@@ -241,6 +241,9 @@ log "Rust formatting"
 log "Lean semantic checker build"
 (cd "$PROJECT_ROOT/formal" && lake build && lake build vselCheck)
 
+log "Lean axiom ledger"
+(cd "$PROJECT_ROOT" && bash ./scripts/check_axiom_ledger.sh)
+
 log "Cairo reference contract build and tests"
 (cd "$CAIRO_REFERENCE_DIR" && scarb build && snforge test)
 write_cairo_source_manifest
@@ -301,6 +304,7 @@ log "Core verifier and adversarial proof tampering tests"
   cd "$PROTOCOL_DIR"
   cargo test -p vsel-proof lean_certificate_checker_is_part_of_strict_trace_acceptance --lib -- --nocapture
   cargo test -p vsel-proof strict_stark_policy_rejects_hash_backend_proof_relabelled_as_cairo_stark --lib -- --nocapture
+  cargo test -p vsel-proof --features plonky3-backend test_circuit_recursive_composition_fails_closed --lib -- --nocapture
   cargo test -p vsel-proof --test adversarial_proof_tampering -- --nocapture
 )
 

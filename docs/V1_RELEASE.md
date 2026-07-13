@@ -78,15 +78,15 @@ Coverage-guided mutation testing across all critical cryptographic entry points:
 
 ### 3.1 Recursive Composition
 
-Recursive composition does **not** use circuit-level inner proof verification. The `RecursiveVerifierAir` module in `recursive_air.rs` is implemented and passes 33 unit tests, but it is not integrated into the proving pipeline. The `compose_binary()` function constructs a `RecursiveVerifierAir` instance but assigns it to `_recursive_air` (unused) and proceeds with SHA3-256 hash-based composition.
+Recursive composition does **not** use circuit-level inner proof verification. The semantic composition path is explicitly hash-only and emits `plonky3-stark-semantic-composed`, which the native Plonky3 verifier rejects. Final/cross-trust recursive entrypoints (`compose_proofs_circuit_recursive`, `compose_incremental_circuit_recursive`) fail closed until the recursive prover path is connected.
 
-**Implication**: A malicious composer who controls proof generation could produce a composed proof that passes `verify()` without the inner proof being independently valid — the composed proof's FRI commitments are derived from hashing, not from a real STARK proof over the recursive verifier circuit. This is acceptable within a single trust boundary but insufficient for cross-trust-domain verification (e.g., on-chain verification of off-chain proofs).
+**Implication**: A malicious composer who controls proof generation can still create semantic aggregate artifacts, but those artifacts no longer verify as native Plonky3 STARK proofs and cannot be used as final cross-trust evidence. This is acceptable for single-trust-boundary audit aggregation only.
 
 See `docs/PROOF_LAYER.md` §Composition Architecture Status and §Composition Security Analysis for the full analysis.
 
 ### 3.2 Fuzzing Campaign Duration
 
-The v1.0 fuzzing campaign ran each target for a minimum of 60 seconds. While ~64.8M total executions provide meaningful coverage, extended campaigns (minimum 1 hour per target) are planned for v1.1 to increase confidence in edge-case discovery.
+The historical v1.0 fuzzing campaign ran each target for a minimum of 60 seconds. The repository now includes `scripts/run_extended_fuzz.sh`, which runs all seven fuzz targets for 1 hour per target by default and emits `target/fuzzing/extended-fuzz-report.json`. Nightly CI is configured with `FUZZ_DURATION=3600`.
 
 ### 3.3 Benchmark Scope
 
@@ -102,7 +102,7 @@ Witness construction is backend-agnostic. Proof generation and verification are 
 
 ### 3.4 Poseidon2 Trust Assumption
 
-The `RecursiveVerifierAir` constrains structural relationships of Merkle path verification but does not inline the Poseidon2 permutation as degree-7 polynomial constraints. Merkle path soundness relies on Poseidon2 collision resistance (128-bit security). This is a standard cryptographic assumption and is acceptable under current knowledge. Inline Poseidon2 constraints are planned for v1.1 as defense-in-depth.
+The `RecursiveVerifierAir` constrains structural relationships of Merkle path verification and now exposes the official Plonky3 `p3-poseidon2-air` Goldilocks width-8 companion AIR with degree-7 S-box constraints. The companion AIR is not yet wired into a composed recursive proof, so cross-trust recursive composition remains fail-closed.
 
 ---
 
@@ -118,13 +118,13 @@ Replace SHA3-256 hash composition in `compose_binary()` with `p3_uni_stark::prov
 
 ### 4.2 Extended Fuzzing
 
-- Minimum 1 hour per target (up from 60 seconds)
+- Minimum 1 hour per target via `scripts/run_extended_fuzz.sh` and nightly CI
 - Expanded corpus with structured seed generation
 - Continuous fuzzing integration in CI
 
 ### 4.3 Inline Poseidon2 Constraints
 
-- Encode Poseidon2 permutation as degree-7 AIR constraints within `RecursiveVerifierAir`
+- Wire the existing `p3-poseidon2-air` Goldilocks width-8 companion AIR into the recursive Merkle path trace
 - ~200 constraints per hash invocation (8 full rounds + 22 partial rounds × degree-7 S-box)
 - Provides defense-in-depth: even if Poseidon2 collision resistance is broken, the constraints enforce correct computation
 - Addresses audit Finding 5 at the circuit level
@@ -162,8 +162,8 @@ All 5 findings from the ultra-adversarial audit (`audit/ULTRA_ADVERSARIAL_AUDIT_
 ### Finding 5: RecursiveVerifierAir Not Integrated into Proving Pipeline
 
 - **Severity**: Medium
-- **Description**: The `RecursiveVerifierAir` in `recursive_air.rs` is implemented and unit-tested (33 tests pass) but is not integrated into the proving pipeline. `compose_binary()` constructs a `RecursiveVerifierAir` instance but assigns it to `_recursive_air` (unused) and proceeds with SHA3-256 hash-based composition. Additionally, the AIR constrains structural Merkle path relationships but does not inline Poseidon2 permutation as degree-7 polynomial constraints — Merkle path soundness relies on Poseidon2 collision resistance.
-- **Remediation**: ✅ **RESOLVED** — Trust assumption documented in `RecursiveVerifierAir` module documentation and `docs/PROOF_LAYER.md` §Composition Architecture Status. Integration roadmap documented in `docs/ROADMAP.MD` §v1.1. Inline Poseidon2 constraints planned for v1.1 as defense-in-depth.
+- **Description**: The `RecursiveVerifierAir` in `recursive_air.rs` is implemented and unit-tested but is not integrated into the proving pipeline. Semantic composition remains hash-only.
+- **Remediation**: ✅ **PARTIALLY HARDENED** — Semantic composition now emits a distinct backend id rejected by native verification, and final recursive composition entrypoints fail closed. The official `p3-poseidon2-air` Goldilocks width-8 companion AIR is available in `recursive_air.rs`; full recursive proving remains the v1.1 implementation item.
 
 ---
 

@@ -23,6 +23,7 @@ plonky3-backend = [
     "dep:p3-fri",
     "dep:p3-merkle-tree",
     "dep:p3-poseidon2",
+    "dep:p3-poseidon2-air",
     "dep:p3-symmetric",
     "dep:p3-challenger",
     "dep:p3-field",
@@ -50,6 +51,7 @@ p3-goldilocks = { git = "https://github.com/Plonky3/Plonky3.git", rev = "e99af41
 p3-fri = { git = "https://github.com/Plonky3/Plonky3.git", rev = "e99af4144f49defe3dda84bad0ab76036a08a016", optional = true }
 p3-merkle-tree = { git = "https://github.com/Plonky3/Plonky3.git", rev = "e99af4144f49defe3dda84bad0ab76036a08a016", optional = true }
 p3-poseidon2 = { git = "https://github.com/Plonky3/Plonky3.git", rev = "e99af4144f49defe3dda84bad0ab76036a08a016", optional = true }
+p3-poseidon2-air = { git = "https://github.com/Plonky3/Plonky3.git", rev = "e99af4144f49defe3dda84bad0ab76036a08a016", optional = true }
 p3-symmetric = { git = "https://github.com/Plonky3/Plonky3.git", rev = "e99af4144f49defe3dda84bad0ab76036a08a016", optional = true }
 p3-challenger = { git = "https://github.com/Plonky3/Plonky3.git", rev = "e99af4144f49defe3dda84bad0ab76036a08a016", optional = true }
 p3-field = { git = "https://github.com/Plonky3/Plonky3.git", rev = "e99af4144f49defe3dda84bad0ab76036a08a016", optional = true }

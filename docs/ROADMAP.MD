@@ -583,15 +583,15 @@ Replace semantic (SHA3-256 hash-based) proof composition with circuit-level recu
 
 ### Background
 
-In v1.0, `compose_binary()` in `plonky3_backend.rs` assembles composed proofs using SHA3-256 hashing of inner proofs' FRI commitments. The `RecursiveVerifierAir` struct exists in `recursive_air.rs` with correct AIR constraints and 33 passing unit tests, but it is assigned to `_recursive_air` (unused) in the composition pipeline. See `docs/PROOF_LAYER.md` §Composition Architecture Status for the full v1.0 architecture description and security analysis.
+The compatibility path `compose_binary_semantic_hash_only()` in `plonky3_backend.rs` assembles semantic aggregate artifacts using SHA3-256 hashing of inner proofs' FRI commitments. Those artifacts now emit `plonky3-stark-semantic-composed` and are rejected by native Plonky3 verification. The final entrypoints `compose_proofs_circuit_recursive()` and `compose_incremental_circuit_recursive()` fail closed until the recursive prover is wired. See `docs/PROOF_LAYER.md` §Composition Architecture Status for the architecture description and security analysis.
 
 ### Integration Plan
 
 #### 18.1 Replace Hash Composition with Recursive Proving
 
-* Replace SHA3-256 hash composition in `compose_binary()` with `p3_uni_stark::prove()` over `RecursiveVerifierAir`
+* Replace SHA3-256 hash composition in `compose_binary_semantic_hash_only()` with `p3_uni_stark::prove()` over `RecursiveVerifierAir`
 * The outer STARK proof encodes `Verify(π_inner)` as AIR constraints, so the verifier cryptographically enforces the recursive trust chain instead of relying on runtime hash checks
-* Remove the `_recursive_air` dead assignment and wire `RecursiveVerifierAir` into the proving call
+* Wire `RecursiveVerifierAir` into the proving call and emit a native `plonky3-stark` recursive proof bundle
 
 #### 18.2 Execution Trace Generation for Recursive Verifier
 
@@ -608,7 +608,7 @@ In v1.0, `compose_binary()` in `plonky3_backend.rs` assembles composed proofs us
 
 #### 18.4 Inline Poseidon2 as Degree-7 AIR Constraints
 
-* Inline Poseidon2 hash evaluation as degree-7 AIR constraints within `RecursiveVerifierAir` for defense-in-depth (addressing audit Finding 5)
+* Wire the existing official `p3-poseidon2-air` Goldilocks width-8 companion AIR into the recursive Merkle path trace
 * This ensures the Merkle path verification inside the recursive circuit uses the same hash function as the outer STARK, preventing hash-function mismatch attacks
 * Degree-7 constraints are compatible with the Plonky3 AIR framework's constraint degree budget
 

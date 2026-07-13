@@ -1,0 +1,41 @@
+# VSEL Lean axiom ledger v1
+# Columns: lean_file<TAB>axiom_name
+# This file is machine-checked by scripts/check_axiom_ledger.sh.
+formal/VSEL/Composition/Soundness.lean	compositional_soundness
+formal/VSEL/Composition/Soundness.lean	cross_invariant_preservation
+formal/VSEL/Foundations/Invariants.lean	resource_conservation_inductive_step
+formal/VSEL/Foundations/Invariants.lean	derived_consistency_inductive_step
+formal/VSEL/Foundations/Invariants.lean	monotonic_metadata_inductive_step
+formal/VSEL/Foundations/Invariants.lean	environment_consistency_inductive_step
+formal/VSEL/Foundations/Invariants.lean	guard_exhaustiveness
+formal/VSEL/Foundations/Transition.lean	apply_closure
+formal/VSEL/Foundations/Transition.lean	initial_state_valid
+formal/VSEL/Foundations/Transition.lean	error_preserves_invariants
+formal/VSEL/Mapping/Commutativity.lean	thm1_execution_commutativity
+formal/VSEL/Mapping/Commutativity.lean	thm4_auxiliary_independence
+formal/VSEL/Mapping/Commutativity.lean	thm5_derived_commutativity
+formal/VSEL/Mapping/Commutativity.lean	tp7_input_canonicalization_idempotent
+formal/VSEL/Mapping/Commutativity.lean	tp7_state_canonicalization_idempotent
+formal/VSEL/Mapping/Commutativity.lean	tp8_input_canonicalization_preserves_semantics
+formal/VSEL/Mapping/Commutativity.lean	tp8_state_canonicalization_preserves_semantics
+formal/VSEL/Mapping/Commutativity.lean	canon_clears_aux
+formal/VSEL/Mapping/Observable.lean	thm2_observable_commutativity
+formal/VSEL/Mapping/Observable.lean	mu_Sigma_ignores_aux
+formal/VSEL/Refinement/ConcreteToConstraint.lean	lem4_constraint_soundness
+formal/VSEL/Refinement/ConcreteToConstraint.lean	lem5_constraint_completeness
+formal/VSEL/Refinement/ConcreteToConstraint.lean	const1_zero_unconstrained
+formal/VSEL/Refinement/ConcreteToConstraint.lean	const2_no_unused_inputs
+formal/VSEL/Refinement/ConcreteToConstraint.lean	const3_branch_completeness
+formal/VSEL/Refinement/ConcreteToConstraint.lean	ConstraintSystemR23.inhabited
+formal/VSEL/Refinement/FormalToSIR.lean	SIRState.inhabited
+formal/VSEL/Refinement/FormalToSIR.lean	SIRInput.inhabited
+formal/VSEL/Refinement/FormalToSIR.lean	r01_state_validity
+formal/VSEL/Refinement/FormalToSIR.lean	r01_transition_correspondence
+formal/VSEL/Refinement/FormalToSIR.lean	r01_invariant_correspondence
+formal/VSEL/Refinement/FormalToSIR.lean	r01_sir_complete
+formal/VSEL/Refinement/FormalToSIR.lean	tp6_resource_conservation
+formal/VSEL/Refinement/SIRToConcrete.lean	r12_encoding_injectivity
+formal/VSEL/Witness/Uniqueness.lean	WitnessConstraintSystem.inhabited
+formal/VSEL/Witness/Uniqueness.lean	constraint_satisfaction_implies_valid_execution
+formal/VSEL/Witness/Uniqueness.lean	commitment_determines_initial_state
+formal/VSEL/Witness/Uniqueness.lean	constraints_determine_input_sequence

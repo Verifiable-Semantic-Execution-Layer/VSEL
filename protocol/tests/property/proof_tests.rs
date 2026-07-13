@@ -2192,8 +2192,8 @@ mod plonky3_n_proof_composition {
             // The composed proof must have the correct backend_id.
             prop_assert_eq!(
                 &composed.backend_id,
-                "plonky3-stark",
-                "Property 3: composed proof must have plonky3-stark backend_id"
+                "plonky3-stark-semantic-composed",
+                "Property 3: composed proof must have semantic-composed backend_id"
             );
         }
 

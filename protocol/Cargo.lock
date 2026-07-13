@@ -891,6 +891,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "p3-poseidon2-air"
+version = "0.5.1"
+source = "git+https://github.com/Plonky3/Plonky3.git?rev=e99af4144f49defe3dda84bad0ab76036a08a016#e99af4144f49defe3dda84bad0ab76036a08a016"
+dependencies = [
+ "p3-air",
+ "p3-field",
+ "p3-matrix",
+ "p3-maybe-rayon",
+ "p3-poseidon2",
+ "rand 0.10.1",
+ "tracing",
+]
+
+[[package]]
 name = "p3-symmetric"
 version = "0.5.1"
 source = "git+https://github.com/Plonky3/Plonky3.git?rev=e99af4144f49defe3dda84bad0ab76036a08a016#e99af4144f49defe3dda84bad0ab76036a08a016"
@@ -1572,6 +1586,7 @@ dependencies = [
  "p3-matrix",
  "p3-merkle-tree",
  "p3-poseidon2",
+ "p3-poseidon2-air",
  "p3-symmetric",
  "p3-uni-stark",
  "proptest",

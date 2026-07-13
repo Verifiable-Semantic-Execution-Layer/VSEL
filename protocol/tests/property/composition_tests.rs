@@ -1311,7 +1311,7 @@ mod plonky3_composition {
             prop_assert!(!composed.fri_commitments.is_empty(), "FRI commitments must be non-empty");
             prop_assert!(!composed.query_responses.is_empty(), "Query responses must be non-empty");
             prop_assert!(!composed.public_input_values.is_empty(), "Public input values must be non-empty");
-            prop_assert_eq!(&composed.backend_id, "plonky3-stark");
+            prop_assert_eq!(&composed.backend_id, "plonky3-stark-semantic-composed");
 
             // Serialization must be deterministic.
             let reserialized = composed.as_ref().to_vec();
